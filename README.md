@@ -25,7 +25,7 @@ Browsers without speech synthesis show no speed buttons.
 
 ## Translate a phrase
 
-The 文A button next to the speed buttons shows the phrase in Spanish, in a speech bubble above the original. Tap it again to hide the bubble. The backend translates each phrase once and keeps it, so reopening it is instant; editing the phrase translates the new text the next time.
+The 文A button next to the speed buttons shows the phrase in Spanish, in a speech bubble above the original. Close it with the X in the bubble's top-right corner, or by tapping 文A again. The backend translates each phrase once and keeps it, so reopening it is instant; editing the phrase translates the new text the next time.
 
 ## Run the tests
 

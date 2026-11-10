@@ -456,14 +456,17 @@ body {
 .row-tool:not(.translate)[aria-pressed="true"] .tool-chip,
 .row-tool[aria-busy="true"] .tool-chip { animation: speaking 1.2s ease-in-out infinite; }
 
-/* The Spanish translation, in a speech bubble whose tail points at the original. */
+/* The Spanish translation, in a speech bubble whose tail points at the original.
+   It sits above the row's edit tap area, so tapping its text doesn't open the editor. */
 .translation-bubble {
   position: relative;
+  z-index: 1;
+  cursor: default;
   align-self: flex-start;
   max-width: 100%;
   box-sizing: border-box;
   margin: 0 0 8px;
-  padding: 6px 10px;
+  padding: 6px 30px 6px 10px; /* Room on the right for the close button. */
   border-radius: 12px;
   background: var(--accent);
   color: var(--card);
@@ -481,6 +484,47 @@ body {
   border: 6px solid transparent;
   border-top-color: var(--accent);
   border-bottom: 0;
+}
+
+.translation-bubble p { margin: 0; }
+
+/* The X in the bubble's top-right corner. */
+.bubble-close {
+  position: absolute;
+  top: 4px;
+  right: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.18);
+  color: inherit;
+  cursor: pointer;
+  touch-action: manipulation;
+}
+
+/* A 38px tap area around the 22px circle. */
+.bubble-close::after {
+  content: "";
+  position: absolute;
+  inset: -8px;
+}
+
+.bubble-close .icon {
+  width: 14px;
+  height: 14px;
+  stroke-width: 2.5;
+}
+
+.bubble-close:active { opacity: 0.7; }
+
+.bubble-close:focus-visible {
+  outline: 2px solid currentColor;
+  outline-offset: 1px;
 }
 
 @keyframes bubble-in {

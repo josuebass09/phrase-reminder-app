@@ -384,7 +384,7 @@ describe('the app', () => {
     const bubble = await screen.findByText('Se me olvidó.')
     expect(bubble.getAttribute('lang')).toBe('es')
     const row = bubble.closest('.row')!
-    expect(row.querySelector('.row-body')?.firstElementChild).toBe(bubble) // Above the original.
+    expect(row.querySelector('.row-body')?.firstElementChild).toBe(bubble.closest('.translation-bubble')) // Above the original.
     expect(within(row as HTMLElement).getByText('It slipt my mind.')).toBeTruthy()
     expect(translate.getAttribute('aria-pressed')).toBe('true')
     expect(screen.queryByRole('dialog')).toBeNull()
@@ -442,5 +442,24 @@ describe('the app', () => {
 
     expect(await screen.findByText("Couldn't translate. Try again.")).toBeTruthy()
     expect(screen.getByRole('button', { name: 'Translate to Spanish' }).getAttribute('aria-pressed')).toBe('false')
+  })
+
+  it('closes the bubble with the X in its corner, and a tap on its text opens nothing', async () => {
+    fakeBackend([typo])
+    const user = userEvent.setup()
+    startLoggedIn()
+    await screen.findByText('It slipt my mind.')
+    const translate = screen.getByRole('button', { name: 'Translate to Spanish' })
+
+    await user.click(translate)
+    await user.click(await screen.findByText('Se me olvidó.'))
+    expect(screen.getByText('Se me olvidó.')).toBeTruthy()
+    expect(screen.queryByRole('dialog')).toBeNull()
+
+    await user.click(screen.getByRole('button', { name: 'Close translation' }))
+
+    expect(screen.queryByText('Se me olvidó.')).toBeNull()
+    expect(translate.getAttribute('aria-pressed')).toBe('false')
+    expect(screen.queryByRole('dialog')).toBeNull()
   })
 })

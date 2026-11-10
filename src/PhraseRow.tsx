@@ -1,6 +1,6 @@
 import type { Phrase } from './api.ts'
 import { savedLabel, TONE_COUNT } from './format.ts'
-import { MessageIcon, MoreIcon, TranslateIcon } from './icons.tsx'
+import { CloseIcon, MessageIcon, MoreIcon, TranslateIcon } from './icons.tsx'
 
 /** Which speed is reading the phrase, if any. */
 export type Speaking = 'normal' | 'slow' | null
@@ -34,9 +34,17 @@ export function PhraseRow({ phrase, onEdit, onSpeak, speaking = null, onTranslat
       </span>
       <div className="row-body">
         {translationShown && (
-          <p className="translation-bubble" lang="es">
-            {translation?.text}
-          </p>
+          <div className="translation-bubble">
+            <p lang="es">{translation?.text}</p>
+            <button
+              className="bubble-close"
+              type="button"
+              aria-label="Close translation"
+              onClick={() => onTranslate?.(phrase)}
+            >
+              <CloseIcon />
+            </button>
+          </div>
         )}
         <span className="row-text">{phrase.text}</span>
         <div className="row-meta">

@@ -154,3 +154,10 @@ export const TranslateIcon = () => (
     <path d="M14 18h6" />
   </Icon>
 )
+
+export const CloseIcon = () => (
+  <Icon>
+    <path d="M18 6 6 18" />
+    <path d="m6 6 12 12" />
+  </Icon>
+)
