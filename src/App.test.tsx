@@ -13,7 +13,18 @@ const INVITE_CODE = 'invite-code-for-friends'
 const SPANISH: Record<string, string> = { 'It slipt my mind.': 'Se me olvidó.' }
 
 /** An in-memory stand-in for the backend API, behind a mocked fetch. */
-function fakeBackend(seed: Phrase[] = [], todayIds: number[] = [], { admin = true, translationFails = false } = {}) {
+/** Lets a test hold back the backend's answer for one path, to see what shows while waiting. */
+function holdBack(path: string) {
+  let release: () => void = () => {}
+  const released = new Promise<void>((resolve) => (release = resolve))
+  return { path, released, release }
+}
+
+function fakeBackend(
+  seed: Phrase[] = [],
+  todayIds: number[] = [],
+  { admin = true, translationFails = false, hold }: { admin?: boolean; translationFails?: boolean; hold?: ReturnType<typeof holdBack> } = {},
+) {
   const phrases = [...seed] // Newest first, like the backend returns them.
   let nextId = Math.max(0, ...phrases.map((phrase) => phrase.id)) + 1
   const json = (status: number, body?: unknown) =>
@@ -26,6 +37,7 @@ function fakeBackend(seed: Phrase[] = [], todayIds: number[] = [], { admin = tru
       const path = new URL(input, 'http://app.test').pathname
       const headers = (init.headers ?? {}) as Record<string, string>
       const body = init.body ? JSON.parse(String(init.body)) : undefined
+      if (hold && path === hold.path) await hold.released
 
       if (path === '/api/login') {
         return body.email === EMAIL && body.password === PASSWORD
@@ -461,5 +473,103 @@ describe('the app', () => {
     expect(screen.queryByText('Se me olvidó.')).toBeNull()
     expect(translate.getAttribute('aria-pressed')).toBe('false')
     expect(screen.queryByRole('dialog')).toBeNull()
+  })
+
+  it('shows a spinner while the phrases first load', async () => {
+    const hold = holdBack('/api/phrases')
+    fakeBackend([typo], [], { hold })
+    startLoggedIn()
+
+    expect(screen.getByText('Loading your phrases…')).toBeTruthy()
+    expect(document.querySelector('.loading .spinner')).toBeTruthy()
+
+    hold.release()
+    await screen.findByText('It slipt my mind.')
+    expect(screen.queryByText('Loading your phrases…')).toBeNull()
+  })
+
+  it('shows a spinner on the button while logging in', async () => {
+    const hold = holdBack('/api/login')
+    fakeBackend([typo], [], { hold })
+    const user = userEvent.setup()
+    render(<App />)
+
+    await user.type(screen.getByLabelText('Email'), EMAIL)
+    await user.type(screen.getByLabelText('Password'), PASSWORD)
+    await user.click(screen.getByRole('button', { name: 'Log in' }))
+
+    const button = screen.getByRole('button', { name: 'Logging in…' })
+    expect(button.getAttribute('aria-busy')).toBe('true')
+    expect(button.querySelector('.spinner')).toBeTruthy()
+    hold.release()
+    await screen.findByText('It slipt my mind.')
+  })
+
+  it('shows a spinner on Save while the phrase is saved', async () => {
+    const hold = holdBack('/api/phrases')
+    fakeBackend([typo])
+    const user = userEvent.setup()
+    startLoggedIn()
+    await screen.findByText('It slipt my mind.')
+    // Only the save is held back: the list already loaded.
+    const phrases = vi.mocked(fetch).getMockImplementation()!
+    vi.mocked(fetch).mockImplementation(async (input, init) => {
+      if (init?.method === 'POST' && String(input).endsWith(hold.path)) await hold.released
+      return phrases(input, init)
+    })
+
+    await user.type(screen.getByLabelText('New phrase'), 'Let me sleep on it.')
+    await user.click(screen.getByRole('button', { name: 'Save' }))
+
+    expect(screen.getByRole('button', { name: 'Saving…' }).querySelector('.spinner')).toBeTruthy()
+    hold.release()
+    await screen.findByText('Let me sleep on it.')
+    expect(screen.getByRole('button', { name: 'Save' })).toBeTruthy()
+  })
+
+  it('shows a spinner in the translate button while the translation loads', async () => {
+    const hold = holdBack(`/api/phrases/${typo.id}/translation`)
+    fakeBackend([typo], [], { hold })
+    const user = userEvent.setup()
+    startLoggedIn()
+    await screen.findByText('It slipt my mind.')
+    const translate = screen.getByRole('button', { name: 'Translate to Spanish' })
+
+    await user.click(translate)
+
+    expect(translate.getAttribute('aria-busy')).toBe('true')
+    expect(translate.querySelector('.spinner')).toBeTruthy()
+    hold.release()
+    await screen.findByText('Se me olvidó.')
+    expect(translate.querySelector('.spinner')).toBeNull()
+  })
+
+  it('shows a spinner on Delete while the phrase is deleted', async () => {
+    const hold = holdBack(`/api/phrases/${typo.id}`)
+    fakeBackend([typo], [], { hold })
+    const user = userEvent.setup()
+    startLoggedIn()
+    await screen.findByText('It slipt my mind.')
+
+    await user.click(screen.getByRole('button', { name: 'Edit phrase' }))
+    await user.click(screen.getByRole('button', { name: 'Delete phrase' }))
+    await user.click(screen.getByRole('button', { name: 'Tap again to delete' }))
+
+    expect(screen.getByRole('button', { name: 'Deleting…' }).querySelector('.spinner')).toBeTruthy()
+    hold.release()
+    await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull())
+  })
+
+  it('draws the spinner in each platform\'s own style', async () => {
+    const hold = holdBack('/api/phrases')
+    fakeBackend([typo], [], { hold })
+    document.documentElement.dataset.platform = 'android'
+    startLoggedIn()
+
+    expect(document.querySelector('.loading .spinner-android svg circle')).toBeTruthy()
+    expect(document.querySelector('.spinner-ios')).toBeNull()
+    delete document.documentElement.dataset.platform
+    hold.release()
+    await screen.findByText('It slipt my mind.')
   })
 })

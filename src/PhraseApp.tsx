@@ -5,12 +5,13 @@ import { Brand } from './Brand.tsx'
 import { Editor } from './Editor.tsx'
 import { BellIcon, CheckIcon, ClockIcon, HistoryIcon, PenIcon, SaveIcon, SunIcon, UserIcon } from './icons.tsx'
 import { PhraseRow, type Speaking, type Translation } from './PhraseRow.tsx'
+import { Spinner } from './Spinner.tsx'
 import { currentSubscription, pushSupported, subscribe } from './push.ts'
 import { NORMAL_RATE, SLOW_RATE, speak, speechSupported, stopSpeaking } from './speech.ts'
 
 const MAX_PHRASE_LENGTH = 500 // Matches the backend.
 
-type Reminders = 'checking' | 'off' | 'on'
+type Reminders = 'checking' | 'off' | 'enabling' | 'on'
 
 interface Toast {
   id: number
@@ -31,6 +32,7 @@ export function PhraseApp({ session, onLogOut, onExpired }: PhraseAppProps) {
   const [recent, setRecent] = useState<Phrase[]>([])
   const [today, setToday] = useState<Phrase[]>([])
   const [loaded, setLoaded] = useState(false)
+  const [loadFailed, setLoadFailed] = useState(false)
   const [text, setText] = useState('')
   const [saving, setSaving] = useState(false)
   const [toast, setToast] = useState<Toast | null>(null)
@@ -77,7 +79,10 @@ export function PhraseApp({ session, onLogOut, onExpired }: PhraseAppProps) {
       } catch (err) {
         if (!active) return
         if (err instanceof UnauthorizedError) onExpired()
-        else if (!quiet) showToast("Couldn't load your phrases.", true)
+        else if (!quiet) {
+          setLoadFailed(true)
+          showToast("Couldn't load your phrases.", true)
+        }
       }
     }
     load(false)
@@ -180,9 +185,13 @@ export function PhraseApp({ session, onLogOut, onExpired }: PhraseAppProps) {
       showToast("Couldn't turn on reminders. Try again.", true)
       return
     }
+    if (reminders === 'enabling') return
+    // Set without waiting, so subscribe() below still runs within the tap, as iOS requires.
+    setReminders('enabling')
     try {
       const subscription = await subscribe(vapidKey)
       if (subscription === 'denied') {
+        setReminders('off')
         showToast('Notifications are blocked. Allow them in your settings.', true)
         return
       }
@@ -190,6 +199,7 @@ export function PhraseApp({ session, onLogOut, onExpired }: PhraseAppProps) {
       setReminders('on')
       showToast('Reminders on')
     } catch (err) {
+      setReminders('off')
       fail(err, "Couldn't turn on reminders. Try again.")
     }
   }
@@ -263,6 +273,7 @@ export function PhraseApp({ session, onLogOut, onExpired }: PhraseAppProps) {
   }
 
   const remindersOn = reminders === 'on'
+  const enabling = reminders === 'enabling'
 
   return (
     <div className="app" ref={appRef}>
@@ -275,11 +286,12 @@ export function PhraseApp({ session, onLogOut, onExpired }: PhraseAppProps) {
               className={`pill${remindersOn ? '' : ' pill-off'}`}
               type="button"
               hidden={reminders === 'checking'}
-              aria-label={remindersOn ? 'Daily reminder on at 12:00' : 'Turn on daily reminder'}
+              aria-label={remindersOn ? 'Daily reminder on at 12:00' : enabling ? 'Turning on daily reminder' : 'Turn on daily reminder'}
+              aria-busy={enabling}
               onClick={onRemindersTap}
             >
-              <BellIcon />
-              <span>{remindersOn ? '12:00' : 'Turn on'}</span>
+              {enabling ? <Spinner /> : <BellIcon />}
+              <span>{remindersOn ? '12:00' : enabling ? 'Turning on…' : 'Turn on'}</span>
             </button>
             <button className="account-button" type="button" aria-label="Account" onClick={() => setAccountOpen(true)}>
               <UserIcon />
@@ -328,13 +340,26 @@ export function PhraseApp({ session, onLogOut, onExpired }: PhraseAppProps) {
               <PhraseRow key={phrase.id} phrase={phrase} onEdit={setEditing} {...rowProps(phrase)} />
             ))}
           </ul>
+          {!loaded && !loadFailed && (
+            <p className="loading" role="status">
+              <Spinner />
+              <span>Loading your phrases…</span>
+            </p>
+          )}
           {loaded && <p className="empty">Your saved phrases will appear here.</p>}
         </section>
       </main>
       <div className="actions">
-        <button id="save" className="primary" type="submit" form="phrase-form" disabled={saving || !text.trim()}>
-          <SaveIcon />
-          <span>Save</span>
+        <button
+          id="save"
+          className="primary"
+          type="submit"
+          form="phrase-form"
+          disabled={saving || !text.trim()}
+          aria-busy={saving}
+        >
+          {saving ? <Spinner /> : <SaveIcon />}
+          <span>{saving ? 'Saving…' : 'Save'}</span>
         </button>
       </div>
       <div className="toast-region" role="status" aria-live="polite">

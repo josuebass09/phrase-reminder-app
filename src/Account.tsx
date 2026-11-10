@@ -2,6 +2,7 @@ import { useEffect, useRef, useState, type MouseEvent } from 'react'
 import { api, UnauthorizedError } from './api.ts'
 import { CopyIcon, LogOutIcon, ShareIcon, UserPlusIcon } from './icons.tsx'
 import { inviteLink } from './invite.ts'
+import { Spinner } from './Spinner.tsx'
 
 export interface AccountProps {
   email: string
@@ -129,9 +130,9 @@ export function Account({ email, expiresAt, isAdmin, onClose, onLogOut, onUnauth
           </div>
         )}
         {isAdmin && !invite && (
-          <button className="sheet-action neutral" type="button" disabled={busy} onClick={createInvite}>
-            <UserPlusIcon />
-            <span>Invite someone</span>
+          <button className="sheet-action neutral" type="button" disabled={busy} aria-busy={busy} onClick={createInvite}>
+            {busy ? <Spinner /> : <UserPlusIcon />}
+            <span>{busy ? 'Creating link…' : 'Invite someone'}</span>
           </button>
         )}
         {error && (

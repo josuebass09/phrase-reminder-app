@@ -1,37 +1,48 @@
+/* "Salvia y papel": muted sage on warm paper, chosen to be easy on the eyes.
+   No pure white or black, and no saturated colors; text keeps WCAG AA contrast. */
 :root {
   color-scheme: light dark;
-  --header: #0E5E6F;
-  --bg: #F2F8F8;
-  --card: #FFFFFF;
-  --field: #FFFFFF;
-  --text: #12282D;
-  --secondary: #4F6368;
-  --sep: #DCE8EA;
-  --outline: #6F8388;
-  --accent: #0E5E6F;
-  --disabled-bg: #E3ECEE;
-  --disabled-text: #4F6368;
-  --error-text: #B3261E;
-  --save: #FF7A6B;
-  --on-save: #3B0D08;
-  --success: #0E7C72;
-  --error: #B3261E;
+  --header: #4E7262;
+  --bg: #F6F4EE;
+  --card: #FFFDF8;
+  --field: #FFFDF8;
+  --text: #2B2A26;
+  --secondary: #6B675E;
+  --sep: #E7E2D6;
+  --outline: #8C877B;
+  --accent: #4E7262;
+  --focus: #4E7262;
+  --chip: #EDEAE0;
+  --disabled-bg: #ECE8DE;
+  --disabled-text: #6B675E;
+  --error-text: #A8443A;
+  --save: #E9A178;
+  --on-save: #3A1E0E;
+  --success: #4E7262;
+  --error: #A8443A;
+  --shadow: rgba(43, 42, 38, 0.12);
   --font: -apple-system, BlinkMacSystemFont, "SF Pro Text", system-ui, sans-serif;
 }
 
 @media (prefers-color-scheme: dark) {
   :root {
-    --bg: #0B1A1E;
-    --card: #13272C;
-    --field: #0B1A1E;
-    --text: #EEF6F6;
-    --secondary: #A5BEC3;
-    --sep: #22393F;
-    --outline: #7E959A;
-    --accent: #7FD8CF;
-    --disabled-bg: #1E3338;
-    --disabled-text: #A5BEC3;
-    --error-text: #FFB4AB;
+    --header: #2E463B;
+    --bg: #171A16;
+    --card: #21251F;
+    --field: #171A16;
+    --text: #ECE8DE;
+    --secondary: #B4AE9F;
+    --sep: #2F342C;
+    --outline: #8C877B;
+    --accent: #A8C9B4;
+    --focus: #A8C9B4;
+    --chip: #2C3229;
+    --disabled-bg: #2A2E27;
+    --disabled-text: #B4AE9F;
+    --error-text: #F2B1A8;
+    --success: #3F6252;
+    --error: #8E3B33;
+    --shadow: rgba(0, 0, 0, 0.4);
   }
 }
 
@@ -39,21 +50,21 @@
   --font: Roboto, "Noto Sans", system-ui, sans-serif;
 }
 
-/* Phrase tile colors. Keep the count in sync with TONE_COUNT in src/page.ts and public/app.js. */
-.tone-0 { --tint: #FFE5E0; --ink: #C8402F; }
-.tone-1 { --tint: #D5F2EE; --ink: #0E7C72; }
-.tone-2 { --tint: #DCE9FF; --ink: #2A62C9; }
-.tone-3 { --tint: #FFF0CC; --ink: #A66A00; }
-.tone-4 { --tint: #EBE3FF; --ink: #6B46C1; }
-.tone-5 { --tint: #FFE0EC; --ink: #C2266D; }
+/* Phrase tile colors, muted to match. Keep the count in sync with TONE_COUNT in src/format.ts. */
+.tone-0 { --tint: #F4E3D7; --ink: #A0644A; }
+.tone-1 { --tint: #E1EBDF; --ink: #4E7262; }
+.tone-2 { --tint: #E3E8EE; --ink: #55708C; }
+.tone-3 { --tint: #F3EAD3; --ink: #8F7436; }
+.tone-4 { --tint: #EAE3EA; --ink: #7B6181; }
+.tone-5 { --tint: #F2E1DE; --ink: #9C5B55; }
 
 @media (prefers-color-scheme: dark) {
-  .tone-0 { --tint: #3D1F1B; --ink: #FF9E90; }
-  .tone-1 { --tint: #123A36; --ink: #6FDCCF; }
-  .tone-2 { --tint: #1B2E4F; --ink: #8DB6FF; }
-  .tone-3 { --tint: #3B2E10; --ink: #F5C451; }
-  .tone-4 { --tint: #2C2350; --ink: #BBA4FF; }
-  .tone-5 { --tint: #3D1A2B; --ink: #FF93BD; }
+  .tone-0 { --tint: #3A2A22; --ink: #E8B49A; }
+  .tone-1 { --tint: #26332B; --ink: #A8C9B4; }
+  .tone-2 { --tint: #262E36; --ink: #A9BCD1; }
+  .tone-3 { --tint: #362F1F; --ink: #D9C08A; }
+  .tone-4 { --tint: #302832; --ink: #C7B3CB; }
+  .tone-5 { --tint: #36262A; --ink: #DDA7A2; }
 }
 
 /* Base */
@@ -431,7 +442,7 @@ body {
   min-width: 34px;
   padding: 4px 7px;
   border-radius: 8px;
-  background: var(--sep);
+  background: var(--chip);
   color: var(--accent);
   font-size: 13px;
   line-height: 16px;
@@ -534,7 +545,7 @@ body {
 .row-tool:active .tool-chip { opacity: 0.6; }
 
 .row-tool:focus-visible {
-  outline: 2px solid #0E7C72;
+  outline: 2px solid var(--focus);
   outline-offset: -4px;
   border-radius: 10px;
 }
@@ -574,7 +585,7 @@ body {
 .row-edit:focus-visible { outline: none; }
 
 .row-edit:focus-visible::after {
-  outline: 2px solid #0E7C72;
+  outline: 2px solid var(--focus);
   outline-offset: -2px;
 }
 
@@ -628,7 +639,7 @@ body {
 }
 
 .primary:focus-visible {
-  outline: 2px solid #0E7C72;
+  outline: 2px solid var(--focus);
   outline-offset: 2px;
 }
 
@@ -659,7 +670,7 @@ body {
   font-size: 15px;
   line-height: 20px;
   font-weight: 500;
-  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.18);
+  box-shadow: 0 4px 16px var(--shadow);
   animation: rise 0.2s ease-out;
 }
 
@@ -707,7 +718,7 @@ body {
 
 .login .field label { color: var(--secondary); }
 .login .field input { background: var(--card); border: 1px solid var(--outline); }
-.login .field input:focus { box-shadow: 0 0 0 2px #0E7C72; }
+.login .field input:focus { box-shadow: 0 0 0 2px var(--focus); }
 
 .form-error {
   margin: 0;
@@ -728,7 +739,7 @@ body {
   background: var(--card);
   color: var(--text);
   font-family: var(--font);
-  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.24);
+  box-shadow: 0 8px 32px var(--shadow);
 }
 
 .sheet[open] { animation: rise 0.2s ease-out; }
@@ -778,7 +789,7 @@ body {
 .delete-button:focus-visible,
 .sheet-action:focus-visible,
 .invite-button:focus-visible {
-  outline: 2px solid #0E7C72;
+  outline: 2px solid var(--focus);
   outline-offset: -2px;
   border-radius: 8px;
 }
@@ -886,7 +897,7 @@ body {
   font-size: 14px;
 }
 
-.invite-link:focus { outline: 2px solid #0E7C72; outline-offset: -1px; }
+.invite-link:focus { outline: 2px solid var(--focus); outline-offset: -1px; }
 
 .invite-actions {
   display: flex;
@@ -922,6 +933,106 @@ body {
 }
 
 .invite-button:active { opacity: 0.82; }
+
+/* Spinners, drawn here rather than taken from anywhere. They take the text color around them. */
+.spinner {
+  --size: 18px;
+  position: relative;
+  display: inline-block;
+  flex: none;
+  width: var(--size);
+  height: var(--size);
+}
+
+/* iOS: eight spokes that fade one after another, like UIActivityIndicatorView. */
+.spinner-ios > span {
+  position: absolute;
+  top: 0;
+  left: calc(50% - 1px);
+  width: 2px;
+  height: 28%;
+  border-radius: 1px;
+  background: currentColor;
+  transform-origin: 1px calc(var(--size) / 2);
+  animation: spoke 0.8s linear infinite;
+}
+
+.spinner-ios > span:nth-child(1) { transform: rotate(0deg); animation-delay: -0.8s; }
+.spinner-ios > span:nth-child(2) { transform: rotate(45deg); animation-delay: -0.7s; }
+.spinner-ios > span:nth-child(3) { transform: rotate(90deg); animation-delay: -0.6s; }
+.spinner-ios > span:nth-child(4) { transform: rotate(135deg); animation-delay: -0.5s; }
+.spinner-ios > span:nth-child(5) { transform: rotate(180deg); animation-delay: -0.4s; }
+.spinner-ios > span:nth-child(6) { transform: rotate(225deg); animation-delay: -0.3s; }
+.spinner-ios > span:nth-child(7) { transform: rotate(270deg); animation-delay: -0.2s; }
+.spinner-ios > span:nth-child(8) { transform: rotate(315deg); animation-delay: -0.1s; }
+
+@keyframes spoke {
+  from { opacity: 1; }
+  to { opacity: 0.18; }
+}
+
+/* Android: Material's indeterminate circle, an arc that grows, shrinks, and turns. */
+.spinner-android svg {
+  display: block;
+  width: 100%;
+  height: 100%;
+  animation: spinner-turn 1.4s linear infinite;
+}
+
+.spinner-android circle {
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2.5;
+  stroke-linecap: round;
+  stroke-dasharray: 1 57;
+  animation: spinner-arc 1.4s ease-in-out infinite;
+}
+
+@keyframes spinner-turn {
+  to { transform: rotate(360deg); }
+}
+
+@keyframes spinner-arc {
+  0% { stroke-dasharray: 1 57; stroke-dashoffset: 0; }
+  50% { stroke-dasharray: 40 57; stroke-dashoffset: -14; }
+  100% { stroke-dasharray: 40 57; stroke-dashoffset: -55; }
+}
+
+/* Sizes inside each control, matched to the icon it replaces. */
+.pill .spinner { --size: 14px; }
+.primary .spinner { --size: 20px; }
+.tool-chip .spinner { --size: 16px; display: block; margin: 0 auto; }
+.text-button .spinner { --size: 20px; vertical-align: middle; }
+
+/* A button waiting on its own request keeps its color, so it reads as working rather than unavailable. */
+.primary[aria-busy="true"]:disabled {
+  background: var(--save);
+  color: var(--on-save);
+  opacity: 0.9;
+}
+
+.pill[aria-busy="true"] { pointer-events: none; }
+
+/* The first load of the phrases. */
+.loading {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 0;
+  padding: 12px 0;
+  color: var(--secondary);
+  font-size: 15px;
+  line-height: 20px;
+}
+
+/* New phrases slide into place. */
+.row { animation: row-in 0.24s ease-out both; }
+
+@keyframes row-in {
+  from { opacity: 0; transform: translateY(-6px); }
+}
+
+.tool-chip { transition: background-color 0.15s ease, color 0.15s ease, opacity 0.15s ease; }
 
 /* Android style */
 [data-platform="android"] .top {
@@ -987,8 +1098,8 @@ body {
 }
 
 [data-platform="android"] .field:focus-within {
-  border-color: #0E7C72;
-  box-shadow: inset 0 0 0 1px #0E7C72;
+  border-color: var(--focus);
+  box-shadow: inset 0 0 0 1px var(--focus);
 }
 
 [data-platform="android"] .field label {
@@ -1081,7 +1192,26 @@ body {
 [data-platform="android"] .row-body { padding: 0; }
 [data-platform="android"] .row:not(:last-child) .row-body,
 [data-platform="android"] .row:not(:last-child) .row-edit { border-bottom: 0; }
-[data-platform="android"] .tool-chip { font-weight: 500; font-size: 14px; line-height: 18px; }
+[data-platform="android"] .tool-chip {
+  padding: 6px 10px;
+  border: 1px solid var(--outline);
+  background: none;
+  font-size: 14px;
+  font-weight: 500;
+  line-height: 18px;
+}
+
+[data-platform="android"] .row-tool[aria-pressed="true"] .tool-chip { border-color: var(--accent); }
+
+/* Material's pressed state: a 12% layer of the content color, instead of iOS's dimming. */
+[data-platform="android"] :is(.pill, .text-button, .sheet-action, .delete-button, .invite-button, .account-button, .bubble-close):active,
+[data-platform="android"] .row-tool:active .tool-chip {
+  opacity: 1;
+  box-shadow: inset 0 0 0 100vmax color-mix(in srgb, currentColor 12%, transparent);
+}
+
+[data-platform="android"] .row:has(.row-edit:active) { background: color-mix(in srgb, var(--text) 8%, transparent); }
+[data-platform="android"] .loading { padding: 12px 16px; font-size: 14px; }
 [data-platform="android"] .tool-chip .icon { width: 18px; height: 18px; }
 [data-platform="android"] .row-edit { width: 40px; margin: -10px -8px -10px -12px; }
 [data-platform="android"] .row-edit .icon { width: 24px; height: 24px; }
@@ -1243,8 +1373,15 @@ body {
 @media (prefers-reduced-motion: reduce) {
   .toast,
   .sheet[open],
+  .row,
   .row-tool[aria-pressed="true"] .tool-chip,
   .row-tool[aria-busy="true"] .tool-chip,
   .translation-bubble { animation: none; }
   .primary:not(:disabled):active { transform: none; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .spinner-ios > span { animation-duration: 1.6s; }
+  .spinner-android svg,
+  .spinner-android circle { animation-duration: 2.8s; }
 }

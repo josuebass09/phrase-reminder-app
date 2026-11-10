@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState, type FormEvent, type MouseEvent } from 'react'
 import { api, NotFoundError, UnauthorizedError, type Phrase } from './api.ts'
 import { TrashIcon } from './icons.tsx'
+import { Spinner } from './Spinner.tsx'
 
 const MAX_PHRASE_LENGTH = 500 // Matches the backend.
 
@@ -18,7 +19,9 @@ export function Editor({ phrase, onClose, onSaved, onDeleted, onUnauthorized }: 
   const dialog = useRef<HTMLDialogElement>(null)
   const textarea = useRef<HTMLTextAreaElement>(null)
   const [text, setText] = useState(phrase.text)
-  const [busy, setBusy] = useState(false)
+  // Which request is running, so its own button shows the spinner.
+  const [action, setAction] = useState<'save' | 'delete' | null>(null)
+  const busy = action !== null
   const [error, setError] = useState('')
   const [deleteArmed, setDeleteArmed] = useState(false)
 
@@ -48,14 +51,14 @@ export function Editor({ phrase, onClose, onSaved, onDeleted, onUnauthorized }: 
     event.preventDefault()
     const trimmed = text.trim()
     if (!trimmed || busy) return
-    setBusy(true)
+    setAction('save')
     setError('')
     try {
       onSaved(await api.update(phrase.id, trimmed))
     } catch (err) {
       if (err instanceof NotFoundError) onDeleted(phrase.id, true)
       else fail(err, "Couldn't save. Your text is still here.")
-      setBusy(false)
+      setAction(null)
     }
   }
 
@@ -66,7 +69,7 @@ export function Editor({ phrase, onClose, onSaved, onDeleted, onUnauthorized }: 
       return
     }
     setDeleteArmed(false)
-    setBusy(true)
+    setAction('delete')
     setError('')
     try {
       await api.remove(phrase.id)
@@ -74,7 +77,7 @@ export function Editor({ phrase, onClose, onSaved, onDeleted, onUnauthorized }: 
     } catch (err) {
       if (err instanceof NotFoundError) onDeleted(phrase.id, true)
       else fail(err, "Couldn't delete. Try again.")
-      setBusy(false)
+      setAction(null)
     }
   }
 
@@ -98,8 +101,14 @@ export function Editor({ phrase, onClose, onSaved, onDeleted, onUnauthorized }: 
             Cancel
           </button>
           <h2 id="editor-title">Edit phrase</h2>
-          <button className="text-button strong" type="submit" disabled={busy || !text.trim()}>
-            Save
+          <button
+            className="text-button strong"
+            type="submit"
+            disabled={busy || !text.trim()}
+            aria-busy={action === 'save'}
+            aria-label={action === 'save' ? 'Saving' : undefined}
+          >
+            {action === 'save' ? <Spinner /> : 'Save'}
           </button>
         </header>
         <textarea
@@ -119,10 +128,11 @@ export function Editor({ phrase, onClose, onSaved, onDeleted, onUnauthorized }: 
           className={`delete-button${deleteArmed ? ' confirming' : ''}`}
           type="button"
           disabled={busy}
+          aria-busy={action === 'delete'}
           onClick={remove}
         >
-          <TrashIcon />
-          <span>{deleteArmed ? 'Tap again to delete' : 'Delete phrase'}</span>
+          {action === 'delete' ? <Spinner /> : <TrashIcon />}
+          <span>{action === 'delete' ? 'Deleting…' : deleteArmed ? 'Tap again to delete' : 'Delete phrase'}</span>
         </button>
       </form>
     </dialog>

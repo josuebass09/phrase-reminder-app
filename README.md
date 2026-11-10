@@ -27,6 +27,14 @@ Browsers without speech synthesis show no speed buttons.
 
 The 文A button next to the speed buttons shows the phrase in Spanish, in a speech bubble above the original. Close it with the X in the bubble's top-right corner, or by tapping 文A again. The backend translates each phrase once and keeps it, so reopening it is instant; editing the phrase translates the new text the next time.
 
+## Design
+
+The app follows the platform it runs on, set from the browser's user agent before the first render: iOS conventions on iPhone and iPad (large title, grouped lists, sheets, buttons that dim when pressed, the spoked activity indicator), and Material 3 on Android (top app bar, outlined fields and chips, a floating Save button, snackbars, pressed-state layers, the circular progress indicator). Every wait shows a spinner in that platform's style: logging in, the first load, saving, editing and deleting, translating, turning on reminders, and creating an invite.
+
+The colors are "Salvia y papel": muted sage on warm paper, with a matching dark mode, chosen to be easy on the eyes while keeping text readable (WCAG AA contrast). They're the variables at the top of `src/styles.css`.
+
+The icons come from [Lucide](https://lucide.dev) (ISC; some started in Feather, MIT), which allow free use as long as the notice is kept. The notice is in `THIRD_PARTY_NOTICES.md` and in `src/icons.tsx`, and `vite.config.ts` keeps it in the built files. The spinners are drawn in this app's own CSS.
+
 ## Run the tests
 
 ```bash

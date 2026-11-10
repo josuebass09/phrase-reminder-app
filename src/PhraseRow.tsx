@@ -1,6 +1,7 @@
 import type { Phrase } from './api.ts'
 import { savedLabel, TONE_COUNT } from './format.ts'
 import { CloseIcon, MessageIcon, MoreIcon, TranslateIcon } from './icons.tsx'
+import { Spinner } from './Spinner.tsx'
 
 /** Which speed is reading the phrase, if any. */
 export type Speaking = 'normal' | 'slow' | null
@@ -86,7 +87,7 @@ export function PhraseRow({ phrase, onEdit, onSpeak, speaking = null, onTranslat
                   onClick={() => onTranslate(phrase)}
                 >
                   <span className="tool-chip">
-                    <TranslateIcon />
+                    {translation?.loading ? <Spinner /> : <TranslateIcon />}
                   </span>
                 </button>
               )}

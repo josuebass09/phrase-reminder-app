@@ -2,6 +2,7 @@ import { useState, type FormEvent } from 'react'
 import { api, ApiError, lastEmail, UnauthorizedError, type Session } from './api.ts'
 import { Brand } from './Brand.tsx'
 import { inviteCodeFrom } from './invite.ts'
+import { Spinner } from './Spinner.tsx'
 
 const MIN_PASSWORD_LENGTH = 12 // Matches the backend.
 
@@ -140,8 +141,9 @@ export function Login({ invite, notice, onLoggedIn }: LoginProps) {
               {error}
             </p>
           )}
-          <button className="primary" type="submit" disabled={busy}>
-            <span>{signingUp ? 'Create account' : 'Log in'}</span>
+          <button className="primary" type="submit" disabled={busy} aria-busy={busy}>
+            {busy && <Spinner />}
+            <span>{busy ? (signingUp ? 'Creating account…' : 'Logging in…') : signingUp ? 'Create account' : 'Log in'}</span>
           </button>
           {signingUp ? (
             <button className="text-button login-switch" type="button" onClick={() => switchTo('login')}>

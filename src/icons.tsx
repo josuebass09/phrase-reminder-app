@@ -1,5 +1,15 @@
 import type { ReactNode } from 'react'
 
+/*! @license Icons from Lucide (https://lucide.dev), some from earlier versions.
+ *
+ * ISC License
+ * Copyright (c) for portions of Lucide are held by Cole Bemis 2013-2022 as part of
+ * Feather (MIT). All other copyright (c) for Lucide are held by Lucide Contributors 2022.
+ * Permission to use, copy, modify, and/or distribute this software for any purpose
+ * with or without fee is hereby granted, provided that the above copyright notice and
+ * this permission notice appear in all copies. The full text, with Feather's MIT
+ * license, is in THIRD_PARTY_NOTICES.md.
+ */
 function Icon({ children }: { children: ReactNode }) {
   return (
     <svg
