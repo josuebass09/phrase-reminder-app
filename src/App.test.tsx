@@ -8,9 +8,10 @@ const EMAIL = 'me@example.com'
 const PASSWORD = 'a long enough password'
 const TOKEN = 'token-1'
 const TWELVE_HOURS = 12 * 60 * 60 * 1000
+const INVITE_CODE = 'invite-code-for-friends'
 
 /** An in-memory stand-in for the backend API, behind a mocked fetch. */
-function fakeBackend(seed: Phrase[] = [], todayIds: number[] = []) {
+function fakeBackend(seed: Phrase[] = [], todayIds: number[] = [], { signupOpen = false } = {}) {
   const phrases = [...seed] // Newest first, like the backend returns them.
   let nextId = Math.max(0, ...phrases.map((phrase) => phrase.id)) + 1
   const json = (status: number, body?: unknown) =>
@@ -29,7 +30,12 @@ function fakeBackend(seed: Phrase[] = [], todayIds: number[] = []) {
           ? json(200, { token: TOKEN, expiresAt: '', expiresIn: TWELVE_HOURS / 1000, user: { id: 1, email: EMAIL } })
           : json(401, { error: 'Wrong email or password' })
       }
-      if (path === '/api/config') return json(200, { vapidPublicKey: 'key' })
+      if (path === '/api/signup') {
+        if (body.code !== INVITE_CODE) return json(403, { error: 'Wrong invite code' })
+        const user = { id: 2, email: body.email }
+        return json(201, { token: TOKEN, expiresAt: '', expiresIn: TWELVE_HOURS / 1000, user })
+      }
+      if (path === '/api/config') return json(200, { vapidPublicKey: 'key', signupOpen })
       if (headers.Authorization !== `Bearer ${TOKEN}`) return json(401, { error: 'Not logged in' })
 
       if (path === '/api/phrases' && method === 'GET') return json(200, phrases)
@@ -140,7 +146,8 @@ describe('the app', () => {
     render(<App />)
 
     expect(screen.getByText('Your session ended. Log in again.')).toBeTruthy()
-    expect(fetchMock).not.toHaveBeenCalled()
+    const paths = fetchMock.mock.calls.map(([url]) => new URL(String(url), 'http://app.test').pathname)
+    expect(paths.filter((path) => path !== '/api/config')).toEqual([])
   })
 
   it('saves a new phrase at the top of Recent', async () => {
@@ -201,5 +208,47 @@ describe('the app', () => {
 
     expect(await screen.findByText('Your session ended. Log in again.')).toBeTruthy()
     expect(readSession()).toBeNull()
+  })
+
+  it('creates an account with the invite code and logs it in', async () => {
+    fakeBackend([], [], { signupOpen: true })
+    const user = userEvent.setup()
+    render(<App />)
+
+    await user.click(await screen.findByRole('button', { name: 'Create account' }))
+    expect(screen.getByRole('heading', { name: 'Create account' })).toBeTruthy()
+    await user.type(screen.getByLabelText('Email'), 'friend@example.com')
+    await user.type(screen.getByLabelText('Password'), PASSWORD)
+    await user.type(screen.getByLabelText('Invite code'), 'wrong-code')
+    await user.click(screen.getByRole('button', { name: 'Create account' }))
+    expect(await screen.findByRole('alert')).toHaveProperty('textContent', 'Wrong invite code.')
+
+    await user.clear(screen.getByLabelText('Invite code'))
+    await user.type(screen.getByLabelText('Invite code'), INVITE_CODE)
+    await user.click(screen.getByRole('button', { name: 'Create account' }))
+
+    expect(await screen.findByText('Your saved phrases will appear here.')).toBeTruthy()
+    expect(readSession()?.email).toBe('friend@example.com')
+  })
+
+  it('goes back to logging in from the sign-up form', async () => {
+    fakeBackend([], [], { signupOpen: true })
+    const user = userEvent.setup()
+    render(<App />)
+
+    await user.click(await screen.findByRole('button', { name: 'Create account' }))
+    await user.click(screen.getByRole('button', { name: 'I already have an account' }))
+
+    expect(screen.getByRole('button', { name: 'Log in' })).toBeTruthy()
+    expect(screen.queryByLabelText('Invite code')).toBeNull()
+  })
+
+  it('offers no sign-up when the backend has it closed', async () => {
+    fakeBackend()
+    render(<App />)
+
+    await waitFor(() => expect(fetch).toHaveBeenCalled())
+    await new Promise((resolve) => setTimeout(resolve, 0))
+    expect(screen.queryByRole('button', { name: 'Create account' })).toBeNull()
   })
 })

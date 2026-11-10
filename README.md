@@ -6,7 +6,7 @@ It's a React app built with Vite. It talks to the backend's API with a bearer to
 
 ## Accounts
 
-Each person logs in with an email and password and sees only their own phrases. There is no sign-up screen: create users with the backend's `npm run users -- add <email>`.
+Each person logs in with an email and password and sees only their own phrases. When the backend has a `SIGNUP_CODE`, the login screen offers **Create account**, which asks for an email, a password of at least 12 characters, and that invite code. Without it, create users with the backend's `npm run users -- add <email>`.
 
 A login lasts 12 hours. After that, the app shows the login screen again with the last email already filled in. The person icon at the top shows who is logged in and until when, and has **Log out**.
 

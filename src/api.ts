@@ -81,6 +81,16 @@ export class NotFoundError extends Error {
   }
 }
 
+/** Any other refusal. The message is the backend's explanation, written to show to people. */
+export class ApiError extends Error {
+  readonly status: number
+
+  constructor(status: number, message: string) {
+    super(message)
+    this.status = status
+  }
+}
+
 async function request<T>(path: string, options: { method?: string; body?: unknown } = {}): Promise<T> {
   const headers: Record<string, string> = {}
   const token = readSession()?.token
@@ -97,25 +107,30 @@ async function request<T>(path: string, options: { method?: string; body?: unkno
     throw new UnauthorizedError()
   }
   if (response.status === 404) throw new NotFoundError()
-  if (!response.ok) throw new Error(`Request failed with status ${response.status}`)
+  if (!response.ok) {
+    const body = await response.json().catch(() => null)
+    throw new ApiError(response.status, typeof body?.error === 'string' ? body.error : 'Something went wrong. Try again.')
+  }
   return (response.status === 204 ? undefined : await response.json()) as T
+}
+
+function saveSession({ token, expiresIn, user }: LoginResponse): Session {
+  // Counted from now rather than taken from the server's clock, in case this device's clock is off.
+  const session: Session = { token, expiresAt: Date.now() + expiresIn * 1000, email: user.email }
+  store(SESSION_KEY, JSON.stringify(session))
+  store(EMAIL_KEY, user.email)
+  store(OLD_TOKEN_KEY, null)
+  return session
 }
 
 export const api = {
   /** Saves and returns the new session. Throws UnauthorizedError for a wrong email or password. */
-  async login(email: string, password: string): Promise<Session> {
-    const { token, expiresIn, user } = await request<LoginResponse>('/api/login', {
-      method: 'POST',
-      body: { email, password },
-    })
-    // Counted from now rather than taken from the server's clock, in case this device's clock is off.
-    const session: Session = { token, expiresAt: Date.now() + expiresIn * 1000, email: user.email }
-    store(SESSION_KEY, JSON.stringify(session))
-    store(EMAIL_KEY, user.email)
-    store(OLD_TOKEN_KEY, null)
-    return session
-  },
-  config: () => request<{ vapidPublicKey: string }>('/api/config'),
+  login: async (email: string, password: string) =>
+    saveSession(await request<LoginResponse>('/api/login', { method: 'POST', body: { email, password } })),
+  /** Creates an account with an invite code and logs it in. Throws ApiError with the reason if refused. */
+  signup: async (email: string, password: string, code: string) =>
+    saveSession(await request<LoginResponse>('/api/signup', { method: 'POST', body: { email, password, code } })),
+  config: () => request<{ vapidPublicKey: string; signupOpen?: boolean }>('/api/config'),
   recent: () => request<Phrase[]>('/api/phrases'),
   today: () => request<Phrase[]>('/api/today'),
   add: (text: string) => request<Phrase>('/api/phrases', { method: 'POST', body: { text } }),

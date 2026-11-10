@@ -537,12 +537,25 @@ body {
   gap: 16px;
 }
 
-.login-notice {
+.login-notice,
+.login-hint {
   margin: 0;
   color: var(--secondary);
   font-size: 15px;
   line-height: 20px;
 }
+
+/* Sits right under the password field, closer than the form's usual gap. */
+.login-hint { margin-top: -10px; }
+
+.login-title {
+  margin: 0;
+  font-size: 22px;
+  line-height: 28px;
+  font-weight: 700;
+}
+
+.login-switch { align-self: center; }
 
 .login .field label { color: var(--secondary); }
 .login .field input { background: var(--card); border: 1px solid var(--outline); }
@@ -924,6 +937,19 @@ body {
 [data-platform="android"] .login .field input {
   height: 56px;
   padding: 0 16px;
+}
+
+[data-platform="android"] .login-title {
+  font-size: 22px;
+  line-height: 28px;
+  font-weight: 400;
+}
+
+[data-platform="android"] .login-hint {
+  margin-top: -12px;
+  padding: 0 16px;
+  font-size: 12px;
+  line-height: 16px;
 }
 
 [data-platform="android"] .sheet { border-radius: 28px; }

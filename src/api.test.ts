@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { api, clearSession, lastEmail, NotFoundError, readSession, UnauthorizedError } from './api.ts'
+import { api, ApiError, clearSession, lastEmail, NotFoundError, readSession, UnauthorizedError } from './api.ts'
 
 function respond(status: number, body?: unknown) {
   const fetchMock = vi.fn(
@@ -106,5 +106,31 @@ describe('api', () => {
     respond(204)
 
     await expect(api.remove(9)).resolves.toBeUndefined()
+  })
+
+  it("signs up with the invite code and saves the new session", async () => {
+    const fetchMock = respond(201, { ...loginResponse, user: { id: 2, email: 'friend@example.com' } })
+
+    const session = await api.signup('friend@example.com', 'secret password', 'code')
+
+    const [url, init] = fetchMock.mock.calls[0] as unknown as [string, RequestInit]
+    expect(url).toMatch(/\/api\/signup$/)
+    expect(init.body).toBe(JSON.stringify({ email: 'friend@example.com', password: 'secret password', code: 'code' }))
+    expect(readSession()).toEqual(session)
+  })
+
+  it("throws ApiError with the backend's explanation", async () => {
+    respond(403, { error: 'Wrong invite code' })
+
+    const error = await api.signup('friend@example.com', 'secret password', 'nope').catch((err) => err)
+
+    expect(error).toBeInstanceOf(ApiError)
+    expect(error).toMatchObject({ status: 403, message: 'Wrong invite code' })
+  })
+
+  it('throws ApiError with a general message when the backend gives none', async () => {
+    respond(500)
+
+    await expect(api.recent()).rejects.toMatchObject({ status: 500, message: 'Something went wrong. Try again.' })
   })
 })
