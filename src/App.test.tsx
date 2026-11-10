@@ -10,9 +10,10 @@ const PASSWORD = 'a long enough password'
 const TOKEN = 'token-1'
 const TWELVE_HOURS = 12 * 60 * 60 * 1000
 const INVITE_CODE = 'invite-code-for-friends'
+const SPANISH: Record<string, string> = { 'It slipt my mind.': 'Se me olvidó.' }
 
 /** An in-memory stand-in for the backend API, behind a mocked fetch. */
-function fakeBackend(seed: Phrase[] = [], todayIds: number[] = [], { admin = true } = {}) {
+function fakeBackend(seed: Phrase[] = [], todayIds: number[] = [], { admin = true, translationFails = false } = {}) {
   const phrases = [...seed] // Newest first, like the backend returns them.
   let nextId = Math.max(0, ...phrases.map((phrase) => phrase.id)) + 1
   const json = (status: number, body?: unknown) =>
@@ -49,6 +50,13 @@ function fakeBackend(seed: Phrase[] = [], todayIds: number[] = [], { admin = tru
         const phrase = { id: nextId++, text: body.text, createdAt: new Date().toISOString() }
         phrases.unshift(phrase)
         return json(201, phrase)
+      }
+      const translationOf = Number(path.match(/^\/api\/phrases\/(\d+)\/translation$/)?.[1])
+      if (translationOf) {
+        const phrase = phrases.find((candidate) => candidate.id === translationOf)
+        if (!phrase) return json(404, { error: 'Phrase not found' })
+        if (translationFails) return json(502, { error: "Couldn't translate right now" })
+        return json(200, { translation: SPANISH[phrase.text] ?? `(es) ${phrase.text}` })
       }
       const id = Number(path.match(/^\/api\/phrases\/(\d+)$/)?.[1])
       const index = phrases.findIndex((phrase) => phrase.id === id)
@@ -362,5 +370,77 @@ describe('the app', () => {
     await user.click(slow)
     expect(synth.cancel).toHaveBeenCalled()
     expect(slow.getAttribute('aria-pressed')).toBe('false')
+  })
+
+  it('shows the Spanish translation in a bubble above the phrase, and hides it on a second tap', async () => {
+    fakeBackend([typo])
+    const user = userEvent.setup()
+    startLoggedIn()
+    await screen.findByText('It slipt my mind.')
+    const translate = screen.getByRole('button', { name: 'Translate to Spanish' })
+
+    await user.click(translate)
+
+    const bubble = await screen.findByText('Se me olvidó.')
+    expect(bubble.getAttribute('lang')).toBe('es')
+    const row = bubble.closest('.row')!
+    expect(row.querySelector('.row-body')?.firstElementChild).toBe(bubble) // Above the original.
+    expect(within(row as HTMLElement).getByText('It slipt my mind.')).toBeTruthy()
+    expect(translate.getAttribute('aria-pressed')).toBe('true')
+    expect(screen.queryByRole('dialog')).toBeNull()
+
+    await user.click(translate)
+    expect(screen.queryByText('Se me olvidó.')).toBeNull()
+    expect(translate.getAttribute('aria-pressed')).toBe('false')
+  })
+
+  it('reopens a translation without asking the backend again', async () => {
+    fakeBackend([typo])
+    const user = userEvent.setup()
+    startLoggedIn()
+    await screen.findByText('It slipt my mind.')
+    const translate = screen.getByRole('button', { name: 'Translate to Spanish' })
+    const translationRequests = () =>
+      vi.mocked(fetch).mock.calls.filter(([url]) => String(url).endsWith('/translation')).length
+
+    await user.click(translate)
+    await screen.findByText('Se me olvidó.')
+    await user.click(translate)
+    await user.click(translate)
+
+    expect(screen.getByText('Se me olvidó.')).toBeTruthy()
+    expect(translationRequests()).toBe(1)
+  })
+
+  it('forgets the translation when the phrase is edited', async () => {
+    fakeBackend([typo])
+    const user = userEvent.setup()
+    startLoggedIn()
+    await screen.findByText('It slipt my mind.')
+    await user.click(screen.getByRole('button', { name: 'Translate to Spanish' }))
+    await screen.findByText('Se me olvidó.')
+
+    await user.click(screen.getByRole('button', { name: 'Edit phrase' }))
+    const editor = screen.getByRole('dialog')
+    await user.clear(within(editor).getByRole('textbox'))
+    await user.type(within(editor).getByRole('textbox'), 'It slipped my mind.')
+    await user.click(within(editor).getByRole('button', { name: 'Save' }))
+
+    await screen.findByText('It slipped my mind.')
+    expect(screen.queryByText('Se me olvidó.')).toBeNull()
+    await user.click(screen.getByRole('button', { name: 'Translate to Spanish' }))
+    expect(await screen.findByText('(es) It slipped my mind.')).toBeTruthy()
+  })
+
+  it('says so when the translation fails', async () => {
+    fakeBackend([typo], [], { translationFails: true })
+    const user = userEvent.setup()
+    startLoggedIn()
+    await screen.findByText('It slipt my mind.')
+
+    await user.click(screen.getByRole('button', { name: 'Translate to Spanish' }))
+
+    expect(await screen.findByText("Couldn't translate. Try again.")).toBeTruthy()
+    expect(screen.getByRole('button', { name: 'Translate to Spanish' }).getAttribute('aria-pressed')).toBe('false')
   })
 })

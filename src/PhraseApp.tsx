@@ -1,10 +1,10 @@
 import { useCallback, useEffect, useRef, useState, type FormEvent } from 'react'
 import { Account } from './Account.tsx'
-import { api, UnauthorizedError, type Phrase, type Session } from './api.ts'
+import { api, NotFoundError, UnauthorizedError, type Phrase, type Session } from './api.ts'
 import { Brand } from './Brand.tsx'
 import { Editor } from './Editor.tsx'
 import { BellIcon, CheckIcon, ClockIcon, HistoryIcon, PenIcon, SaveIcon, SunIcon, UserIcon } from './icons.tsx'
-import { PhraseRow, type Speaking } from './PhraseRow.tsx'
+import { PhraseRow, type Speaking, type Translation } from './PhraseRow.tsx'
 import { currentSubscription, pushSupported, subscribe } from './push.ts'
 import { NORMAL_RATE, SLOW_RATE, speak, speechSupported, stopSpeaking } from './speech.ts'
 
@@ -39,6 +39,8 @@ export function PhraseApp({ session, onLogOut, onExpired }: PhraseAppProps) {
   const [isAdmin, setIsAdmin] = useState(false)
   const [canSpeak] = useState(speechSupported)
   const [playing, setPlaying] = useState<{ id: number; slow: boolean } | null>(null)
+  // By phrase id. A translation stays here after its bubble closes, so reopening it needs no request.
+  const [translations, setTranslations] = useState<Record<number, Translation>>({})
   const [reminders, setReminders] = useState<Reminders>(pushSupported ? 'checking' : 'off')
   const [vapidKey, setVapidKey] = useState<string | null>(null)
 
@@ -210,13 +212,43 @@ export function PhraseApp({ session, onLogOut, onExpired }: PhraseAppProps) {
   const speakingOf = (phrase: Phrase): Speaking =>
     playing?.id === phrase.id ? (playing.slow ? 'slow' : 'normal') : null
 
-  const speechProps = (phrase: Phrase) => (canSpeak ? { onSpeak: toggleSpeech, speaking: speakingOf(phrase) } : {})
+  const setTranslation = (id: number, next: Translation | null) =>
+    setTranslations((all) => {
+      const { [id]: _dropped, ...rest } = all
+      return next ? { ...rest, [id]: next } : rest
+    })
+
+  /** Shows the Spanish translation above a phrase, fetching it the first time, or hides it. */
+  async function toggleTranslation(phrase: Phrase) {
+    const current = translations[phrase.id]
+    if (current?.loading) return
+    if (current?.text) {
+      setTranslation(phrase.id, { ...current, open: !current.open })
+      return
+    }
+    setTranslation(phrase.id, { loading: true, open: false })
+    try {
+      const { translation } = await api.translate(phrase.id)
+      setTranslation(phrase.id, { text: translation, loading: false, open: true })
+    } catch (err) {
+      setTranslation(phrase.id, null)
+      if (err instanceof NotFoundError) dropPhrase(phrase.id, true)
+      else fail(err, "Couldn't translate. Try again.")
+    }
+  }
+
+  const rowProps = (phrase: Phrase) => ({
+    ...(canSpeak ? { onSpeak: toggleSpeech, speaking: speakingOf(phrase) } : {}),
+    onTranslate: toggleTranslation,
+    translation: translations[phrase.id],
+  })
 
   // A phrase can be in both Today and Recent, so changes apply to both lists.
   function replacePhrase(updated: Phrase) {
     const swap = (list: Phrase[]) => list.map((phrase) => (phrase.id === updated.id ? updated : phrase))
     setRecent(swap)
     setToday(swap)
+    setTranslation(updated.id, null) // The text may have changed, so the old translation may be wrong.
     setEditing(null)
     showToast('Phrase updated')
   }
@@ -225,6 +257,7 @@ export function PhraseApp({ session, onLogOut, onExpired }: PhraseAppProps) {
     const without = (list: Phrase[]) => list.filter((phrase) => phrase.id !== id)
     setRecent(without)
     setToday(without)
+    setTranslation(id, null)
     setEditing(null)
     showToast(alreadyGone ? 'That phrase was already deleted.' : 'Phrase deleted', alreadyGone)
   }
@@ -281,7 +314,7 @@ export function PhraseApp({ session, onLogOut, onExpired }: PhraseAppProps) {
           </h2>
           <ul className="phrases">
             {today.map((phrase) => (
-              <PhraseRow key={phrase.id} phrase={phrase} onEdit={setEditing} {...speechProps(phrase)} />
+              <PhraseRow key={phrase.id} phrase={phrase} onEdit={setEditing} {...rowProps(phrase)} />
             ))}
           </ul>
         </section>
@@ -292,7 +325,7 @@ export function PhraseApp({ session, onLogOut, onExpired }: PhraseAppProps) {
           </h2>
           <ul id="phrases" className="phrases" ref={recentRef}>
             {recent.map((phrase) => (
-              <PhraseRow key={phrase.id} phrase={phrase} onEdit={setEditing} {...speechProps(phrase)} />
+              <PhraseRow key={phrase.id} phrase={phrase} onEdit={setEditing} {...rowProps(phrase)} />
             ))}
           </ul>
           {loaded && <p className="empty">Your saved phrases will appear here.</p>}

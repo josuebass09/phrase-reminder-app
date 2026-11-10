@@ -139,6 +139,8 @@ export const api = {
   add: (text: string) => request<Phrase>('/api/phrases', { method: 'POST', body: { text } }),
   update: (id: number, text: string) => request<Phrase>(`/api/phrases/${id}`, { method: 'PATCH', body: { text } }),
   remove: (id: number) => request<void>(`/api/phrases/${id}`, { method: 'DELETE' }),
+  /** The phrase in Spanish. The backend translates it once and keeps it. */
+  translate: (id: number) => request<{ translation: string }>(`/api/phrases/${id}/translation`),
   subscribe: (subscription: PushSubscription) =>
     request<void>('/api/push/subscribe', { method: 'POST', body: subscription.toJSON() }),
 }

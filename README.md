@@ -14,7 +14,7 @@ A login lasts 12 hours. After that, the app shows the login screen again with th
 
 ## Listen to a phrase
 
-Each phrase has two buttons that read it aloud in English, labeled with their speed like a video player's: **1x** at normal speed and **0.5x** at half speed, to hear each sound. The one playing fills in; tap it again to stop, or tap the other to switch speeds. Only one phrase plays at a time.
+Under each phrase, two buttons read it aloud in English, labeled with their speed like a video player's: **1x** at normal speed and **0.5x** at half speed, to hear each sound. The one playing fills in; tap it again to stop, or tap the other to switch speeds. Only one phrase plays at a time.
 
 It uses the device's own voices through the browser's Web Speech API, so it costs nothing, needs no server, and works offline. The app picks the best English voice it finds, preferring American English and "Enhanced" or "Premium" voices, and skips Apple's novelty voices. To get a better voice, download one in the phone's settings:
 
@@ -22,6 +22,10 @@ It uses the device's own voices through the browser's Web Speech API, so it cost
 - **Android:** Settings → Text-to-speech output, with Speech Services by Google, then install the English voice data.
 
 Browsers without speech synthesis show no speed buttons.
+
+## Translate a phrase
+
+The 文A button next to the speed buttons shows the phrase in Spanish, in a speech bubble above the original. Tap it again to hide the bubble. The backend translates each phrase once and keeps it, so reopening it is instant; editing the phrase translates the new text the next time.
 
 ## Run the tests
 

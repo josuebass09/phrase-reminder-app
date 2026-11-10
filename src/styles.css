@@ -391,26 +391,33 @@ body {
 }
 
 .row:not(:last-child) .row-body,
-.row:not(:last-child) .row-audio,
 .row:not(:last-child) .row-edit {
   border-bottom: 0.5px solid var(--sep);
 }
 
-/* Above the edit button's full-row tap area (.row-edit::after), so tapping these only plays the phrase. */
-.row-audio {
+/* The date, with the listen and translate buttons on the right. */
+.row-meta {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+/* Above the edit button's full-row tap area (.row-edit::after), so tapping these doesn't open the editor. */
+.row-tools {
   position: relative;
   z-index: 1;
   flex: none;
-  align-self: stretch;
   display: flex;
-  margin: 0 -12px 0 -8px;
+  margin: -6px -3px -6px 0;
 }
 
-/* Each button is as tall as the row, for an easy tap; the chip inside shows its speed, like a video player's. */
-.row-speak {
+/* Each button is taller than its chip, for an easy tap. The chip shows a speed, like a video player's, or the translate icon. */
+.row-tool {
   display: flex;
   align-items: center;
   justify-content: center;
+  min-height: 36px;
   padding: 0 3px;
   border: 0;
   background: none;
@@ -419,7 +426,7 @@ body {
   touch-action: manipulation;
 }
 
-.speed-chip {
+.tool-chip {
   box-sizing: border-box;
   min-width: 34px;
   padding: 4px 7px;
@@ -433,16 +440,56 @@ body {
   text-align: center;
 }
 
-/* The playing speed fills in and pulses; tapping it again stops. */
-.row-speak[aria-pressed="true"] .speed-chip {
-  background: var(--accent);
-  color: var(--card);
-  animation: speaking 1.2s ease-in-out infinite;
+.tool-chip .icon {
+  display: block;
+  width: 16px;
+  height: 16px;
+  margin: 0 auto;
 }
 
-.row-speak:active .speed-chip { opacity: 0.6; }
+/* The playing speed fills in and pulses; tapping it again stops. The translate chip fills in while its bubble shows. */
+.row-tool[aria-pressed="true"] .tool-chip {
+  background: var(--accent);
+  color: var(--card);
+}
 
-.row-speak:focus-visible {
+.row-tool:not(.translate)[aria-pressed="true"] .tool-chip,
+.row-tool[aria-busy="true"] .tool-chip { animation: speaking 1.2s ease-in-out infinite; }
+
+/* The Spanish translation, in a speech bubble whose tail points at the original. */
+.translation-bubble {
+  position: relative;
+  align-self: flex-start;
+  max-width: 100%;
+  box-sizing: border-box;
+  margin: 0 0 8px;
+  padding: 6px 10px;
+  border-radius: 12px;
+  background: var(--accent);
+  color: var(--card);
+  font-size: 15px;
+  line-height: 20px;
+  overflow-wrap: anywhere;
+  animation: bubble-in 0.15s ease-out;
+}
+
+.translation-bubble::after {
+  content: "";
+  position: absolute;
+  left: 14px;
+  bottom: -6px;
+  border: 6px solid transparent;
+  border-top-color: var(--accent);
+  border-bottom: 0;
+}
+
+@keyframes bubble-in {
+  from { opacity: 0; transform: translateY(4px); }
+}
+
+.row-tool:active .tool-chip { opacity: 0.6; }
+
+.row-tool:focus-visible {
   outline: 2px solid #0E7C72;
   outline-offset: -4px;
   border-radius: 10px;
@@ -989,10 +1036,9 @@ body {
 
 [data-platform="android"] .row-body { padding: 0; }
 [data-platform="android"] .row:not(:last-child) .row-body,
-[data-platform="android"] .row:not(:last-child) .row-audio,
 [data-platform="android"] .row:not(:last-child) .row-edit { border-bottom: 0; }
-[data-platform="android"] .row-audio { margin: -10px -12px -10px -8px; }
-[data-platform="android"] .speed-chip { font-weight: 500; font-size: 14px; line-height: 18px; }
+[data-platform="android"] .tool-chip { font-weight: 500; font-size: 14px; line-height: 18px; }
+[data-platform="android"] .tool-chip .icon { width: 18px; height: 18px; }
 [data-platform="android"] .row-edit { width: 40px; margin: -10px -8px -10px -12px; }
 [data-platform="android"] .row-edit .icon { width: 24px; height: 24px; }
 
@@ -1153,6 +1199,8 @@ body {
 @media (prefers-reduced-motion: reduce) {
   .toast,
   .sheet[open],
-  .row-speak[aria-pressed="true"] .speed-chip { animation: none; }
+  .row-tool[aria-pressed="true"] .tool-chip,
+  .row-tool[aria-busy="true"] .tool-chip,
+  .translation-bubble { animation: none; }
   .primary:not(:disabled):active { transform: none; }
 }
