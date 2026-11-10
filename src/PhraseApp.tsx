@@ -6,6 +6,7 @@ import { Editor } from './Editor.tsx'
 import { BellIcon, CheckIcon, ClockIcon, HistoryIcon, PenIcon, SaveIcon, SunIcon, UserIcon } from './icons.tsx'
 import { PhraseRow, type Speaking, type Translation } from './PhraseRow.tsx'
 import { Spinner } from './Spinner.tsx'
+import { ThemeToggle } from './ThemeToggle.tsx'
 import { currentSubscription, pushSupported, subscribe } from './push.ts'
 import { NORMAL_RATE, SLOW_RATE, speak, speechSupported, stopSpeaking } from './speech.ts'
 
@@ -291,9 +292,10 @@ export function PhraseApp({ session, onLogOut, onExpired }: PhraseAppProps) {
               onClick={onRemindersTap}
             >
               {enabling ? <Spinner /> : <BellIcon />}
-              <span>{remindersOn ? '12:00' : enabling ? 'Turning on…' : 'Turn on'}</span>
+              <span>{remindersOn ? '12:00' : 'Turn on'}</span>
             </button>
-            <button className="account-button" type="button" aria-label="Account" onClick={() => setAccountOpen(true)}>
+            <ThemeToggle />
+            <button className="bar-button account-button" type="button" aria-label="Account" onClick={() => setAccountOpen(true)}>
               <UserIcon />
             </button>
           </div>

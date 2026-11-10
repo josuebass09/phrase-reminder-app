@@ -33,6 +33,8 @@ The app follows the platform it runs on, set from the browser's user agent befor
 
 The colors are "Salvia y papel": muted sage on warm paper, with a matching dark mode, chosen to be easy on the eyes while keeping text readable (WCAG AA contrast). They're the variables at the top of `src/styles.css`.
 
+The moon (or sun) button at the top switches between light and dark, on the login screen too. Until it's used, the app follows the device's setting; after that, the choice is kept on that device. `src/theme.ts` applies it and colors the phone's status bar to match.
+
 The icons come from [Lucide](https://lucide.dev) (ISC; some started in Feather, MIT), which allow free use as long as the notice is kept. The notice is in `THIRD_PARTY_NOTICES.md` and in `src/icons.tsx`, and `vite.config.ts` keeps it in the built files. The spinners are drawn in this app's own CSS.
 
 ## Run the tests

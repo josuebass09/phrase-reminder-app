@@ -572,4 +572,26 @@ describe('the app', () => {
     hold.release()
     await screen.findByText('It slipt my mind.')
   })
+
+  it('switches between light and dark from the header, on the login screen and in the app', async () => {
+    fakeBackend([typo])
+    const user = userEvent.setup()
+    render(<App />)
+
+    const onLogin = screen.getByRole('button', { name: 'Dark mode' })
+    const before = document.documentElement.dataset.theme
+    await user.click(onLogin)
+    expect(document.documentElement.dataset.theme).not.toBe(before)
+    expect(onLogin.getAttribute('aria-pressed')).toBe(String(document.documentElement.dataset.theme === 'dark'))
+
+    await user.type(screen.getByLabelText('Email'), EMAIL)
+    await user.type(screen.getByLabelText('Password'), PASSWORD)
+    await user.click(screen.getByRole('button', { name: 'Log in' }))
+    await screen.findByText('It slipt my mind.')
+    const inApp = screen.getByRole('button', { name: 'Dark mode' })
+    const pressed = inApp.getAttribute('aria-pressed')
+    await user.click(inApp)
+
+    expect(inApp.getAttribute('aria-pressed')).toBe(pressed === 'true' ? 'false' : 'true')
+  })
 })

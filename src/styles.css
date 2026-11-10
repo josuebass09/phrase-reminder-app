@@ -1,7 +1,7 @@
 /* "Salvia y papel": muted sage on warm paper, chosen to be easy on the eyes.
    No pure white or black, and no saturated colors; text keeps WCAG AA contrast. */
 :root {
-  color-scheme: light dark;
+  color-scheme: light;
   --header: #4E7262;
   --bg: #F6F4EE;
   --card: #FFFDF8;
@@ -24,26 +24,26 @@
   --font: -apple-system, BlinkMacSystemFont, "SF Pro Text", system-ui, sans-serif;
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --header: #2E463B;
-    --bg: #171A16;
-    --card: #21251F;
-    --field: #171A16;
-    --text: #ECE8DE;
-    --secondary: #B4AE9F;
-    --sep: #2F342C;
-    --outline: #8C877B;
-    --accent: #A8C9B4;
-    --focus: #A8C9B4;
-    --chip: #2C3229;
-    --disabled-bg: #2A2E27;
-    --disabled-text: #B4AE9F;
-    --error-text: #F2B1A8;
-    --success: #3F6252;
-    --error: #8E3B33;
-    --shadow: rgba(0, 0, 0, 0.4);
-  }
+/* Set by src/theme.ts, from the toggle or the device's setting. */
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --header: #2E463B;
+  --bg: #171A16;
+  --card: #21251F;
+  --field: #171A16;
+  --text: #ECE8DE;
+  --secondary: #B4AE9F;
+  --sep: #2F342C;
+  --outline: #8C877B;
+  --accent: #A8C9B4;
+  --focus: #A8C9B4;
+  --chip: #2C3229;
+  --disabled-bg: #2A2E27;
+  --disabled-text: #B4AE9F;
+  --error-text: #F2B1A8;
+  --success: #3F6252;
+  --error: #8E3B33;
+  --shadow: rgba(0, 0, 0, 0.4);
 }
 
 [data-platform="android"] {
@@ -58,13 +58,17 @@
 .tone-4 { --tint: #EAE3EA; --ink: #7B6181; }
 .tone-5 { --tint: #F2E1DE; --ink: #9C5B55; }
 
-@media (prefers-color-scheme: dark) {
-  .tone-0 { --tint: #3A2A22; --ink: #E8B49A; }
-  .tone-1 { --tint: #26332B; --ink: #A8C9B4; }
-  .tone-2 { --tint: #262E36; --ink: #A9BCD1; }
-  .tone-3 { --tint: #362F1F; --ink: #D9C08A; }
-  .tone-4 { --tint: #302832; --ink: #C7B3CB; }
-  .tone-5 { --tint: #36262A; --ink: #DDA7A2; }
+[data-theme="dark"] .tone-0 { --tint: #3A2A22; --ink: #E8B49A; }
+[data-theme="dark"] .tone-1 { --tint: #26332B; --ink: #A8C9B4; }
+[data-theme="dark"] .tone-2 { --tint: #262E36; --ink: #A9BCD1; }
+[data-theme="dark"] .tone-3 { --tint: #362F1F; --ink: #D9C08A; }
+[data-theme="dark"] .tone-4 { --tint: #302832; --ink: #C7B3CB; }
+[data-theme="dark"] .tone-5 { --tint: #36262A; --ink: #DDA7A2; }
+
+/* While the theme changes, colors fade over instead of jumping. */
+.theme-changing,
+.theme-changing * {
+  transition: background-color 0.25s ease, color 0.25s ease, border-color 0.25s ease !important;
 }
 
 /* Base */
@@ -198,7 +202,26 @@ body {
   gap: 8px;
 }
 
-.account-button {
+/* iOS large titles stand alone, as in Apple's apps, which also leaves room for the header buttons. */
+[data-platform="ios"] .brand-mark { display: none; }
+
+/* Narrow phones, such as the first iPhone SE (320px): a smaller title keeps the buttons from covering it. */
+@media (max-width: 359px) {
+  .brand h1 {
+    font-size: 28px;
+    line-height: 34px;
+  }
+
+  .bar-actions { gap: 4px; }
+}
+
+/* Under 340px, the reminders button shows only its bell; its label still says what it does. */
+@media (max-width: 339px) {
+  .pill span { display: none; }
+  .pill { padding: 6px 8px; }
+}
+
+.bar-button {
   position: relative;
   flex: none;
   display: flex;
@@ -215,20 +238,20 @@ body {
 }
 
 /* A 44px tap area around the 32px circle. */
-.account-button::after {
+.bar-button::after {
   content: "";
   position: absolute;
   inset: -6px;
 }
 
-.account-button .icon {
+.bar-button .icon {
   width: 18px;
   height: 18px;
 }
 
-.account-button:active { opacity: 0.82; }
+.bar-button:active { opacity: 0.82; }
 
-.account-button:focus-visible {
+.bar-button:focus-visible {
   outline: 2px solid #FFFFFF;
   outline-offset: 2px;
 }
@@ -1076,15 +1099,15 @@ body {
   font-weight: 500;
 }
 
-[data-platform="android"] .account-button {
+[data-platform="android"] .bar-button {
   width: 40px;
   height: 40px;
   background: none;
 }
 
-[data-platform="android"] .account-button::after { inset: -4px; }
+[data-platform="android"] .bar-button::after { inset: -4px; }
 
-[data-platform="android"] .account-button .icon {
+[data-platform="android"] .bar-button .icon {
   width: 24px;
   height: 24px;
 }
@@ -1204,7 +1227,7 @@ body {
 [data-platform="android"] .row-tool[aria-pressed="true"] .tool-chip { border-color: var(--accent); }
 
 /* Material's pressed state: a 12% layer of the content color, instead of iOS's dimming. */
-[data-platform="android"] :is(.pill, .text-button, .sheet-action, .delete-button, .invite-button, .account-button, .bubble-close):active,
+[data-platform="android"] :is(.pill, .text-button, .sheet-action, .delete-button, .invite-button, .bar-button, .bubble-close):active,
 [data-platform="android"] .row-tool:active .tool-chip {
   opacity: 1;
   box-shadow: inset 0 0 0 100vmax color-mix(in srgb, currentColor 12%, transparent);
@@ -1377,6 +1400,8 @@ body {
   .row-tool[aria-pressed="true"] .tool-chip,
   .row-tool[aria-busy="true"] .tool-chip,
   .translation-bubble { animation: none; }
+  .theme-changing,
+  .theme-changing * { transition: none !important; }
   .primary:not(:disabled):active { transform: none; }
 }
 
@@ -1384,4 +1409,16 @@ body {
   .spinner-ios > span { animation-duration: 1.6s; }
   .spinner-android svg,
   .spinner-android circle { animation-duration: 2.8s; }
+}
+
+/* Android phones under 390px wide get Material's small top app bar title, so it fits beside the actions. */
+@media (max-width: 389px) {
+  [data-platform="android"] .brand h1 {
+    font-size: 22px;
+    line-height: 28px;
+  }
+}
+
+@media (max-width: 339px) {
+  [data-platform="android"] .brand-mark { display: none; }
 }

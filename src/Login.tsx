@@ -3,6 +3,7 @@ import { api, ApiError, lastEmail, UnauthorizedError, type Session } from './api
 import { Brand } from './Brand.tsx'
 import { inviteCodeFrom } from './invite.ts'
 import { Spinner } from './Spinner.tsx'
+import { ThemeToggle } from './ThemeToggle.tsx'
 
 const MIN_PASSWORD_LENGTH = 12 // Matches the backend.
 
@@ -62,6 +63,7 @@ export function Login({ invite, notice, onLoggedIn }: LoginProps) {
       <div className="top">
         <header className="bar">
           <Brand />
+          <ThemeToggle />
         </header>
       </div>
       <main className="login-body">
