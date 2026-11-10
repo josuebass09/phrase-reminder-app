@@ -3,6 +3,7 @@ import type { ReminderSettings } from './api.ts'
 import { LogOutIcon } from './icons.tsx'
 import { InviteSection } from './InviteSection.tsx'
 import { ReminderSettingsSection, type DeviceReminders } from './ReminderSettings.tsx'
+import { TranslationUsage } from './TranslationUsage.tsx'
 
 export interface SettingsProps {
   email: string
@@ -71,6 +72,7 @@ export function Settings({
             onTurnOnDevice={onTurnOnDevice}
             onUnauthorized={onUnauthorized}
           />
+          <TranslationUsage />
           <section className="settings-section" aria-labelledby="account-heading">
             <div className="settings-heading">
               <h3 id="account-heading">Account</h3>

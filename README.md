@@ -33,6 +33,8 @@ Browsers without speech synthesis show no speed buttons.
 
 The 文A button next to the speed buttons shows the phrase in Spanish, in a speech bubble above the original. Close it with the X in the bubble's top-right corner, or by tapping 文A again. The backend translates each phrase once and keeps it, so reopening it is instant; editing the phrase translates the new text the next time.
 
+Each user may ask for 30 new translations a day (the admin has no limit); reopening a saved one doesn't count. Past the limit, the app says so and the count starts over at the user's midnight. Settings shows how many they've used today.
+
 ## Design
 
 The app follows the platform it runs on, set from the browser's user agent before the first render: iOS conventions on iPhone and iPad (large title, grouped lists, sheets, buttons that dim when pressed, the spoked activity indicator), and Material 3 on Android (top app bar, outlined fields and chips, a floating Save button, snackbars, pressed-state layers, the circular progress indicator). Every wait shows a spinner in that platform's style: logging in, the first load, saving, editing and deleting, translating, turning on reminders, and creating an invite.

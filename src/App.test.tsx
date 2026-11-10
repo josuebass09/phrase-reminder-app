@@ -28,11 +28,19 @@ function fakeBackend(
     admin = true,
     translationFails = false,
     settingsFail = false,
+    translationLimitReached = false,
     hold,
-  }: { admin?: boolean; translationFails?: boolean; settingsFail?: boolean; hold?: ReturnType<typeof holdBack> } = {},
+  }: {
+    admin?: boolean
+    translationFails?: boolean
+    settingsFail?: boolean
+    translationLimitReached?: boolean
+    hold?: ReturnType<typeof holdBack>
+  } = {},
 ) {
   const phrases = [...seed] // Newest first, like the backend returns them.
   const settings = { remindersOn: true, reminderTime: '12:00', timeZone: deviceTimeZone(), phrasesPerDay: 3 }
+  let translationsUsed = 0
   let nextId = Math.max(0, ...phrases.map((phrase) => phrase.id)) + 1
   const json = (status: number, body?: unknown) =>
     new Response(body === undefined ? null : JSON.stringify(body), { status })
@@ -60,6 +68,7 @@ function fakeBackend(
       if (headers.Authorization !== `Bearer ${TOKEN}`) return json(401, { error: 'Not logged in' })
 
       if (path === '/api/me') return json(200, { id: 1, email: EMAIL, isAdmin: admin })
+      if (path === '/api/translation-usage') return json(200, { used: translationsUsed, limit: admin ? null : 30 })
       if (path === '/api/settings') {
         if (method === 'PATCH') {
           if (settingsFail) return json(500, { error: 'Database down' })
@@ -82,6 +91,8 @@ function fakeBackend(
         const phrase = phrases.find((candidate) => candidate.id === translationOf)
         if (!phrase) return json(404, { error: 'Phrase not found' })
         if (translationFails) return json(502, { error: "Couldn't translate right now" })
+        if (translationLimitReached) return json(429, { error: "You've used today's 30 translations. More tomorrow." })
+        translationsUsed += 1
         return json(200, { translation: SPANISH[phrase.text] ?? `(es) ${phrase.text}` })
       }
       const id = Number(path.match(/^\/api\/phrases\/(\d+)$/)?.[1])
@@ -670,5 +681,40 @@ describe('the app', () => {
     await screen.findByText('It slipt my mind.')
 
     await waitFor(() => expect(backend.settings.timeZone).toBe(deviceTimeZone()))
+  })
+
+  it("says when today's translations are used up", async () => {
+    fakeBackend([typo], [], { translationLimitReached: true })
+    const user = userEvent.setup()
+    startLoggedIn()
+    await screen.findByText('It slipt my mind.')
+
+    await user.click(screen.getByRole('button', { name: 'Translate to Spanish' }))
+
+    expect(await screen.findByText("You've used today's 30 translations. More tomorrow.")).toBeTruthy()
+  })
+
+  it("shows today's translations in Settings, with the limit or none for the admin", async () => {
+    fakeBackend([typo], [], { admin: false })
+    const user = userEvent.setup()
+    startLoggedIn()
+    await screen.findByText('It slipt my mind.')
+    await user.click(screen.getByRole('button', { name: 'Translate to Spanish' }))
+    await screen.findByText('Se me olvidó.')
+
+    await user.click(screen.getByRole('button', { name: 'Settings' }))
+
+    expect(await within(screen.getByRole('dialog')).findByText('1 of 30')).toBeTruthy()
+  })
+
+  it('shows the admin no limit', async () => {
+    fakeBackend([typo])
+    const user = userEvent.setup()
+    startLoggedIn()
+    await screen.findByText('It slipt my mind.')
+
+    await user.click(screen.getByRole('button', { name: 'Settings' }))
+
+    expect(await within(screen.getByRole('dialog')).findByText('0 · no limit')).toBeTruthy()
   })
 })

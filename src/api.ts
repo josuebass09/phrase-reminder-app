@@ -143,6 +143,8 @@ export const api = {
   config: () => request<{ vapidPublicKey: string }>('/api/config'),
   me: () => request<{ id: number; email: string; isAdmin: boolean }>('/api/me'),
   settings: () => request<ReminderSettings>('/api/settings'),
+  /** New translations used today, and the daily limit, which is null for the admin. */
+  translationUsage: () => request<{ used: number; limit: number | null }>('/api/translation-usage'),
   /** Saves only the settings given, and returns them all. */
   updateSettings: (changes: Partial<ReminderSettings>) =>
     request<ReminderSettings>('/api/settings', { method: 'PATCH', body: changes }),

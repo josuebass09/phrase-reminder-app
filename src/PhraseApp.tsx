@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState, type FormEvent } from 'react'
-import { api, NotFoundError, UnauthorizedError, type Phrase, type ReminderSettings, type Session } from './api.ts'
+import { api, ApiError, NotFoundError, UnauthorizedError, type Phrase, type ReminderSettings, type Session } from './api.ts'
 import { Brand } from './Brand.tsx'
 import { Editor } from './Editor.tsx'
 import { deviceTimeZone, timeLabel } from './format.ts'
@@ -253,6 +253,7 @@ export function PhraseApp({ session, onLogOut, onExpired }: PhraseAppProps) {
     } catch (err) {
       setTranslation(phrase.id, null)
       if (err instanceof NotFoundError) dropPhrase(phrase.id, true)
+      else if (err instanceof ApiError && err.status === 429) showToast(err.message, true) // Today's limit.
       else fail(err, "Couldn't translate. Try again.")
     }
   }
