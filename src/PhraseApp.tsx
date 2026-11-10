@@ -1,10 +1,11 @@
 import { useCallback, useEffect, useRef, useState, type FormEvent } from 'react'
-import { Account } from './Account.tsx'
-import { api, NotFoundError, UnauthorizedError, type Phrase, type Session } from './api.ts'
+import { api, NotFoundError, UnauthorizedError, type Phrase, type ReminderSettings, type Session } from './api.ts'
 import { Brand } from './Brand.tsx'
 import { Editor } from './Editor.tsx'
+import { deviceTimeZone, timeLabel } from './format.ts'
 import { BellIcon, CheckIcon, ClockIcon, HistoryIcon, PenIcon, SaveIcon, SunIcon, UserIcon } from './icons.tsx'
 import { PhraseRow, type Speaking, type Translation } from './PhraseRow.tsx'
+import { Settings } from './Settings.tsx'
 import { Spinner } from './Spinner.tsx'
 import { ThemeToggle } from './ThemeToggle.tsx'
 import { currentSubscription, pushSupported, subscribe } from './push.ts'
@@ -38,7 +39,8 @@ export function PhraseApp({ session, onLogOut, onExpired }: PhraseAppProps) {
   const [saving, setSaving] = useState(false)
   const [toast, setToast] = useState<Toast | null>(null)
   const [editing, setEditing] = useState<Phrase | null>(null)
-  const [accountOpen, setAccountOpen] = useState(false)
+  const [settingsOpen, setSettingsOpen] = useState(false)
+  const [settings, setSettings] = useState<ReminderSettings | null>(null)
   const [isAdmin, setIsAdmin] = useState(false)
   const [canSpeak] = useState(speechSupported)
   const [playing, setPlaying] = useState<{ id: number; slow: boolean } | null>(null)
@@ -110,6 +112,16 @@ export function PhraseApp({ session, onLogOut, onExpired }: PhraseAppProps) {
       .me()
       .then((user) => active && setIsAdmin(user.isAdmin))
       .catch(() => {})
+    // Reminders go out at the chosen time in this device's time zone, so a phone
+    // that moved to another zone updates it.
+    api
+      .settings()
+      .then(async (saved) => {
+        const zone = deviceTimeZone()
+        const current = zone && zone !== saved.timeZone ? await api.updateSettings({ timeZone: zone }) : saved
+        if (active) setSettings(current)
+      })
+      .catch(() => {})
     if (pushSupported) {
       currentSubscription()
         .then(async (subscription) => {
@@ -173,11 +185,8 @@ export function PhraseApp({ session, onLogOut, onExpired }: PhraseAppProps) {
     }
   }
 
-  async function onRemindersTap() {
-    if (reminders === 'on') {
-      showToast('Reminders are on for 12:00 every day.')
-      return
-    }
+  /** Turns reminders on for this device: the permission prompt, then saving its subscription. */
+  async function turnOnDevice() {
     if (!pushSupported) {
       showToast('Add this app to your Home Screen to turn on reminders.', true)
       return
@@ -275,6 +284,15 @@ export function PhraseApp({ session, onLogOut, onExpired }: PhraseAppProps) {
 
   const remindersOn = reminders === 'on'
   const enabling = reminders === 'enabling'
+  const paused = remindersOn && settings?.remindersOn === false
+  const pillLabel = !remindersOn ? 'Turn on' : !settings ? '…' : paused ? 'Paused' : timeLabel(settings.reminderTime)
+  const pillAria = !remindersOn
+    ? enabling
+      ? 'Turning on daily reminder'
+      : 'Turn on daily reminder'
+    : paused
+      ? 'Daily reminder paused. Open settings'
+      : `Daily reminder at ${pillLabel}. Open settings`
 
   return (
     <div className="app" ref={appRef}>
@@ -287,15 +305,15 @@ export function PhraseApp({ session, onLogOut, onExpired }: PhraseAppProps) {
               className={`pill${remindersOn ? '' : ' pill-off'}`}
               type="button"
               hidden={reminders === 'checking'}
-              aria-label={remindersOn ? 'Daily reminder on at 12:00' : enabling ? 'Turning on daily reminder' : 'Turn on daily reminder'}
+              aria-label={pillAria}
               aria-busy={enabling}
-              onClick={onRemindersTap}
+              onClick={() => (remindersOn ? setSettingsOpen(true) : turnOnDevice())}
             >
               {enabling ? <Spinner /> : <BellIcon />}
-              <span>{remindersOn ? '12:00' : 'Turn on'}</span>
+              <span>{pillLabel}</span>
             </button>
             <ThemeToggle />
-            <button className="bar-button account-button" type="button" aria-label="Account" onClick={() => setAccountOpen(true)}>
+            <button className="bar-button account-button" type="button" aria-label="Settings" onClick={() => setSettingsOpen(true)}>
               <UserIcon />
             </button>
           </div>
@@ -381,12 +399,16 @@ export function PhraseApp({ session, onLogOut, onExpired }: PhraseAppProps) {
           onUnauthorized={onExpired}
         />
       )}
-      {accountOpen && (
-        <Account
+      {settingsOpen && (
+        <Settings
           email={session.email}
           expiresAt={session.expiresAt}
           isAdmin={isAdmin}
-          onClose={() => setAccountOpen(false)}
+          settings={settings}
+          onSettingsChange={setSettings}
+          device={pushSupported ? reminders : 'unsupported'}
+          onTurnOnDevice={turnOnDevice}
+          onClose={() => setSettingsOpen(false)}
           onLogOut={onLogOut}
           onUnauthorized={onExpired}
         />

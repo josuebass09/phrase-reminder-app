@@ -1,9 +1,10 @@
-import { act, render, screen, waitFor, within } from '@testing-library/react'
+import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import App from './App.tsx'
 import { readSession, type Phrase } from './api.ts'
 import { fakeSpeech } from './test/fake-speech.ts'
+import { deviceTimeZone } from './format.ts'
 
 const EMAIL = 'me@example.com'
 const PASSWORD = 'a long enough password'
@@ -23,9 +24,15 @@ function holdBack(path: string) {
 function fakeBackend(
   seed: Phrase[] = [],
   todayIds: number[] = [],
-  { admin = true, translationFails = false, hold }: { admin?: boolean; translationFails?: boolean; hold?: ReturnType<typeof holdBack> } = {},
+  {
+    admin = true,
+    translationFails = false,
+    settingsFail = false,
+    hold,
+  }: { admin?: boolean; translationFails?: boolean; settingsFail?: boolean; hold?: ReturnType<typeof holdBack> } = {},
 ) {
   const phrases = [...seed] // Newest first, like the backend returns them.
+  const settings = { remindersOn: true, reminderTime: '12:00', timeZone: deviceTimeZone(), phrasesPerDay: 3 }
   let nextId = Math.max(0, ...phrases.map((phrase) => phrase.id)) + 1
   const json = (status: number, body?: unknown) =>
     new Response(body === undefined ? null : JSON.stringify(body), { status })
@@ -53,6 +60,13 @@ function fakeBackend(
       if (headers.Authorization !== `Bearer ${TOKEN}`) return json(401, { error: 'Not logged in' })
 
       if (path === '/api/me') return json(200, { id: 1, email: EMAIL, isAdmin: admin })
+      if (path === '/api/settings') {
+        if (method === 'PATCH') {
+          if (settingsFail) return json(500, { error: 'Database down' })
+          Object.assign(settings, body)
+        }
+        return json(200, settings)
+      }
       if (path === '/api/invites') {
         return admin ? json(201, { code: 'new-invite-code', expiresAt: '2026-11-17T12:00:00.000Z' }) : json(403, {})
       }
@@ -84,7 +98,7 @@ function fakeBackend(
       return json(405)
     }),
   )
-  return phrases
+  return Object.assign(phrases, { settings })
 }
 
 const typo: Phrase = { id: 1, text: 'It slipt my mind.', createdAt: '2026-11-01T12:00:00.000Z' }
@@ -122,14 +136,14 @@ describe('the app', () => {
     expect(readSession()?.token).toBe(TOKEN)
   })
 
-  it('logs out from the account sheet and fills in the email next time', async () => {
+  it('logs out from the settings sheet and fills in the email next time', async () => {
     fakeBackend([typo])
     const user = userEvent.setup()
     startLoggedIn()
     await screen.findByText('It slipt my mind.')
     localStorage.setItem('phrase-reminder-email', EMAIL)
 
-    await user.click(screen.getByRole('button', { name: 'Account' }))
+    await user.click(screen.getByRole('button', { name: 'Settings' }))
     const sheet = screen.getByRole('dialog')
     expect(within(sheet).getByText(EMAIL)).toBeTruthy()
     expect(within(sheet).getByText(/^Logged in until /)).toBeTruthy()
@@ -141,13 +155,13 @@ describe('the app', () => {
     expect(readSession()).toBeNull()
   })
 
-  it('closes the account sheet without logging out', async () => {
+  it('closes the settings sheet without logging out', async () => {
     fakeBackend([typo])
     const user = userEvent.setup()
     startLoggedIn()
     await screen.findByText('It slipt my mind.')
 
-    await user.click(screen.getByRole('button', { name: 'Account' }))
+    await user.click(screen.getByRole('button', { name: 'Settings' }))
     await user.click(within(screen.getByRole('dialog')).getByRole('button', { name: 'Done' }))
 
     expect(screen.queryByRole('dialog')).toBeNull()
@@ -289,7 +303,7 @@ describe('the app', () => {
     startLoggedIn()
     await screen.findByText('It slipt my mind.')
 
-    await user.click(screen.getByRole('button', { name: 'Account' }))
+    await user.click(screen.getByRole('button', { name: 'Settings' }))
     await user.click(await screen.findByRole('button', { name: 'Invite someone' }))
     const link = (await screen.findByLabelText('Invite link')) as HTMLInputElement
     expect(link.value).toBe(`${window.location.origin}/?invite=new-invite-code`)
@@ -307,7 +321,7 @@ describe('the app', () => {
     startLoggedIn()
     await screen.findByText('It slipt my mind.')
 
-    await user.click(screen.getByRole('button', { name: 'Account' }))
+    await user.click(screen.getByRole('button', { name: 'Settings' }))
 
     expect(within(screen.getByRole('dialog')).getByRole('button', { name: 'Log out' })).toBeTruthy()
     expect(screen.queryByRole('button', { name: 'Invite someone' })).toBeNull()
@@ -593,5 +607,68 @@ describe('the app', () => {
     await user.click(inApp)
 
     expect(inApp.getAttribute('aria-pressed')).toBe(pressed === 'true' ? 'false' : 'true')
+  })
+
+  it('shows the reminder settings and saves each change right away', async () => {
+    const backend = fakeBackend([typo])
+    const user = userEvent.setup()
+    startLoggedIn()
+    await screen.findByText('It slipt my mind.')
+
+    await user.click(screen.getByRole('button', { name: 'Settings' }))
+    const sheet = screen.getByRole('dialog')
+    const enabled = await within(sheet).findByRole('switch', { name: 'Send me phrases' })
+    expect(enabled).toHaveProperty('checked', true)
+    expect(within(sheet).getByLabelText('Time')).toHaveProperty('value', '12:00')
+    expect(within(sheet).getByLabelText('Phrases each time')).toHaveProperty('value', '3')
+
+    await user.selectOptions(within(sheet).getByLabelText('Phrases each time'), '5')
+    expect(await within(sheet).findByText('Saved')).toBeTruthy()
+    expect(backend.settings.phrasesPerDay).toBe(5)
+
+    await user.click(enabled)
+    await waitFor(() => expect(backend.settings.remindersOn).toBe(false))
+    expect(within(sheet).getByLabelText('Time')).toHaveProperty('disabled', true)
+    expect(within(sheet).getByText(/^Paused\./)).toBeTruthy()
+  })
+
+  it('saves a new time once the picker settles', async () => {
+    const backend = fakeBackend([typo])
+    const user = userEvent.setup()
+    startLoggedIn()
+    await screen.findByText('It slipt my mind.')
+    await user.click(screen.getByRole('button', { name: 'Settings' }))
+    const time = await within(screen.getByRole('dialog')).findByLabelText('Time')
+
+    fireEvent.change(time, { target: { value: '08:15' } })
+    fireEvent.change(time, { target: { value: '08:30' } })
+
+    await waitFor(() => expect(backend.settings.reminderTime).toBe('08:30'))
+    const patches = vi.mocked(fetch).mock.calls.filter(([url, init]) => String(url).endsWith('/api/settings') && init?.method === 'PATCH')
+    expect(patches).toHaveLength(1) // Only the time it settled on.
+    expect(screen.getByText(/^Every day around /).textContent).toContain('with 3 phrases')
+  })
+
+  it('puts a change back and says so when it cannot be saved', async () => {
+    fakeBackend([typo], [], { settingsFail: true })
+    const user = userEvent.setup()
+    startLoggedIn()
+    await screen.findByText('It slipt my mind.')
+    await user.click(screen.getByRole('button', { name: 'Settings' }))
+    const sheet = screen.getByRole('dialog')
+
+    await user.selectOptions(await within(sheet).findByLabelText('Phrases each time'), '1')
+
+    expect(await within(sheet).findByRole('alert')).toHaveProperty('textContent', "Couldn't save. Try again.")
+    expect(within(sheet).getByLabelText('Phrases each time')).toHaveProperty('value', '3')
+  })
+
+  it("updates the saved time zone to the device's", async () => {
+    const backend = fakeBackend([typo])
+    backend.settings.timeZone = 'Pacific/Fiji' // As if the phone had moved since.
+    startLoggedIn()
+    await screen.findByText('It slipt my mind.')
+
+    await waitFor(() => expect(backend.settings.timeZone).toBe(deviceTimeZone()))
   })
 })

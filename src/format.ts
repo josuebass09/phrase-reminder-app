@@ -18,3 +18,18 @@ export function savedLabel(iso: string, now = new Date()): string {
   if (saved.getFullYear() !== now.getFullYear()) options.year = 'numeric'
   return `Saved ${new Intl.DateTimeFormat('en-US', options).format(saved)}`
 }
+
+/** A 24-hour HH:MM time as this device shows times, such as 8:30 AM or 08:30. */
+export function timeLabel(time: string): string {
+  const [hours, minutes] = time.split(':').map(Number)
+  return new Date(2000, 0, 1, hours, minutes).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })
+}
+
+/** The device's time zone, such as America/Costa_Rica, or null if the browser doesn't say. */
+export function deviceTimeZone(): string | null {
+  try {
+    return Intl.DateTimeFormat().resolvedOptions().timeZone || null
+  } catch {
+    return null
+  }
+}

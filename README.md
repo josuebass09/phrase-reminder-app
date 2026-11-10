@@ -8,9 +8,15 @@ It's a React app built with Vite. It talks to the backend's API with a bearer to
 
 Each person logs in with an email and password and sees only their own phrases.
 
-New people join with an invite link from the admin, who is the first user. In the account sheet (the person icon), the admin taps **Invite someone**, then **Share** or **Copy**. Each link creates one account and expires after 7 days. Opening it shows the sign-up form with the code filled in; the person picks an email and a password of at least 12 characters. The code also works typed or pasted after tapping **I have an invite** on the login screen. The app removes the code from the address as soon as it opens, so it doesn't stay in the browser history or become the installed app's start page.
+New people join with an invite link from the admin, who is the first user. In Settings (the person icon), the admin taps **Invite someone**, then **Share** or **Copy**. Each link creates one account and expires after 7 days. Opening it shows the sign-up form with the code filled in; the person picks an email and a password of at least 12 characters. The code also works typed or pasted after tapping **I have an invite** on the login screen. The app removes the code from the address as soon as it opens, so it doesn't stay in the browser history or become the installed app's start page.
 
-A login lasts 12 hours. After that, the app shows the login screen again with the last email already filled in. The person icon at the top shows who is logged in and until when, and has **Log out**.
+A login lasts 12 hours. After that, the app shows the login screen again with the last email already filled in. The person icon at the top opens Settings, which shows who is logged in and until when, and has **Log out**.
+
+## Settings
+
+The person icon at the top opens Settings. Under **Daily reminder**, each person turns their reminder on or off, picks its time with the phone's own time picker, and chooses 1 to 5 phrases. Changes save right away, and the backend sends the reminder within 15 minutes of that time, in the time zone of the person's phone. The same sheet shows whether this device gets reminders, with **Turn on** if not, and holds the account: email, invites for the admin, and **Log out**.
+
+The bell button at the top shows the reminder's time, or **Paused**, once the device has reminders on; tapping it opens Settings.
 
 ## Listen to a phrase
 

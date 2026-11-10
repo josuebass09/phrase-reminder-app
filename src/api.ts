@@ -12,6 +12,16 @@ export interface Session {
   email: string
 }
 
+/** When and how each user's daily reminder goes out. */
+export interface ReminderSettings {
+  remindersOn: boolean
+  /** Local time of day, as HH:MM in 24-hour time. */
+  reminderTime: string
+  /** IANA time zone, taken from the device. */
+  timeZone: string
+  phrasesPerDay: number
+}
+
 interface LoginResponse {
   token: string
   expiresIn: number
@@ -132,6 +142,10 @@ export const api = {
     saveSession(await request<LoginResponse>('/api/signup', { method: 'POST', body: { email, password, code } })),
   config: () => request<{ vapidPublicKey: string }>('/api/config'),
   me: () => request<{ id: number; email: string; isAdmin: boolean }>('/api/me'),
+  settings: () => request<ReminderSettings>('/api/settings'),
+  /** Saves only the settings given, and returns them all. */
+  updateSettings: (changes: Partial<ReminderSettings>) =>
+    request<ReminderSettings>('/api/settings', { method: 'PATCH', body: changes }),
   /** Admins only. The code is shown once: the backend keeps only its hash. */
   createInvite: () => request<{ code: string; expiresAt: string }>('/api/invites', { method: 'POST' }),
   recent: () => request<Phrase[]>('/api/phrases'),
