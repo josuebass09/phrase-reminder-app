@@ -6,6 +6,7 @@ import { Editor } from './Editor.tsx'
 import { BellIcon, CheckIcon, ClockIcon, HistoryIcon, PenIcon, SaveIcon, SunIcon, UserIcon } from './icons.tsx'
 import { PhraseRow } from './PhraseRow.tsx'
 import { currentSubscription, pushSupported, subscribe } from './push.ts'
+import { speak, speechSupported, stopSpeaking } from './speech.ts'
 
 const MAX_PHRASE_LENGTH = 500 // Matches the backend.
 
@@ -36,6 +37,8 @@ export function PhraseApp({ session, onLogOut, onExpired }: PhraseAppProps) {
   const [editing, setEditing] = useState<Phrase | null>(null)
   const [accountOpen, setAccountOpen] = useState(false)
   const [isAdmin, setIsAdmin] = useState(false)
+  const [canSpeak] = useState(speechSupported)
+  const [speakingId, setSpeakingId] = useState<number | null>(null)
   const [reminders, setReminders] = useState<Reminders>(pushSupported ? 'checking' : 'off')
   const [vapidKey, setVapidKey] = useState<string | null>(null)
 
@@ -113,6 +116,21 @@ export function PhraseApp({ session, onLogOut, onExpired }: PhraseAppProps) {
     }
   }, [])
 
+  // Leaving the app, or logging out, stops a phrase being read. A suspended app
+  // may never report the end, which would leave its button showing Stop.
+  useEffect(() => {
+    const onHidden = () => {
+      if (document.visibilityState !== 'hidden') return
+      stopSpeaking()
+      setSpeakingId(null)
+    }
+    document.addEventListener('visibilitychange', onHidden)
+    return () => {
+      document.removeEventListener('visibilitychange', onHidden)
+      stopSpeaking()
+    }
+  }, [])
+
   // Keep the Save button above the on-screen keyboard. iOS Safari doesn't resize
   // the layout when the keyboard opens, so follow the visual viewport instead.
   useEffect(() => {
@@ -173,6 +191,20 @@ export function PhraseApp({ session, onLogOut, onExpired }: PhraseAppProps) {
       fail(err, "Couldn't turn on reminders. Try again.")
     }
   }
+
+  /** Reads a phrase aloud, or stops it if it's the one playing. One plays at a time. */
+  function toggleSpeech(phrase: Phrase) {
+    if (speakingId === phrase.id) {
+      stopSpeaking()
+      setSpeakingId(null)
+      return
+    }
+    setSpeakingId(phrase.id)
+    speak(phrase.text, () => setSpeakingId((id) => (id === phrase.id ? null : id)))
+  }
+
+  const speechProps = (phrase: Phrase) =>
+    canSpeak ? { onSpeak: toggleSpeech, speaking: speakingId === phrase.id } : {}
 
   // A phrase can be in both Today and Recent, so changes apply to both lists.
   function replacePhrase(updated: Phrase) {
@@ -243,7 +275,7 @@ export function PhraseApp({ session, onLogOut, onExpired }: PhraseAppProps) {
           </h2>
           <ul className="phrases">
             {today.map((phrase) => (
-              <PhraseRow key={phrase.id} phrase={phrase} onEdit={setEditing} />
+              <PhraseRow key={phrase.id} phrase={phrase} onEdit={setEditing} {...speechProps(phrase)} />
             ))}
           </ul>
         </section>
@@ -254,7 +286,7 @@ export function PhraseApp({ session, onLogOut, onExpired }: PhraseAppProps) {
           </h2>
           <ul id="phrases" className="phrases" ref={recentRef}>
             {recent.map((phrase) => (
-              <PhraseRow key={phrase.id} phrase={phrase} onEdit={setEditing} />
+              <PhraseRow key={phrase.id} phrase={phrase} onEdit={setEditing} {...speechProps(phrase)} />
             ))}
           </ul>
           {loaded && <p className="empty">Your saved phrases will appear here.</p>}

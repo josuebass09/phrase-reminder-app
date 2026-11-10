@@ -142,3 +142,17 @@ export const CopyIcon = () => (
     <path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2" />
   </Icon>
 )
+
+export const SpeakerIcon = () => (
+  <Icon>
+    <path d="M11 4.7a.7.7 0 0 0-1.2-.5L6.4 7.6a1.4 1.4 0 0 1-1 .4H3a1 1 0 0 0-1 1v6a1 1 0 0 0 1 1h2.4a1.4 1.4 0 0 1 1 .4l3.4 3.4a.7.7 0 0 0 1.2-.5z" />
+    <path d="M16 9a5 5 0 0 1 0 6" />
+    <path d="M19.4 18.4a9 9 0 0 0 0-12.8" />
+  </Icon>
+)
+
+export const StopIcon = () => (
+  <Icon>
+    <rect x="7" y="7" width="10" height="10" rx="2" fill="currentColor" />
+  </Icon>
+)

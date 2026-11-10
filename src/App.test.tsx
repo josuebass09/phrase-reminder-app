@@ -1,8 +1,9 @@
-import { render, screen, waitFor, within } from '@testing-library/react'
+import { act, render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import App from './App.tsx'
 import { readSession, type Phrase } from './api.ts'
+import { fakeSpeech } from './test/fake-speech.ts'
 
 const EMAIL = 'me@example.com'
 const PASSWORD = 'a long enough password'
@@ -290,5 +291,51 @@ describe('the app', () => {
 
     expect(within(screen.getByRole('dialog')).getByRole('button', { name: 'Log out' })).toBeTruthy()
     expect(screen.queryByRole('button', { name: 'Invite someone' })).toBeNull()
+  })
+
+  it('reads a phrase aloud from its speaker button without opening the editor', async () => {
+    fakeBackend([typo])
+    const { spoken } = fakeSpeech()
+    const user = userEvent.setup()
+    startLoggedIn()
+    await screen.findByText('It slipt my mind.')
+
+    const speaker = screen.getByRole('button', { name: 'Listen to phrase' })
+    await user.click(speaker)
+
+    expect(spoken.map((utterance) => utterance.text)).toEqual(['It slipt my mind.'])
+    expect(speaker.getAttribute('aria-pressed')).toBe('true')
+    expect(screen.queryByRole('dialog')).toBeNull()
+
+    act(() => spoken[0].onend?.())
+    expect(speaker.getAttribute('aria-pressed')).toBe('false')
+  })
+
+  it('stops the phrase when its speaker is tapped again, and plays one phrase at a time', async () => {
+    const second: Phrase = { id: 2, text: "I'll keep you posted.", createdAt: '2026-11-02T12:00:00.000Z' }
+    fakeBackend([second, typo])
+    const { synth, spoken } = fakeSpeech()
+    const user = userEvent.setup()
+    startLoggedIn()
+    await screen.findByText('It slipt my mind.')
+    const [first, other] = screen.getAllByRole('button', { name: 'Listen to phrase' })
+
+    await user.click(first)
+    await user.click(other)
+    expect(spoken.map((utterance) => utterance.text)).toEqual(["I'll keep you posted.", 'It slipt my mind.'])
+    expect([first, other].map((button) => button.getAttribute('aria-pressed'))).toEqual(['false', 'true'])
+
+    synth.cancel.mockClear()
+    await user.click(other)
+    expect(synth.cancel).toHaveBeenCalled()
+    expect(other.getAttribute('aria-pressed')).toBe('false')
+  })
+
+  it('shows no speaker where the browser cannot speak', async () => {
+    fakeBackend([typo])
+    startLoggedIn()
+    await screen.findByText('It slipt my mind.')
+
+    expect(screen.queryByRole('button', { name: 'Listen to phrase' })).toBeNull()
   })
 })

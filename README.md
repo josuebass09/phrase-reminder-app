@@ -12,6 +12,17 @@ New people join with an invite link from the admin, who is the first user. In th
 
 A login lasts 12 hours. After that, the app shows the login screen again with the last email already filled in. The person icon at the top shows who is logged in and until when, and has **Log out**.
 
+## Listen to a phrase
+
+Each phrase has a speaker button that reads it aloud in English, a little slower than normal. Tap it again to stop. Only one phrase plays at a time.
+
+It uses the device's own voices through the browser's Web Speech API, so it costs nothing, needs no server, and works offline. The app picks the best English voice it finds, preferring American English and "Enhanced" or "Premium" voices, and skips Apple's novelty voices. To get a better voice, download one in the phone's settings:
+
+- **iPhone:** Settings → Accessibility → Spoken Content → Voices → English, then download an Enhanced or Premium voice.
+- **Android:** Settings → Text-to-speech output, with Speech Services by Google, then install the English voice data.
+
+Browsers without speech synthesis show no speaker button.
+
 ## Run the tests
 
 ```bash

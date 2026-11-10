@@ -391,8 +391,46 @@ body {
 }
 
 .row:not(:last-child) .row-body,
+.row:not(:last-child) .row-speak,
 .row:not(:last-child) .row-edit {
   border-bottom: 0.5px solid var(--sep);
+}
+
+/* Above the edit button's full-row tap area (.row-edit::after), so tapping it only plays the phrase. */
+.row-speak {
+  position: relative;
+  z-index: 1;
+  flex: none;
+  align-self: stretch;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  margin: 0 -12px 0 -8px;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--accent);
+  cursor: pointer;
+  touch-action: manipulation;
+}
+
+.row-speak .icon {
+  width: 22px;
+  height: 22px;
+}
+
+.row-speak[aria-pressed="true"] .icon { animation: speaking 1.2s ease-in-out infinite; }
+.row-speak:active { opacity: 0.6; }
+
+.row-speak:focus-visible {
+  outline: 2px solid #0E7C72;
+  outline-offset: -4px;
+  border-radius: 10px;
+}
+
+@keyframes speaking {
+  50% { opacity: 0.5; }
 }
 
 /* The edit button stretches over the whole row, so a tap anywhere on it opens the editor. */
@@ -932,7 +970,10 @@ body {
 
 [data-platform="android"] .row-body { padding: 0; }
 [data-platform="android"] .row:not(:last-child) .row-body,
+[data-platform="android"] .row:not(:last-child) .row-speak,
 [data-platform="android"] .row:not(:last-child) .row-edit { border-bottom: 0; }
+[data-platform="android"] .row-speak { width: 40px; margin: -10px -12px -10px -8px; }
+[data-platform="android"] .row-speak .icon { width: 24px; height: 24px; }
 [data-platform="android"] .row-edit { width: 40px; margin: -10px -8px -10px -12px; }
 [data-platform="android"] .row-edit .icon { width: 24px; height: 24px; }
 
@@ -1092,6 +1133,7 @@ body {
 
 @media (prefers-reduced-motion: reduce) {
   .toast,
-  .sheet[open] { animation: none; }
+  .sheet[open],
+  .row-speak[aria-pressed="true"] .icon { animation: none; }
   .primary:not(:disabled):active { transform: none; }
 }
