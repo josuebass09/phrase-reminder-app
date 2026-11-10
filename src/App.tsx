@@ -15,10 +15,20 @@ function initialState(): AuthState {
   return { session: null, expired: saved !== null }
 }
 
-export default function App() {
-  const [{ session, expired }, setAuth] = useState(initialState)
+export interface AppProps {
+  /** The code from an invite link this page was opened with, if any. */
+  invite?: string | null
+}
 
-  const logIn = useCallback((next: Session) => setAuth({ session: next, expired: false }), [])
+export default function App({ invite: initialInvite = null }: AppProps) {
+  const [{ session, expired }, setAuth] = useState(initialState)
+  // Kept until someone logs in, so it still works after logging out of another account.
+  const [invite, setInvite] = useState(initialInvite)
+
+  const logIn = useCallback((next: Session) => {
+    setInvite(null)
+    setAuth({ session: next, expired: false })
+  }, [])
   const logOut = useCallback(() => {
     clearSession()
     setAuth({ session: null, expired: false })
@@ -36,6 +46,8 @@ export default function App() {
     return () => clearTimeout(timer)
   }, [session, expire])
 
-  if (!session) return <Login notice={expired ? 'Your session ended. Log in again.' : ''} onLoggedIn={logIn} />
+  if (!session) {
+    return <Login invite={invite} notice={expired ? 'Your session ended. Log in again.' : ''} onLoggedIn={logIn} />
+  }
   return <PhraseApp session={session} onLogOut={logOut} onExpired={expire} />
 }

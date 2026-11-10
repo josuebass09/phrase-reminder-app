@@ -11,7 +11,7 @@ const TWELVE_HOURS = 12 * 60 * 60 * 1000
 const INVITE_CODE = 'invite-code-for-friends'
 
 /** An in-memory stand-in for the backend API, behind a mocked fetch. */
-function fakeBackend(seed: Phrase[] = [], todayIds: number[] = [], { signupOpen = false } = {}) {
+function fakeBackend(seed: Phrase[] = [], todayIds: number[] = [], { admin = true } = {}) {
   const phrases = [...seed] // Newest first, like the backend returns them.
   let nextId = Math.max(0, ...phrases.map((phrase) => phrase.id)) + 1
   const json = (status: number, body?: unknown) =>
@@ -35,9 +35,13 @@ function fakeBackend(seed: Phrase[] = [], todayIds: number[] = [], { signupOpen 
         const user = { id: 2, email: body.email }
         return json(201, { token: TOKEN, expiresAt: '', expiresIn: TWELVE_HOURS / 1000, user })
       }
-      if (path === '/api/config') return json(200, { vapidPublicKey: 'key', signupOpen })
+      if (path === '/api/config') return json(200, { vapidPublicKey: 'key' })
       if (headers.Authorization !== `Bearer ${TOKEN}`) return json(401, { error: 'Not logged in' })
 
+      if (path === '/api/me') return json(200, { id: 1, email: EMAIL, isAdmin: admin })
+      if (path === '/api/invites') {
+        return admin ? json(201, { code: 'new-invite-code', expiresAt: '2026-11-17T12:00:00.000Z' }) : json(403, {})
+      }
       if (path === '/api/phrases' && method === 'GET') return json(200, phrases)
       if (path === '/api/today') return json(200, phrases.filter((phrase) => todayIds.includes(phrase.id)))
       if (path === '/api/phrases' && method === 'POST') {
@@ -210,13 +214,30 @@ describe('the app', () => {
     expect(readSession()).toBeNull()
   })
 
-  it('creates an account with the invite code and logs it in', async () => {
-    fakeBackend([], [], { signupOpen: true })
+  it('opens an invite link on the sign-up form with the code filled in', async () => {
+    fakeBackend()
+    localStorage.setItem('phrase-reminder-email', 'someone-else@example.com')
+    const user = userEvent.setup()
+    render(<App invite={INVITE_CODE} />)
+
+    expect(screen.getByRole('heading', { name: 'Create account' })).toBeTruthy()
+    expect(screen.getByLabelText('Invite code')).toHaveProperty('value', INVITE_CODE)
+    expect(screen.getByLabelText('Email')).toHaveProperty('value', '')
+
+    await user.type(screen.getByLabelText('Email'), 'friend@example.com')
+    await user.type(screen.getByLabelText('Password'), PASSWORD)
+    await user.click(screen.getByRole('button', { name: 'Create account' }))
+
+    expect(await screen.findByText('Your saved phrases will appear here.')).toBeTruthy()
+    expect(readSession()?.email).toBe('friend@example.com')
+  })
+
+  it('takes a typed code or a pasted invite link, and explains a refusal', async () => {
+    fakeBackend()
     const user = userEvent.setup()
     render(<App />)
 
-    await user.click(await screen.findByRole('button', { name: 'Create account' }))
-    expect(screen.getByRole('heading', { name: 'Create account' })).toBeTruthy()
+    await user.click(screen.getByRole('button', { name: 'I have an invite' }))
     await user.type(screen.getByLabelText('Email'), 'friend@example.com')
     await user.type(screen.getByLabelText('Password'), PASSWORD)
     await user.type(screen.getByLabelText('Invite code'), 'wrong-code')
@@ -224,31 +245,50 @@ describe('the app', () => {
     expect(await screen.findByRole('alert')).toHaveProperty('textContent', 'Wrong invite code.')
 
     await user.clear(screen.getByLabelText('Invite code'))
-    await user.type(screen.getByLabelText('Invite code'), INVITE_CODE)
+    await user.type(screen.getByLabelText('Invite code'), `https://app.example/?invite=${INVITE_CODE}`)
     await user.click(screen.getByRole('button', { name: 'Create account' }))
 
     expect(await screen.findByText('Your saved phrases will appear here.')).toBeTruthy()
-    expect(readSession()?.email).toBe('friend@example.com')
   })
 
   it('goes back to logging in from the sign-up form', async () => {
-    fakeBackend([], [], { signupOpen: true })
+    fakeBackend()
     const user = userEvent.setup()
-    render(<App />)
+    render(<App invite={INVITE_CODE} />)
 
-    await user.click(await screen.findByRole('button', { name: 'Create account' }))
     await user.click(screen.getByRole('button', { name: 'I already have an account' }))
 
     expect(screen.getByRole('button', { name: 'Log in' })).toBeTruthy()
     expect(screen.queryByLabelText('Invite code')).toBeNull()
   })
 
-  it('offers no sign-up when the backend has it closed', async () => {
-    fakeBackend()
-    render(<App />)
+  it('lets the admin create an invite link and copy it', async () => {
+    fakeBackend([typo])
+    const user = userEvent.setup()
+    startLoggedIn()
+    await screen.findByText('It slipt my mind.')
 
-    await waitFor(() => expect(fetch).toHaveBeenCalled())
-    await new Promise((resolve) => setTimeout(resolve, 0))
-    expect(screen.queryByRole('button', { name: 'Create account' })).toBeNull()
+    await user.click(screen.getByRole('button', { name: 'Account' }))
+    await user.click(await screen.findByRole('button', { name: 'Invite someone' }))
+    const link = (await screen.findByLabelText('Invite link')) as HTMLInputElement
+    expect(link.value).toBe(`${window.location.origin}/?invite=new-invite-code`)
+    expect(screen.getByText(/^Creates one account\. Expires on /)).toBeTruthy()
+
+    await user.click(screen.getByRole('button', { name: 'Copy' }))
+
+    expect(await navigator.clipboard.readText()).toBe(link.value)
+    expect(screen.getByRole('button', { name: 'Copied' })).toBeTruthy()
+  })
+
+  it('offers invites only to the admin', async () => {
+    fakeBackend([typo], [], { admin: false })
+    const user = userEvent.setup()
+    startLoggedIn()
+    await screen.findByText('It slipt my mind.')
+
+    await user.click(screen.getByRole('button', { name: 'Account' }))
+
+    expect(within(screen.getByRole('dialog')).getByRole('button', { name: 'Log out' })).toBeTruthy()
+    expect(screen.queryByRole('button', { name: 'Invite someone' })).toBeNull()
   })
 })

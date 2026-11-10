@@ -1,10 +1,13 @@
-import { useEffect, useState, type FormEvent } from 'react'
+import { useState, type FormEvent } from 'react'
 import { api, ApiError, lastEmail, UnauthorizedError, type Session } from './api.ts'
 import { Brand } from './Brand.tsx'
+import { inviteCodeFrom } from './invite.ts'
 
 const MIN_PASSWORD_LENGTH = 12 // Matches the backend.
 
 export interface LoginProps {
+  /** An invite code from the link this page was opened with. It opens the sign-up form, filled in. */
+  invite: string | null
   /** Shown above the login form, such as why the last session ended. */
   notice: string
   onLoggedIn: (session: Session) => void
@@ -14,34 +17,22 @@ type Mode = 'login' | 'signup'
 
 function messageFor(err: unknown): string {
   if (err instanceof UnauthorizedError) return 'Wrong email or password.'
-  // The backend explains sign-up refusals, such as a wrong invite code or a taken email.
+  // The backend explains sign-up refusals, such as a used invite or a taken email.
   if (err instanceof ApiError) return err.message.endsWith('.') ? err.message : `${err.message}.`
   return "Couldn't reach the server. Try again."
 }
 
-/** Logging in, and creating an account with an invite code when the backend allows it. */
-export function Login({ notice, onLoggedIn }: LoginProps) {
-  const [mode, setMode] = useState<Mode>('login')
-  const [signupOpen, setSignupOpen] = useState(false)
-  // The last email is filled in, since sessions end every 12 hours.
-  const [email, setEmail] = useState(lastEmail)
+/** Logging in, and creating an account with an invite from the admin. */
+export function Login({ invite, notice, onLoggedIn }: LoginProps) {
+  const [mode, setMode] = useState<Mode>(invite ? 'signup' : 'login')
+  // When logging in, the last email is filled in, since sessions end every 12 hours.
+  // An invite is for someone new, so its form starts empty.
+  const [email, setEmail] = useState(() => (invite ? '' : lastEmail()))
   const [password, setPassword] = useState('')
-  const [code, setCode] = useState('')
+  const [code, setCode] = useState(invite ?? '')
   const [error, setError] = useState('')
   const [busy, setBusy] = useState(false)
   const signingUp = mode === 'signup'
-
-  // Offer "Create account" only when the backend has an invite code set.
-  useEffect(() => {
-    let active = true
-    api
-      .config()
-      .then((config) => active && setSignupOpen(config.signupOpen === true))
-      .catch(() => {})
-    return () => {
-      active = false
-    }
-  }, [])
 
   function switchTo(next: Mode) {
     setMode(next)
@@ -56,7 +47,7 @@ export function Login({ notice, onLoggedIn }: LoginProps) {
     setError('')
     try {
       const session = signingUp
-        ? await api.signup(email.trim(), password, code.trim())
+        ? await api.signup(email.trim(), password, inviteCodeFrom(code))
         : await api.login(email.trim(), password)
       onLoggedIn(session)
     } catch (err) {
@@ -75,6 +66,11 @@ export function Login({ notice, onLoggedIn }: LoginProps) {
       <main className="login-body">
         <form className="login-form" onSubmit={submit}>
           {signingUp && <h2 className="login-title">Create account</h2>}
+          {signingUp && invite && !error && (
+            <p className="login-notice" role="status">
+              You were invited. Choose the email and password you'll log in with.
+            </p>
+          )}
           {!signingUp && notice && !error && (
             <p className="login-notice" role="status">
               {notice}
@@ -152,11 +148,9 @@ export function Login({ notice, onLoggedIn }: LoginProps) {
               I already have an account
             </button>
           ) : (
-            signupOpen && (
-              <button className="text-button login-switch" type="button" onClick={() => switchTo('signup')}>
-                Create account
-              </button>
-            )
+            <button className="text-button login-switch" type="button" onClick={() => switchTo('signup')}>
+              I have an invite
+            </button>
           )}
         </form>
       </main>

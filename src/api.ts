@@ -127,10 +127,13 @@ export const api = {
   /** Saves and returns the new session. Throws UnauthorizedError for a wrong email or password. */
   login: async (email: string, password: string) =>
     saveSession(await request<LoginResponse>('/api/login', { method: 'POST', body: { email, password } })),
-  /** Creates an account with an invite code and logs it in. Throws ApiError with the reason if refused. */
+  /** Creates an account with an invite and logs it in. Throws ApiError with the reason if refused. */
   signup: async (email: string, password: string, code: string) =>
     saveSession(await request<LoginResponse>('/api/signup', { method: 'POST', body: { email, password, code } })),
-  config: () => request<{ vapidPublicKey: string; signupOpen?: boolean }>('/api/config'),
+  config: () => request<{ vapidPublicKey: string }>('/api/config'),
+  me: () => request<{ id: number; email: string; isAdmin: boolean }>('/api/me'),
+  /** Admins only. The code is shown once: the backend keeps only its hash. */
+  createInvite: () => request<{ code: string; expiresAt: string }>('/api/invites', { method: 'POST' }),
   recent: () => request<Phrase[]>('/api/phrases'),
   today: () => request<Phrase[]>('/api/today'),
   add: (text: string) => request<Phrase>('/api/phrases', { method: 'POST', body: { text } }),

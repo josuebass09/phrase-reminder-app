@@ -35,6 +35,7 @@ export function PhraseApp({ session, onLogOut, onExpired }: PhraseAppProps) {
   const [toast, setToast] = useState<Toast | null>(null)
   const [editing, setEditing] = useState<Phrase | null>(null)
   const [accountOpen, setAccountOpen] = useState(false)
+  const [isAdmin, setIsAdmin] = useState(false)
   const [reminders, setReminders] = useState<Reminders>(pushSupported ? 'checking' : 'off')
   const [vapidKey, setVapidKey] = useState<string | null>(null)
 
@@ -92,6 +93,11 @@ export function PhraseApp({ session, onLogOut, onExpired }: PhraseAppProps) {
     api
       .config()
       .then(({ vapidPublicKey }) => active && setVapidKey(vapidPublicKey))
+      .catch(() => {})
+    // Asked each time rather than saved with the session, so a change applies without logging in again.
+    api
+      .me()
+      .then((user) => active && setIsAdmin(user.isAdmin))
       .catch(() => {})
     if (pushSupported) {
       currentSubscription()
@@ -281,8 +287,10 @@ export function PhraseApp({ session, onLogOut, onExpired }: PhraseAppProps) {
         <Account
           email={session.email}
           expiresAt={session.expiresAt}
+          isAdmin={isAdmin}
           onClose={() => setAccountOpen(false)}
           onLogOut={onLogOut}
+          onUnauthorized={onExpired}
         />
       )}
     </div>

@@ -118,3 +118,27 @@ export const LogOutIcon = () => (
     <path d="M21 12H9" />
   </Icon>
 )
+
+export const UserPlusIcon = () => (
+  <Icon>
+    <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" />
+    <circle cx="9" cy="7" r="4" />
+    <path d="M19 8v6" />
+    <path d="M22 11h-6" />
+  </Icon>
+)
+
+export const ShareIcon = () => (
+  <Icon>
+    <path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8" />
+    <path d="m16 6-4-4-4 4" />
+    <path d="M12 2v13" />
+  </Icon>
+)
+
+export const CopyIcon = () => (
+  <Icon>
+    <rect width="14" height="14" x="8" y="8" rx="2" ry="2" />
+    <path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2" />
+  </Icon>
+)

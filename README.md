@@ -6,7 +6,9 @@ It's a React app built with Vite. It talks to the backend's API with a bearer to
 
 ## Accounts
 
-Each person logs in with an email and password and sees only their own phrases. When the backend has a `SIGNUP_CODE`, the login screen offers **Create account**, which asks for an email, a password of at least 12 characters, and that invite code. Without it, create users with the backend's `npm run users -- add <email>`.
+Each person logs in with an email and password and sees only their own phrases.
+
+New people join with an invite link from the admin, who is the first user. In the account sheet (the person icon), the admin taps **Invite someone**, then **Share** or **Copy**. Each link creates one account and expires after 7 days. Opening it shows the sign-up form with the code filled in; the person picks an email and a password of at least 12 characters. The code also works typed or pasted after tapping **I have an invite** on the login screen. The app removes the code from the address as soon as it opens, so it doesn't stay in the browser history or become the installed app's start page.
 
 A login lasts 12 hours. After that, the app shows the login screen again with the last email already filled in. The person icon at the top shows who is logged in and until when, and has **Log out**.
 
