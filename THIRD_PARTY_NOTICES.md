@@ -2,7 +2,7 @@
 
 ## Icons: Lucide
 
-The icons in `src/icons.tsx` and the book in `public/icon.svg` (and the PNG icons made from it) come from [Lucide](https://lucide.dev), some from earlier Lucide versions. Lucide is under the ISC license, and its icons that started in [Feather](https://feathericons.com) are under the MIT license. Both allow free use, including commercial use, as long as these notices are kept.
+The icons in `src/icons.tsx` and the book in `public/icon.svg` (and the PNG icons made from it, including the notification badge `public/badge-96.png`) come from [Lucide](https://lucide.dev), some from earlier Lucide versions. Lucide is under the ISC license, and its icons that started in [Feather](https://feathericons.com) are under the MIT license. Both allow free use, including commercial use, as long as these notices are kept.
 
 ### Lucide (ISC)
 
