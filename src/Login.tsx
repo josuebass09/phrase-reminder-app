@@ -1,8 +1,16 @@
 import { useState, type FormEvent } from 'react'
-import { api, UnauthorizedError } from './api.ts'
+import { api, lastEmail, UnauthorizedError, type Session } from './api.ts'
 import { Brand } from './Brand.tsx'
 
-export function Login({ onLoggedIn }: { onLoggedIn: () => void }) {
+export interface LoginProps {
+  /** Shown above the form, such as why the last session ended. */
+  notice: string
+  onLoggedIn: (session: Session) => void
+}
+
+export function Login({ notice, onLoggedIn }: LoginProps) {
+  // The last email is filled in, since sessions end every 12 hours.
+  const [email, setEmail] = useState(lastEmail)
   const [password, setPassword] = useState('')
   const [error, setError] = useState('')
   const [busy, setBusy] = useState(false)
@@ -13,10 +21,9 @@ export function Login({ onLoggedIn }: { onLoggedIn: () => void }) {
     setBusy(true)
     setError('')
     try {
-      await api.login(password)
-      onLoggedIn()
+      onLoggedIn(await api.login(email.trim(), password))
     } catch (err) {
-      setError(err instanceof UnauthorizedError ? 'Wrong password.' : "Couldn't reach the server. Try again.")
+      setError(err instanceof UnauthorizedError ? 'Wrong email or password.' : "Couldn't reach the server. Try again.")
       setBusy(false)
     }
   }
@@ -30,6 +37,29 @@ export function Login({ onLoggedIn }: { onLoggedIn: () => void }) {
       </div>
       <main className="login-body">
         <form className="login-form" onSubmit={submit}>
+          {notice && !error && (
+            <p className="login-notice" role="status">
+              {notice}
+            </p>
+          )}
+          <div className="field">
+            <label htmlFor="email">
+              <span>Email</span>
+            </label>
+            <input
+              id="email"
+              name="email"
+              type="email"
+              inputMode="email"
+              autoComplete="username"
+              autoCapitalize="none"
+              spellCheck={false}
+              required
+              autoFocus={!email}
+              value={email}
+              onChange={(event) => setEmail(event.target.value)}
+            />
+          </div>
           <div className="field">
             <label htmlFor="password">
               <span>Password</span>
@@ -40,7 +70,7 @@ export function Login({ onLoggedIn }: { onLoggedIn: () => void }) {
               type="password"
               autoComplete="current-password"
               required
-              autoFocus
+              autoFocus={Boolean(email)}
               value={password}
               onChange={(event) => setPassword(event.target.value)}
             />

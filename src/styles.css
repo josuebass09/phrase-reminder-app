@@ -180,6 +180,48 @@ body {
   color: var(--on-save);
 }
 
+.bar-actions {
+  flex: none;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.account-button {
+  position: relative;
+  flex: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  border: 0;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.16);
+  color: #FFFFFF;
+  touch-action: manipulation;
+}
+
+/* A 44px tap area around the 32px circle. */
+.account-button::after {
+  content: "";
+  position: absolute;
+  inset: -6px;
+}
+
+.account-button .icon {
+  width: 18px;
+  height: 18px;
+}
+
+.account-button:active { opacity: 0.82; }
+
+.account-button:focus-visible {
+  outline: 2px solid #FFFFFF;
+  outline-offset: 2px;
+}
+
 /* Input */
 .field {
   position: relative;
@@ -495,6 +537,13 @@ body {
   gap: 16px;
 }
 
+.login-notice {
+  margin: 0;
+  color: var(--secondary);
+  font-size: 15px;
+  line-height: 20px;
+}
+
 .login .field label { color: var(--secondary); }
 .login .field input { background: var(--card); border: 1px solid var(--outline); }
 .login .field input:focus { box-shadow: 0 0 0 2px #0E7C72; }
@@ -565,7 +614,8 @@ body {
 .text-button:disabled { color: var(--disabled-text); opacity: 0.6; }
 
 .text-button:focus-visible,
-.delete-button:focus-visible {
+.delete-button:focus-visible,
+.sheet-action:focus-visible {
   outline: 2px solid #0E7C72;
   outline-offset: -2px;
   border-radius: 8px;
@@ -590,7 +640,30 @@ body {
 
 .sheet .form-error { padding: 0 16px 12px; }
 
-.delete-button {
+.account-info {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 16px;
+}
+
+.account-email {
+  margin: 0;
+  font-size: 17px;
+  line-height: 22px;
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+
+.account-note {
+  margin: 0;
+  color: var(--secondary);
+  font-size: 15px;
+  line-height: 20px;
+}
+
+.delete-button,
+.sheet-action {
   display: flex;
   align-items: center;
   justify-content: center;
@@ -605,7 +678,8 @@ body {
   touch-action: manipulation;
 }
 
-.delete-button .icon {
+.delete-button .icon,
+.sheet-action .icon {
   width: 18px;
   height: 18px;
 }
@@ -658,6 +732,19 @@ body {
   font-size: 14px;
   line-height: 20px;
   font-weight: 500;
+}
+
+[data-platform="android"] .account-button {
+  width: 40px;
+  height: 40px;
+  background: none;
+}
+
+[data-platform="android"] .account-button::after { inset: -4px; }
+
+[data-platform="android"] .account-button .icon {
+  width: 24px;
+  height: 24px;
 }
 
 [data-platform="android"] .composer { padding: 20px 16px 0; }
@@ -869,7 +956,21 @@ body {
 
 [data-platform="android"] .sheet .form-error { padding: 0 24px 12px; }
 
-[data-platform="android"] .delete-button {
+[data-platform="android"] .account-info { padding: 8px 24px 16px; }
+
+[data-platform="android"] .account-email {
+  font-size: 16px;
+  line-height: 24px;
+  font-weight: 500;
+}
+
+[data-platform="android"] .account-note {
+  font-size: 14px;
+  line-height: 20px;
+}
+
+[data-platform="android"] .delete-button,
+[data-platform="android"] .sheet-action {
   min-height: 40px;
   margin: 0 16px 16px;
   border: 0;

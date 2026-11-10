@@ -2,10 +2,12 @@ import { render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import App from './App.tsx'
-import { getToken, type Phrase } from './api.ts'
+import { readSession, type Phrase } from './api.ts'
 
-const PASSWORD = 'secret'
+const EMAIL = 'me@example.com'
+const PASSWORD = 'a long enough password'
 const TOKEN = 'token-1'
+const TWELVE_HOURS = 12 * 60 * 60 * 1000
 
 /** An in-memory stand-in for the backend API, behind a mocked fetch. */
 function fakeBackend(seed: Phrase[] = [], todayIds: number[] = []) {
@@ -23,7 +25,9 @@ function fakeBackend(seed: Phrase[] = [], todayIds: number[] = []) {
       const body = init.body ? JSON.parse(String(init.body)) : undefined
 
       if (path === '/api/login') {
-        return body.password === PASSWORD ? json(200, { token: TOKEN }) : json(401, { error: 'Wrong password' })
+        return body.email === EMAIL && body.password === PASSWORD
+          ? json(200, { token: TOKEN, expiresAt: '', expiresIn: TWELVE_HOURS / 1000, user: { id: 1, email: EMAIL } })
+          : json(401, { error: 'Wrong email or password' })
       }
       if (path === '/api/config') return json(200, { vapidPublicKey: 'key' })
       if (headers.Authorization !== `Bearer ${TOKEN}`) return json(401, { error: 'Not logged in' })
@@ -54,29 +58,89 @@ function fakeBackend(seed: Phrase[] = [], todayIds: number[] = []) {
 
 const typo: Phrase = { id: 1, text: 'It slipt my mind.', createdAt: '2026-11-01T12:00:00.000Z' }
 
+function saveSession(token: string, expiresIn = TWELVE_HOURS) {
+  localStorage.setItem(
+    'phrase-reminder-session',
+    JSON.stringify({ token, expiresAt: Date.now() + expiresIn, email: EMAIL }),
+  )
+}
+
 function startLoggedIn() {
-  localStorage.setItem('phrase-reminder-token', TOKEN)
+  saveSession(TOKEN)
   render(<App />)
 }
 
 afterEach(() => vi.unstubAllGlobals())
 
 describe('the app', () => {
-  it('logs in with the password and then shows the phrases', async () => {
+  it('logs in with the email and password and then shows the phrases', async () => {
     fakeBackend([typo])
     const user = userEvent.setup()
     render(<App />)
 
-    await user.type(screen.getByLabelText('Password'), 'wrong')
+    await user.type(screen.getByLabelText('Email'), EMAIL)
+    await user.type(screen.getByLabelText('Password'), 'wrong password')
     await user.click(screen.getByRole('button', { name: 'Log in' }))
-    expect(await screen.findByRole('alert')).toHaveProperty('textContent', 'Wrong password.')
+    expect(await screen.findByRole('alert')).toHaveProperty('textContent', 'Wrong email or password.')
 
     await user.clear(screen.getByLabelText('Password'))
     await user.type(screen.getByLabelText('Password'), PASSWORD)
     await user.click(screen.getByRole('button', { name: 'Log in' }))
 
     expect(await screen.findByText('It slipt my mind.')).toBeTruthy()
-    expect(getToken()).toBe(TOKEN)
+    expect(readSession()?.token).toBe(TOKEN)
+  })
+
+  it('logs out from the account sheet and fills in the email next time', async () => {
+    fakeBackend([typo])
+    const user = userEvent.setup()
+    startLoggedIn()
+    await screen.findByText('It slipt my mind.')
+    localStorage.setItem('phrase-reminder-email', EMAIL)
+
+    await user.click(screen.getByRole('button', { name: 'Account' }))
+    const sheet = screen.getByRole('dialog')
+    expect(within(sheet).getByText(EMAIL)).toBeTruthy()
+    expect(within(sheet).getByText(/^Logged in until /)).toBeTruthy()
+    await user.click(within(sheet).getByRole('button', { name: 'Log out' }))
+
+    expect(await screen.findByLabelText('Password')).toBeTruthy()
+    expect(screen.getByLabelText('Email')).toHaveProperty('value', EMAIL)
+    expect(screen.queryByRole('status')?.textContent ?? '').not.toContain('session ended')
+    expect(readSession()).toBeNull()
+  })
+
+  it('closes the account sheet without logging out', async () => {
+    fakeBackend([typo])
+    const user = userEvent.setup()
+    startLoggedIn()
+    await screen.findByText('It slipt my mind.')
+
+    await user.click(screen.getByRole('button', { name: 'Account' }))
+    await user.click(within(screen.getByRole('dialog')).getByRole('button', { name: 'Done' }))
+
+    expect(screen.queryByRole('dialog')).toBeNull()
+    expect(readSession()?.token).toBe(TOKEN)
+  })
+
+  it('asks to log in again when the 12 hours are up', async () => {
+    fakeBackend([typo])
+    saveSession(TOKEN, 150)
+    render(<App />)
+    expect(await screen.findByText('It slipt my mind.')).toBeTruthy()
+
+    expect(await screen.findByText('Your session ended. Log in again.')).toBeTruthy()
+    expect(readSession()).toBeNull()
+  })
+
+  it('opens on the login screen when the saved session has already ended', async () => {
+    const fetchMock = vi.fn()
+    vi.stubGlobal('fetch', fetchMock)
+    saveSession(TOKEN, -1000)
+    render(<App />)
+
+    expect(screen.getByText('Your session ended. Log in again.')).toBeTruthy()
+    expect(fetchMock).not.toHaveBeenCalled()
   })
 
   it('saves a new phrase at the top of Recent', async () => {
@@ -130,12 +194,12 @@ describe('the app', () => {
     expect(document.getElementById('today')?.hidden).toBe(true)
   })
 
-  it('goes back to the login screen when the token is no longer valid', async () => {
+  it('goes back to the login screen when the backend refuses the token', async () => {
     fakeBackend([typo])
-    localStorage.setItem('phrase-reminder-token', 'revoked')
+    saveSession('revoked')
     render(<App />)
 
-    expect(await screen.findByLabelText('Password')).toBeTruthy()
-    expect(getToken()).toBeNull()
+    expect(await screen.findByText('Your session ended. Log in again.')).toBeTruthy()
+    expect(readSession()).toBeNull()
   })
 })

@@ -1,8 +1,9 @@
 import { useCallback, useEffect, useRef, useState, type FormEvent } from 'react'
-import { api, UnauthorizedError, type Phrase } from './api.ts'
+import { Account } from './Account.tsx'
+import { api, UnauthorizedError, type Phrase, type Session } from './api.ts'
 import { Brand } from './Brand.tsx'
 import { Editor } from './Editor.tsx'
-import { BellIcon, CheckIcon, ClockIcon, HistoryIcon, PenIcon, SaveIcon, SunIcon } from './icons.tsx'
+import { BellIcon, CheckIcon, ClockIcon, HistoryIcon, PenIcon, SaveIcon, SunIcon, UserIcon } from './icons.tsx'
 import { PhraseRow } from './PhraseRow.tsx'
 import { currentSubscription, pushSupported, subscribe } from './push.ts'
 
@@ -16,7 +17,14 @@ interface Toast {
   isError: boolean
 }
 
-export function PhraseApp({ onLoggedOut }: { onLoggedOut: () => void }) {
+export interface PhraseAppProps {
+  session: Session
+  onLogOut: () => void
+  /** The token expired or the backend refused it. */
+  onExpired: () => void
+}
+
+export function PhraseApp({ session, onLogOut, onExpired }: PhraseAppProps) {
   const appRef = useRef<HTMLDivElement>(null)
   const recentRef = useRef<HTMLUListElement>(null)
   const [recent, setRecent] = useState<Phrase[]>([])
@@ -26,6 +34,7 @@ export function PhraseApp({ onLoggedOut }: { onLoggedOut: () => void }) {
   const [saving, setSaving] = useState(false)
   const [toast, setToast] = useState<Toast | null>(null)
   const [editing, setEditing] = useState<Phrase | null>(null)
+  const [accountOpen, setAccountOpen] = useState(false)
   const [reminders, setReminders] = useState<Reminders>(pushSupported ? 'checking' : 'off')
   const [vapidKey, setVapidKey] = useState<string | null>(null)
 
@@ -42,10 +51,10 @@ export function PhraseApp({ onLoggedOut }: { onLoggedOut: () => void }) {
   /** An expired or revoked token sends the user back to the login screen. */
   const fail = useCallback(
     (err: unknown, message: string) => {
-      if (err instanceof UnauthorizedError) onLoggedOut()
+      if (err instanceof UnauthorizedError) onExpired()
       else showToast(message, true)
     },
-    [onLoggedOut, showToast],
+    [onExpired, showToast],
   )
 
   // Load on start, and again on return: a phone can keep the app open for days,
@@ -61,7 +70,7 @@ export function PhraseApp({ onLoggedOut }: { onLoggedOut: () => void }) {
         setLoaded(true)
       } catch (err) {
         if (!active) return
-        if (err instanceof UnauthorizedError) onLoggedOut()
+        if (err instanceof UnauthorizedError) onExpired()
         else if (!quiet) showToast("Couldn't load your phrases.", true)
       }
     }
@@ -74,7 +83,7 @@ export function PhraseApp({ onLoggedOut }: { onLoggedOut: () => void }) {
       active = false
       document.removeEventListener('visibilitychange', onVisible)
     }
-  }, [onLoggedOut, showToast])
+  }, [onExpired, showToast])
 
   useEffect(() => {
     let active = true
@@ -183,17 +192,22 @@ export function PhraseApp({ onLoggedOut }: { onLoggedOut: () => void }) {
       <div className="top">
         <header className="bar">
           <Brand />
-          <button
-            id="reminders"
-            className={`pill${remindersOn ? '' : ' pill-off'}`}
-            type="button"
-            hidden={reminders === 'checking'}
-            aria-label={remindersOn ? 'Daily reminder on at 12:00' : 'Turn on daily reminder'}
-            onClick={onRemindersTap}
-          >
-            <BellIcon />
-            <span>{remindersOn ? '12:00' : 'Turn on'}</span>
-          </button>
+          <div className="bar-actions">
+            <button
+              id="reminders"
+              className={`pill${remindersOn ? '' : ' pill-off'}`}
+              type="button"
+              hidden={reminders === 'checking'}
+              aria-label={remindersOn ? 'Daily reminder on at 12:00' : 'Turn on daily reminder'}
+              onClick={onRemindersTap}
+            >
+              <BellIcon />
+              <span>{remindersOn ? '12:00' : 'Turn on'}</span>
+            </button>
+            <button className="account-button" type="button" aria-label="Account" onClick={() => setAccountOpen(true)}>
+              <UserIcon />
+            </button>
+          </div>
         </header>
         <form id="phrase-form" className="composer" onSubmit={addPhrase}>
           <div className="field">
@@ -260,7 +274,15 @@ export function PhraseApp({ onLoggedOut }: { onLoggedOut: () => void }) {
           onClose={() => setEditing(null)}
           onSaved={replacePhrase}
           onDeleted={dropPhrase}
-          onUnauthorized={onLoggedOut}
+          onUnauthorized={onExpired}
+        />
+      )}
+      {accountOpen && (
+        <Account
+          email={session.email}
+          expiresAt={session.expiresAt}
+          onClose={() => setAccountOpen(false)}
+          onLogOut={onLogOut}
         />
       )}
     </div>

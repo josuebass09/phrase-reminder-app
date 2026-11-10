@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { api, getToken, NotFoundError, UnauthorizedError } from './api.ts'
+import { api, clearSession, lastEmail, NotFoundError, readSession, UnauthorizedError } from './api.ts'
 
 function respond(status: number, body?: unknown) {
   const fetchMock = vi.fn(
@@ -9,19 +9,68 @@ function respond(status: number, body?: unknown) {
   return fetchMock
 }
 
-afterEach(() => vi.unstubAllGlobals())
+const loginResponse = {
+  token: 'abc',
+  expiresAt: '2026-11-11T00:00:00.000Z',
+  expiresIn: 43_200,
+  user: { id: 1, email: 'me@example.com' },
+}
+
+afterEach(() => {
+  vi.unstubAllGlobals()
+  vi.useRealTimers()
+})
 
 describe('api', () => {
-  it('stores the token from a successful login and sends it afterward', async () => {
-    respond(200, { token: 'abc' })
-    await api.login('secret')
+  it('logs in with the email and password, and sends the token afterward', async () => {
+    const loginMock = respond(200, loginResponse)
+    await api.login('me@example.com', 'secret')
     const fetchMock = respond(200, [])
 
     await api.recent()
 
-    expect(getToken()).toBe('abc')
+    const [, loginInit] = loginMock.mock.calls[0] as unknown as [string, RequestInit]
+    expect(loginInit.body).toBe(JSON.stringify({ email: 'me@example.com', password: 'secret' }))
     const [, init] = fetchMock.mock.calls[0] as unknown as [string, RequestInit]
     expect((init.headers as Record<string, string>).Authorization).toBe('Bearer abc')
+  })
+
+  it("counts the session's 12 hours from now, by this device's clock", async () => {
+    vi.useFakeTimers({ toFake: ['Date'], now: new Date('2030-01-01T08:00:00Z') })
+    respond(200, loginResponse)
+
+    const session = await api.login('me@example.com', 'secret')
+
+    expect(session).toEqual({ token: 'abc', expiresAt: Date.parse('2030-01-01T20:00:00Z'), email: 'me@example.com' })
+    expect(readSession()).toEqual(session)
+    expect(lastEmail()).toBe('me@example.com')
+  })
+
+  it('removes the token from before accounts', async () => {
+    localStorage.setItem('phrase-reminder-token', 'v1.old')
+    respond(200, loginResponse)
+
+    await api.login('me@example.com', 'secret')
+
+    expect(localStorage.getItem('phrase-reminder-token')).toBeNull()
+  })
+
+  it('keeps the last email after the session is cleared', async () => {
+    respond(200, loginResponse)
+    await api.login('me@example.com', 'secret')
+
+    clearSession()
+
+    expect(readSession()).toBeNull()
+    expect(lastEmail()).toBe('me@example.com')
+  })
+
+  it('ignores a saved session it cannot read', () => {
+    localStorage.setItem('phrase-reminder-session', '{not json')
+    expect(readSession()).toBeNull()
+
+    localStorage.setItem('phrase-reminder-session', JSON.stringify({ token: 'abc' }))
+    expect(readSession()).toBeNull()
   })
 
   it('sends JSON bodies with their content type', async () => {
@@ -36,12 +85,15 @@ describe('api', () => {
     expect((init.headers as Record<string, string>)['Content-Type']).toBe('application/json')
   })
 
-  it('forgets the token and throws UnauthorizedError on a 401', async () => {
-    localStorage.setItem('phrase-reminder-token', 'expired')
+  it('forgets the session and throws UnauthorizedError on a 401', async () => {
+    localStorage.setItem(
+      'phrase-reminder-session',
+      JSON.stringify({ token: 'expired', expiresAt: Date.now() + 1000, email: 'me@example.com' }),
+    )
     respond(401, { error: 'Not logged in' })
 
     await expect(api.recent()).rejects.toBeInstanceOf(UnauthorizedError)
-    expect(getToken()).toBeNull()
+    expect(readSession()).toBeNull()
   })
 
   it('throws NotFoundError on a 404', async () => {
