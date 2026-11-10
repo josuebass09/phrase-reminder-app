@@ -4,9 +4,9 @@ import { api, UnauthorizedError, type Phrase, type Session } from './api.ts'
 import { Brand } from './Brand.tsx'
 import { Editor } from './Editor.tsx'
 import { BellIcon, CheckIcon, ClockIcon, HistoryIcon, PenIcon, SaveIcon, SunIcon, UserIcon } from './icons.tsx'
-import { PhraseRow } from './PhraseRow.tsx'
+import { PhraseRow, type Speaking } from './PhraseRow.tsx'
 import { currentSubscription, pushSupported, subscribe } from './push.ts'
-import { speak, speechSupported, stopSpeaking } from './speech.ts'
+import { NORMAL_RATE, SLOW_RATE, speak, speechSupported, stopSpeaking } from './speech.ts'
 
 const MAX_PHRASE_LENGTH = 500 // Matches the backend.
 
@@ -38,7 +38,7 @@ export function PhraseApp({ session, onLogOut, onExpired }: PhraseAppProps) {
   const [accountOpen, setAccountOpen] = useState(false)
   const [isAdmin, setIsAdmin] = useState(false)
   const [canSpeak] = useState(speechSupported)
-  const [speakingId, setSpeakingId] = useState<number | null>(null)
+  const [playing, setPlaying] = useState<{ id: number; slow: boolean } | null>(null)
   const [reminders, setReminders] = useState<Reminders>(pushSupported ? 'checking' : 'off')
   const [vapidKey, setVapidKey] = useState<string | null>(null)
 
@@ -122,7 +122,7 @@ export function PhraseApp({ session, onLogOut, onExpired }: PhraseAppProps) {
     const onHidden = () => {
       if (document.visibilityState !== 'hidden') return
       stopSpeaking()
-      setSpeakingId(null)
+      setPlaying(null)
     }
     document.addEventListener('visibilitychange', onHidden)
     return () => {
@@ -192,19 +192,25 @@ export function PhraseApp({ session, onLogOut, onExpired }: PhraseAppProps) {
     }
   }
 
-  /** Reads a phrase aloud, or stops it if it's the one playing. One plays at a time. */
-  function toggleSpeech(phrase: Phrase) {
-    if (speakingId === phrase.id) {
+  /**
+   * Reads a phrase aloud at either speed, or stops it if that's what is playing.
+   * One plays at a time, so tapping the other speed switches to it.
+   */
+  function toggleSpeech(phrase: Phrase, slow: boolean) {
+    if (playing?.id === phrase.id && playing.slow === slow) {
       stopSpeaking()
-      setSpeakingId(null)
+      setPlaying(null)
       return
     }
-    setSpeakingId(phrase.id)
-    speak(phrase.text, () => setSpeakingId((id) => (id === phrase.id ? null : id)))
+    const started = { id: phrase.id, slow }
+    setPlaying(started)
+    speak(phrase.text, () => setPlaying((now) => (now === started ? null : now)), slow ? SLOW_RATE : NORMAL_RATE)
   }
 
-  const speechProps = (phrase: Phrase) =>
-    canSpeak ? { onSpeak: toggleSpeech, speaking: speakingId === phrase.id } : {}
+  const speakingOf = (phrase: Phrase): Speaking =>
+    playing?.id === phrase.id ? (playing.slow ? 'slow' : 'normal') : null
+
+  const speechProps = (phrase: Phrase) => (canSpeak ? { onSpeak: toggleSpeech, speaking: speakingOf(phrase) } : {})
 
   // A phrase can be in both Today and Recent, so changes apply to both lists.
   function replacePhrase(updated: Phrase) {

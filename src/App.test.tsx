@@ -293,14 +293,14 @@ describe('the app', () => {
     expect(screen.queryByRole('button', { name: 'Invite someone' })).toBeNull()
   })
 
-  it('reads a phrase aloud from its speaker button without opening the editor', async () => {
+  it('reads a phrase aloud from 1x without opening the editor', async () => {
     fakeBackend([typo])
     const { spoken } = fakeSpeech()
     const user = userEvent.setup()
     startLoggedIn()
     await screen.findByText('It slipt my mind.')
 
-    const speaker = screen.getByRole('button', { name: 'Listen to phrase' })
+    const speaker = screen.getByRole('button', { name: 'Listen at 1x' })
     await user.click(speaker)
 
     expect(spoken.map((utterance) => utterance.text)).toEqual(['It slipt my mind.'])
@@ -311,14 +311,14 @@ describe('the app', () => {
     expect(speaker.getAttribute('aria-pressed')).toBe('false')
   })
 
-  it('stops the phrase when its speaker is tapped again, and plays one phrase at a time', async () => {
+  it('stops the phrase when its speed is tapped again, and plays one phrase at a time', async () => {
     const second: Phrase = { id: 2, text: "I'll keep you posted.", createdAt: '2026-11-02T12:00:00.000Z' }
     fakeBackend([second, typo])
     const { synth, spoken } = fakeSpeech()
     const user = userEvent.setup()
     startLoggedIn()
     await screen.findByText('It slipt my mind.')
-    const [first, other] = screen.getAllByRole('button', { name: 'Listen to phrase' })
+    const [first, other] = screen.getAllByRole('button', { name: 'Listen at 1x' })
 
     await user.click(first)
     await user.click(other)
@@ -331,11 +331,36 @@ describe('the app', () => {
     expect(other.getAttribute('aria-pressed')).toBe('false')
   })
 
-  it('shows no speaker where the browser cannot speak', async () => {
+  it('shows no speed buttons where the browser cannot speak', async () => {
     fakeBackend([typo])
     startLoggedIn()
     await screen.findByText('It slipt my mind.')
 
-    expect(screen.queryByRole('button', { name: 'Listen to phrase' })).toBeNull()
+    expect(screen.queryByRole('button', { name: 'Listen at 1x' })).toBeNull()
+  })
+
+  it('reads a phrase at half speed from 0.5x, and switches speeds in place', async () => {
+    fakeBackend([typo])
+    const { synth, spoken } = fakeSpeech()
+    const user = userEvent.setup()
+    startLoggedIn()
+    await screen.findByText('It slipt my mind.')
+    const normal = screen.getByRole('button', { name: 'Listen at 1x' })
+    const slow = screen.getByRole('button', { name: 'Listen at 0.5x' })
+
+    await user.click(slow)
+    expect(spoken.map((utterance) => [utterance.text, utterance.rate])).toEqual([['It slipt my mind.', 0.5]])
+    expect([normal, slow].map((button) => button.getAttribute('aria-pressed'))).toEqual(['false', 'true'])
+    expect(screen.queryByRole('dialog')).toBeNull()
+
+    await user.click(normal)
+    expect(spoken.at(-1)?.rate).toBe(1)
+    expect([normal, slow].map((button) => button.getAttribute('aria-pressed'))).toEqual(['true', 'false'])
+
+    await user.click(slow)
+    synth.cancel.mockClear()
+    await user.click(slow)
+    expect(synth.cancel).toHaveBeenCalled()
+    expect(slow.getAttribute('aria-pressed')).toBe('false')
   })
 })

@@ -14,14 +14,14 @@ A login lasts 12 hours. After that, the app shows the login screen again with th
 
 ## Listen to a phrase
 
-Each phrase has a speaker button that reads it aloud in English, a little slower than normal. Tap it again to stop. Only one phrase plays at a time.
+Each phrase has two buttons that read it aloud in English, labeled with their speed like a video player's: **1x** at normal speed and **0.5x** at half speed, to hear each sound. The one playing fills in; tap it again to stop, or tap the other to switch speeds. Only one phrase plays at a time.
 
 It uses the device's own voices through the browser's Web Speech API, so it costs nothing, needs no server, and works offline. The app picks the best English voice it finds, preferring American English and "Enhanced" or "Premium" voices, and skips Apple's novelty voices. To get a better voice, download one in the phone's settings:
 
 - **iPhone:** Settings → Accessibility → Spoken Content → Voices → English, then download an Enhanced or Premium voice.
 - **Android:** Settings → Text-to-speech output, with Speech Services by Google, then install the English voice data.
 
-Browsers without speech synthesis show no speaker button.
+Browsers without speech synthesis show no speed buttons.
 
 ## Run the tests
 

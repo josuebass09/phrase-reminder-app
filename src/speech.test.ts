@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { pickVoice, speak, speechSupported, stopSpeaking } from './speech.ts'
+import { pickVoice, SLOW_RATE, speak, speechSupported, stopSpeaking } from './speech.ts'
 import { fakeSpeech, voice } from './test/fake-speech.ts'
 
 afterEach(() => vi.unstubAllGlobals())
@@ -37,15 +37,24 @@ describe('pickVoice', () => {
 })
 
 describe('speak', () => {
-  it('reads the text a little slowly with the best English voice', () => {
+  it('reads the text at normal speed with the best English voice', () => {
     const { synth, spoken } = fakeSpeech([voice('Samantha', 'en-US')])
 
     speak("It's a deal.", () => {})
 
     expect(synth.cancel).toHaveBeenCalled()
     expect(spoken).toHaveLength(1)
-    expect(spoken[0]).toMatchObject({ text: "It's a deal.", lang: 'en-US', rate: 0.9 })
+    expect(spoken[0]).toMatchObject({ text: "It's a deal.", lang: 'en-US', rate: 1 })
     expect(spoken[0].voice?.name).toBe('Samantha')
+  })
+
+  it('reads at half speed when asked to go slowly', () => {
+    const { spoken } = fakeSpeech()
+
+    speak('Hello.', () => {}, SLOW_RATE)
+
+    expect(SLOW_RATE).toBe(0.5)
+    expect(spoken[0].rate).toBe(0.5)
   })
 
   it('asks for American English while the voices are still loading', () => {

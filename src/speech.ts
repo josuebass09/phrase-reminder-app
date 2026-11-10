@@ -2,8 +2,10 @@
 // no server, and it works offline. iOS uses its Siri-family voices and Android
 // its Google voice; better ones can be downloaded in the phone's settings.
 
-/** A little slower than normal, to make each word easy to catch. */
-const RATE = 0.9
+/** The voice's normal speed, labeled 1x. */
+export const NORMAL_RATE = 1
+/** Half speed, labeled 0.5x, for hearing each sound. */
+export const SLOW_RATE = 0.5
 
 /** Joke voices that ship with Apple devices under en-US. They are never the right pick. */
 const NOVELTY_VOICES =
@@ -34,14 +36,14 @@ let current: SpeechSynthesisUtterance | null = null
  * Reads the text aloud, cutting off anything already playing. onEnd runs once
  * the text finishes or fails, but not when another call or stopSpeaking cut it off.
  */
-export function speak(text: string, onEnd: () => void): void {
+export function speak(text: string, onEnd: () => void, rate = NORMAL_RATE): void {
   speechSynthesis.cancel()
   const utterance = new SpeechSynthesisUtterance(text)
   // Voices can still be loading on the first call; then the browser picks one for the language.
   const voice = pickVoice(speechSynthesis.getVoices())
   if (voice) utterance.voice = voice
   utterance.lang = voice?.lang ?? 'en-US'
-  utterance.rate = RATE
+  utterance.rate = rate
   const finish = () => {
     if (current !== utterance) return
     current = null
