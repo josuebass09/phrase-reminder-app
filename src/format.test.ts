@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { savedLabel, scoreBand, todayLabel } from './format.ts'
+import { savedLabel, scoreBand, todayLabel, untilMidnight, usageLevel } from './format.ts'
 
 describe('savedLabel', () => {
   const now = new Date(2026, 10, 10, 9, 0)
@@ -34,5 +34,33 @@ describe('todayLabel', () => {
 
     expect(todayLabel('en', tuesday)).toBe('Tuesday, November 10')
     expect(todayLabel('es', tuesday)).toBe('martes, 10 de noviembre')
+  })
+})
+
+describe('usageLevel', () => {
+  it.each([
+    [0, 20, 'plenty'],
+    [15, 20, 'plenty'],
+    [16, 20, 'few'], // 4 left, the last fifth.
+    [19, 20, 'few'],
+    [20, 20, 'none'],
+    [21, 20, 'none'],
+    [24, 30, 'plenty'], // 6 left: more than 5.
+    [25, 30, 'few'],
+    [0, 3, 'plenty'],
+    [2, 3, 'few'], // 1 left.
+  ] as const)('%i of %i used is %s', (used, limit, level) => {
+    expect(usageLevel(used, limit)).toBe(level)
+  })
+})
+
+describe('untilMidnight', () => {
+  it('counts the hours and minutes to the next midnight', () => {
+    expect(untilMidnight(new Date(2026, 10, 11, 17, 48))).toEqual({ hours: 6, minutes: 12 })
+  })
+
+  it('rounds up the last seconds, and never says zero', () => {
+    expect(untilMidnight(new Date(2026, 10, 11, 23, 59, 30))).toEqual({ hours: 0, minutes: 1 })
+    expect(untilMidnight(new Date(2026, 10, 11, 0, 0))).toEqual({ hours: 24, minutes: 0 })
   })
 })

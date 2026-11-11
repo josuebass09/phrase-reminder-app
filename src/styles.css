@@ -1295,6 +1295,101 @@ p, h1, h2, h3 { margin: 0; }
   text-wrap: pretty;
 }
 
+/* Today's usage: one row per daily limit, with a bar that warns as the limit nears. */
+.usage-list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.usage-row {
+  /* The bar and the status take the level's color: the app's blue, then amber, then red. */
+  --usage-color: var(--primary);
+  display: flex;
+  gap: 12px;
+  padding: 14px 16px;
+}
+
+.usage-row + .usage-row { border-top: 1px solid var(--border); }
+.usage-few { --usage-color: var(--score-close); }
+.usage-none { --usage-color: var(--score-low); }
+
+.usage-icon {
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: 36px;
+  height: 36px;
+  border-radius: 10px;
+  background: var(--soft);
+  color: var(--primary);
+}
+
+.usage-icon .icon { width: 18px; height: 18px; }
+
+.usage-body {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.usage-name { font-weight: 620; }
+
+.usage-foot {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 2px 10px;
+}
+
+.usage-status {
+  margin-left: auto;
+  color: var(--usage-color);
+  font-size: 15px;
+  font-weight: 650;
+  font-variant-numeric: tabular-nums;
+}
+
+.usage-status .spinner { --size: 14px; }
+
+.usage-hint,
+.usage-count {
+  color: var(--muted);
+  font-size: 14px;
+  line-height: 1.35;
+}
+
+.usage-count { font-variant-numeric: tabular-nums; }
+
+.usage-bar {
+  display: block;
+  height: 6px;
+  margin: 8px 0 4px;
+  overflow: hidden;
+  border-radius: 3px;
+  background: var(--chip);
+}
+
+.usage-bar > span {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: var(--usage-color);
+  transition: width 0.4s ease;
+}
+
+.usage-failed {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 12px 16px;
+  font-size: 15px;
+}
+
 /* The on/off switch */
 .switch {
   position: relative;
@@ -1550,7 +1645,8 @@ p, h1, h2, h3 { margin: 0; }
   .icon-button.mic[aria-pressed="true"],
   .action.mic[aria-pressed="true"],
   .waveform { animation: none; }
-  .waveform > span { transition: none; }
+  .waveform > span,
+  .usage-bar > span { transition: none; }
   .spinner svg { animation-duration: 2.4s; }
   .theme-changing,
   .theme-changing * { transition: none !important; }

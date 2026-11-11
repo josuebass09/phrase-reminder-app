@@ -10,7 +10,7 @@ Three tabs at the bottom:
 
 - **Today:** the latest reminder's phrases, to hear and say aloud. With none yet, it says when the next one comes, or how to turn reminders on, and offers to add a phrase. The bell at the top shows the reminder's time, or **Paused**; it opens Settings, or turns reminders on for a device that doesn't have them.
 - **Phrases:** every phrase, newest first, 50 at a time with **Load more**, and a search over their English and Spanish.
-- **Settings:** the daily reminder, today's usage, the theme and the language, and the account.
+- **Settings:** the daily reminder, today's usage, the theme and the language, and the account. **Today's usage** has a row for each daily limit: what spends it, a bar of how much is used, and how many are left. The bar turns amber when a few are left (the last fifth, at most 5) and red when none are, and the heading counts down to midnight, when they all start over. The admin sees today's count and "No limit".
 
 The **+** button on Today and Phrases adds a phrase. Each phrase shows on a card: the English, its Spanish once known, a play button, its last score and when it was saved. Today's cards also have the microphone. A tap anywhere else on a card opens the phrase's sheet, with everything for it. Each tab keeps its place when you switch, and tapping the tab you're on scrolls it back to the top.
 

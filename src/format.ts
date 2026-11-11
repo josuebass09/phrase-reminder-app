@@ -43,3 +43,21 @@ export function scoreBand(score: number): ScoreBand {
   if (score >= 7) return 'close'
   return 'low'
 }
+
+/** How much is left of a daily limit: plenty, a few (the last fifth, and never more than 5), or none. */
+export type UsageLevel = 'plenty' | 'few' | 'none'
+
+export function usageLevel(used: number, limit: number): UsageLevel {
+  const left = limit - used
+  if (left <= 0) return 'none'
+  if (left <= Math.min(5, Math.ceil(limit / 5))) return 'few'
+  return 'plenty'
+}
+
+/** Hours and minutes from `now` until the next midnight on the device, when the daily limits start over. */
+export function untilMidnight(now: Date): { hours: number; minutes: number } {
+  const midnight = new Date(now)
+  midnight.setHours(24, 0, 0, 0)
+  const minutes = Math.max(1, Math.ceil((midnight.getTime() - now.getTime()) / 60_000))
+  return { hours: Math.floor(minutes / 60), minutes: minutes % 60 }
+}

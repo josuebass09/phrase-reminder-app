@@ -149,13 +149,26 @@ const en = {
   reminderNote: (time: string, zone: string, count: number) =>
     `Every day around ${time}, ${zone} time, with ${count} ${count === 1 ? 'phrase' : 'phrases'} saved at least 14 days ago.`,
   reminderPausedNote: 'Paused. No reminders go out until you turn this back on.',
-  usageTranslate: 'Translate',
-  usageSpanish: 'Spanish of a phrase',
-  usagePronunciation: 'Pronunciation scores',
-  usedOf: (used: number, limit: number) => `${used} of ${limit}`,
-  usedNoLimit: (used: number) => `${used} · no limit`,
-  usageNote:
-    "They all start over at midnight. Phrases you've already seen in Spanish show it again for free. Your recordings are sent to Groq to be heard, and aren't kept.",
+  todaysUsage: "Today's usage",
+  resetsIn: (hours: number, minutes: number) => `Resets in ${hours ? `${hours} h ` : ''}${minutes} min`,
+  usageNames: {
+    suggestions: 'Translate new phrases',
+    translations: 'See in Spanish',
+    pronunciations: 'Pronunciation scores',
+  },
+  usageHints: {
+    suggestions: 'Each time you tap Translate on a new phrase',
+    translations: 'The first time for each phrase, then it’s free',
+    pronunciations: 'Each time you say a phrase into the microphone',
+  },
+  usageLeft: (left: number) => `${left} left`,
+  usageUsedUp: 'Used up for today',
+  usageNoLimit: 'No limit',
+  usageOfToday: (used: number, limit: number) => `${used} of ${limit} today`,
+  usageToday: (used: number) => `${used} today`,
+  usageFailed: "Couldn't load today's usage.",
+  usageRetry: 'Try again',
+  usageNote: 'Your recordings are sent to Groq to be heard, and aren’t kept.',
 
   // Invites
   inviteSomeone: 'Invite someone',
@@ -311,13 +324,26 @@ const es: Messages = {
   reminderNote: (time, zone, count) =>
     `Todos los días cerca de las ${time}, hora de ${zone}, con ${count} ${count === 1 ? 'frase guardada' : 'frases guardadas'} hace al menos 14 días.`,
   reminderPausedNote: 'En pausa. No se envían recordatorios hasta que lo vuelvas a activar.',
-  usageTranslate: 'Traducir',
-  usageSpanish: 'Español de una frase',
-  usagePronunciation: 'Notas de pronunciación',
-  usedOf: (used, limit) => `${used} de ${limit}`,
-  usedNoLimit: (used) => `${used} · sin límite`,
-  usageNote:
-    'Todos se reinician a medianoche. Las frases que ya viste en español lo vuelven a mostrar gratis. Tus grabaciones se envían a Groq para escucharlas, y no se guardan.',
+  todaysUsage: 'Uso de hoy',
+  resetsIn: (hours, minutes) => `Se reinicia en ${hours ? `${hours} h ` : ''}${minutes} min`,
+  usageNames: {
+    suggestions: 'Traducir frases nuevas',
+    translations: 'Ver en español',
+    pronunciations: 'Notas de pronunciación',
+  },
+  usageHints: {
+    suggestions: 'Cada vez que tocas Traducir en una frase nueva',
+    translations: 'La primera vez de cada frase; después es gratis',
+    pronunciations: 'Cada vez que dices una frase al micrófono',
+  },
+  usageLeft: (left) => (left === 1 ? 'Queda 1' : `Quedan ${left}`),
+  usageUsedUp: 'Agotado por hoy',
+  usageNoLimit: 'Sin límite',
+  usageOfToday: (used, limit) => `${used} de ${limit} hoy`,
+  usageToday: (used) => `${used} hoy`,
+  usageFailed: 'No se pudo cargar el uso de hoy.',
+  usageRetry: 'Reintentar',
+  usageNote: 'Tus grabaciones se envían a Groq para escucharlas, y no se guardan.',
 
   inviteSomeone: 'Invitar a alguien',
   creatingLink: 'Creando enlace…',

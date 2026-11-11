@@ -43,6 +43,7 @@ function fakeBackend(
     hold,
     renewal,
     refuseFirstToken = false,
+    usage = {},
   }: {
     admin?: boolean
     translationFails?: boolean
@@ -62,13 +63,15 @@ function fakeBackend(
     renewal?: 'works' | 'over' | 'offline'
     /** The first access token is refused before its time, as after the backend's secret changed. */
     refuseFirstToken?: boolean
+    /** What's already been used today of each limit. */
+    usage?: { suggestions?: number; pronunciations?: number }
   } = {},
 ) {
   const phrases = [...seed] // Newest first, like the backend returns them.
   const settings = { remindersOn: true, reminderTime: '12:00', timeZone: deviceTimeZone(), phrasesPerDay: 3, language }
   const savedTranslations: Record<number, string> = {}
   let translationsUsed = 0
-  let suggestionsUsed = 0
+  let suggestionsUsed = usage.suggestions ?? 0
   let failuresLeft = suggestionsFail
   let nextId = Math.max(0, ...phrases.map((phrase) => phrase.id)) + 1
   const activity: { kind: string; phraseId?: number }[] = []
@@ -127,7 +130,7 @@ function fakeBackend(
         return json(200, {
           translations: { used: translationsUsed, limit: admin ? null : 30 },
           suggestions: { used: suggestionsUsed, limit: admin ? null : 20 },
-          pronunciations: { used: 0, limit: admin ? null : 20 },
+          pronunciations: { used: usage.pronunciations ?? 0, limit: admin ? null : 20 },
         })
       }
       if (path === '/api/suggestions') {
@@ -1062,8 +1065,28 @@ describe('the app', () => {
     await user.click(within(screen.getByRole('dialog')).getByRole('button', { name: 'Close' }))
 
     const sheet = await showTab(user, 'Settings')
-    expect(await within(sheet).findByText('1 of 30')).toBeTruthy()
-    expect(within(sheet).getAllByText('0 of 20')).toHaveLength(2) // Suggestions and pronunciation scores.
+    const usage = within(sheet).getByRole('region', { name: "Today's usage" })
+    const row = (name: string) => within(usage).getByText(name).closest('li')!
+    expect(await within(row('See in Spanish')).findByText('1 of 30 today')).toBeTruthy()
+    expect(within(row('See in Spanish')).getByText('29 left')).toBeTruthy()
+    expect(within(row('Translate new phrases')).getByText('20 left')).toBeTruthy()
+    expect(within(row('Pronunciation scores')).getByText('0 of 20 today')).toBeTruthy()
+    expect(within(usage).getByText(/^Resets in /)).toBeTruthy()
+  })
+
+  it('warns in Settings when few or none are left of a limit', async () => {
+    fakeBackend([typo], [], { admin: false, usage: { suggestions: 17, pronunciations: 20 } })
+    const user = userEvent.setup()
+    startLoggedIn()
+    await screen.findByText('It slipt my mind.')
+
+    const usage = within(await showTab(user, 'Settings')).getByRole('region', { name: "Today's usage" })
+
+    const suggestions = (await within(usage).findByText('3 left')).closest('li')!
+    expect(suggestions.classList).toContain('usage-few')
+    const pronunciations = within(usage).getByText('Used up for today').closest('li')!
+    expect(pronunciations.classList).toContain('usage-none')
+    expect(within(pronunciations).getByText('20 of 20 today')).toBeTruthy()
   })
 
   it('shows the admin no limit', async () => {
@@ -1074,7 +1097,8 @@ describe('the app', () => {
 
     const settings = await showTab(user, 'Settings')
 
-    expect(await within(settings).findAllByText('0 · no limit')).toHaveLength(3)
+    expect(await within(settings).findAllByText('No limit')).toHaveLength(3)
+    expect(within(settings).getAllByText('0 today')).toHaveLength(3)
   })
 })
 
