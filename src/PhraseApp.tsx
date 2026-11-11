@@ -85,8 +85,11 @@ export function PhraseApp({ session, fromReminder = false, onLogOut, onExpired }
   const [reminders, setReminders] = useState<Reminders>(pushSupported ? 'checking' : 'off')
   const [vapidKey, setVapidKey] = useState<string | null>(null)
 
+  /** Shows a note, and returns its id, to change it while it's up. */
   const showToast = useCallback((message: string, isError = false, action?: Toast['action']) => {
-    setToast({ id: Date.now(), message, isError, action })
+    const id = Date.now()
+    setToast({ id, message, isError, action })
+    return id
   }, [])
 
   useEffect(() => {
@@ -417,15 +420,24 @@ export function PhraseApp({ session, fromReminder = false, onLogOut, onExpired }
     setToday((list) => list.filter((each) => each.id !== phrase.id))
     setReviewedToday((count) => count + 1)
     if (open?.id === phrase.id) setOpen(null)
-    showToast(as === 'remembered' ? t.markedRemembered : t.markedRead, false, {
+    const toastId = showToast(as === 'remembered' ? t.markedRemembered : t.markedRead, false, {
       label: t.undo,
       run: () => undoReview(phrase, index),
     })
-    const saving = api.review(phrase.id, as).catch((err) => {
-      putBack(phrase, index)
-      if (err instanceof NotFoundError) dropPhrase(phrase.id, true)
-      else fail(err, t.couldntReview)
-    })
+    const saving = api
+      .review(phrase.id, as)
+      .then((next) => {
+        if (!next) return // A backend from before spaced repetition.
+        // Spaced repetition says when it comes back; the note says so if it's still up.
+        setToast((shown) => (shown?.id === toastId ? { ...shown, message: t.backIn(as, next.days) } : shown))
+        const dueAt = new Date(Date.now() + next.days * 86_400_000 - 12 * 3_600_000).toISOString()
+        setPhrases((list) => list.map((each) => (each.id === phrase.id ? { ...each, dueAt } : each)))
+      })
+      .catch((err) => {
+        putBack(phrase, index)
+        if (err instanceof NotFoundError) dropPhrase(phrase.id, true)
+        else fail(err, t.couldntReview)
+      })
     reviewing.current.set(phrase.id, saving)
   }
 
@@ -444,6 +456,7 @@ export function PhraseApp({ session, fromReminder = false, onLogOut, onExpired }
   async function undoReview(phrase: Phrase, index: number) {
     setToast(null)
     putBack(phrase, index)
+    setPhrases((list) => list.map((each) => (each.id === phrase.id ? { ...each, dueAt: phrase.dueAt } : each)))
     await reviewing.current.get(phrase.id)
     reviewing.current.delete(phrase.id)
     try {

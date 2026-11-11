@@ -176,7 +176,9 @@ function fakeBackend(
       if (/^\/api\/phrases\/\d+\/review$/.test(path)) {
         if (reviewFails) return json(500, { error: 'Database down' })
         reviews.push(method === 'POST' ? `${path} ${body.as}` : `${path} undone`)
-        return json(204)
+        if (method === 'DELETE') return json(204)
+        // Like spaced repetition's first answer: remembered moves up to box 1, read stays in box 0.
+        return json(200, body.as === 'remembered' ? { box: 1, days: 7 } : { box: 0, days: 2 })
       }
       if (path === '/api/phrases' && method === 'POST') {
         const phrase = { id: nextId++, text: body.text, createdAt: new Date().toISOString() }
@@ -1696,7 +1698,7 @@ describe("reviewing Today's phrases", () => {
 
     swipe(card('It slipt my mind.'), 160)
 
-    expect(await screen.findByText('Remembered. Off Today.')).toBeTruthy()
+    expect(await screen.findByText('Remembered. Back in 7 days.')).toBeTruthy() // Once spaced repetition answers.
     await waitFor(() => expect(document.querySelectorAll('#today .card')).toHaveLength(1))
     expect(reviews).toEqual(['/api/phrases/1/review remembered'])
     expect(document.querySelector('#phrases')!.textContent).toContain('It slipt my mind.') // Still saved, off Today only.
@@ -1718,7 +1720,7 @@ describe("reviewing Today's phrases", () => {
 
     swipe(card('Keep me posted.'), -200)
 
-    expect(await screen.findByText('Read. Off Today.')).toBeTruthy()
+    expect(await screen.findByText('Read. Back in 2 days.')).toBeTruthy()
     expect(reviews).toEqual(['/api/phrases/2/review read'])
   })
 
@@ -1736,6 +1738,19 @@ describe("reviewing Today's phrases", () => {
     expect(screen.queryByRole('dialog')).toBeNull()
     expect(await screen.findByText('You went over today’s phrase.')).toBeTruthy()
     expect(reviews).toEqual(['/api/phrases/1/review read'])
+  })
+
+  it("says in a phrase's sheet the day spaced repetition brings it back", async () => {
+    const dueAt = new Date(2030, 0, 15, 0, 0).toISOString() // Back on Jan 15, due 12 hours early.
+    fakeBackend([{ ...typo, dueAt }])
+    const user = userEvent.setup()
+    startLoggedIn()
+    await screen.findByText('It slipt my mind.')
+    await showTab(user, 'Phrases')
+
+    await user.click(within(firstCard()).getByRole('button', { name: 'Open phrase' }))
+
+    expect(within(screen.getByRole('dialog')).getByText('· Back on Jan 15')).toBeTruthy()
   })
 
   it("offers nothing of the kind for a phrase that isn't on Today", async () => {

@@ -8,6 +8,8 @@ export interface Phrase {
   translation?: string | null
   /** The score, from 1 to 10, of the last time the user said it aloud, or null if never. */
   lastScore?: number | null
+  /** When spaced repetition has it come back, or null until first answered on Today. */
+  dueAt?: string | null
 }
 
 /** How the user said a phrase aloud, scored by the backend. */
@@ -359,7 +361,8 @@ export const api = {
   update: (id: number, text: string) => request<Phrase>(`/api/phrases/${id}`, { method: 'PATCH', body: { text } }),
   remove: (id: number) => request<void>(`/api/phrases/${id}`, { method: 'DELETE' }),
   /** Takes a phrase off Today as read or remembered, until a later reminder sends it again. */
-  review: (id: number, as: 'read' | 'remembered') => request<void>(`/api/phrases/${id}/review`, { method: 'POST', body: { as } }),
+  review: (id: number, as: 'read' | 'remembered') =>
+    request<{ box: number; days: number } | undefined>(`/api/phrases/${id}/review`, { method: 'POST', body: { as } }),
   /** Undoes review(): back on Today. */
   unreview: (id: number) => request<void>(`/api/phrases/${id}/review`, { method: 'DELETE' }),
   /** The phrase in Spanish. The backend translates it once and keeps it. */

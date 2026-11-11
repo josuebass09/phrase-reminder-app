@@ -15,7 +15,7 @@ const en = {
   yourReminder: (count: number) => (count === 1 ? 'Your reminder · 1 phrase' : `Your reminder · ${count} phrases`),
   emptyTodayTitle: 'No phrases today yet',
   emptyTodayNext: (time: string, count: number) =>
-    `Your next reminder comes at ${time} with ${count} ${count === 1 ? 'phrase' : 'phrases'}`,
+    `Your next reminder comes at ${time} with up to ${count} ${count === 1 ? 'phrase' : 'phrases'}`,
   emptyTodayPaused: 'Your daily reminder is paused',
   emptyTodayDeviceOff: 'Turn on reminders to get phrases here each day',
   emptyTodayNote: 'Phrases you saved at least 14 days ago come back here, a few each day.',
@@ -173,7 +173,10 @@ const en = {
   // Reviewing Today's phrases
   remembered: 'Remembered',
   read: 'Read',
-  swipeHint: 'Swipe a phrase once you’ve gone over it: right if you remembered it, left if you read it.',
+  swipeHint:
+    'Swipe a phrase once you’ve gone over it: right if you remembered it, and it comes back later; left if you only read it, and it comes back soon.',
+  backIn: (as: 'read' | 'remembered', days: number) => `${as === 'remembered' ? 'Remembered' : 'Read'}. Back in ${days} days.`,
+  backOn: (date: string) => `Back on ${date}`,
   markedRemembered: 'Remembered. Off Today.',
   markedRead: 'Read. Off Today.',
   undo: 'Undo',
@@ -295,7 +298,7 @@ const es: Messages = {
   whatToSay: '¿Qué quieres decir?',
   yourReminder: (count) => (count === 1 ? 'Tu recordatorio · 1 frase' : `Tu recordatorio · ${count} frases`),
   emptyTodayTitle: 'Aún no hay frases hoy',
-  emptyTodayNext: (time, count) => `Tu próximo recordatorio llega a las ${time} con ${count} ${count === 1 ? 'frase' : 'frases'}`,
+  emptyTodayNext: (time, count) => `Tu próximo recordatorio llega a las ${time} con hasta ${count} ${count === 1 ? 'frase' : 'frases'}`,
   emptyTodayPaused: 'Tu recordatorio diario está en pausa',
   emptyTodayDeviceOff: 'Activa los recordatorios para recibir frases aquí cada día',
   emptyTodayNote: 'Las frases que guardaste hace al menos 14 días vuelven aquí, unas cuantas cada día.',
@@ -445,7 +448,10 @@ const es: Messages = {
 
   remembered: 'Recordada',
   read: 'Leída',
-  swipeHint: 'Desliza una frase cuando la hayas repasado: a la derecha si la recordaste, a la izquierda si la leíste.',
+  swipeHint:
+    'Desliza una frase cuando la hayas repasado: a la derecha si la recordaste, y vuelve más adelante; a la izquierda si solo la leíste, y vuelve pronto.',
+  backIn: (as, days) => `${as === 'remembered' ? 'Recordada' : 'Leída'}. Vuelve en ${days} días.`,
+  backOn: (date) => `Vuelve el ${date}`,
   markedRemembered: 'Recordada. Fuera de Hoy.',
   markedRead: 'Leída. Fuera de Hoy.',
   undo: 'Deshacer',

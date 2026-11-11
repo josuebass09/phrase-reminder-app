@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState, type FormEvent, type MouseEvent } from 'react'
 import { api, NotFoundError, UnauthorizedError, type Phrase } from './api.ts'
 import { savedLabel } from './format.ts'
-import { useLanguage, useT } from './i18n.ts'
+import { dateLocale, useLanguage, useT } from './i18n.ts'
 import { BookIcon, CloseIcon, OkIcon, PenIcon, PlayIcon, StopIcon, TranslateIcon, TrashIcon } from './icons.tsx'
 import type { Review, Speaking } from './PhraseCard.tsx'
 import { MicButton, ScoreBadge, ScoreBubble, type Attempt } from './Score.tsx'
@@ -67,6 +67,15 @@ export function PhraseSheet({
   const [error, setError] = useState('')
   const [deleteArmed, setDeleteArmed] = useState(false)
   const score = phrase.lastScore ?? null
+  // The day spaced repetition brings it back, if that's still ahead; it's due 12 hours early.
+  const [openedAt] = useState(() => Date.now())
+  const comesBack =
+    phrase.dueAt && new Date(phrase.dueAt).getTime() > openedAt
+      ? new Date(new Date(phrase.dueAt).getTime() + 12 * 3_600_000).toLocaleDateString(dateLocale(language), {
+          month: 'short',
+          day: 'numeric',
+        })
+      : null
 
   useEffect(() => {
     // React's StrictMode runs effects twice in development; showModal throws on an open dialog.
@@ -222,6 +231,7 @@ export function PhraseSheet({
                 {savedLabel(phrase.createdAt, language)}
               </time>
               {score !== null && <ScoreBadge score={score} />}
+              {comesBack && <span className="when">· {t.backOn(comesBack)}</span>}
             </p>
             <div className="actions">
               {onSpeak && (
