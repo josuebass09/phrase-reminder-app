@@ -361,6 +361,7 @@ export function PhraseApp({ session, fromReminder = false, onLogOut, onExpired }
     try {
       const recorder = await startRecording()
       recorderRef.current = { id: phrase.id, recorder }
+      if (recorder.level) setAttempt(phrase.id, { state: 'recording', level: recorder.level }) // Shows the waveform.
       recording = await recorder.done
     } catch (err) {
       setAttempt(phrase.id, null)

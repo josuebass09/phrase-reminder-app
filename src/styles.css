@@ -356,6 +356,34 @@ p, h1, h2, h3 { margin: 0; }
   50% { box-shadow: 0 0 0 6px color-mix(in srgb, var(--score-low) 22%, transparent); }
 }
 
+/* The voice while it's recorded, in the microphone's recording color. Waveform.tsx sets each bar's scaleY. */
+.waveform {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 3px;
+  height: 32px;
+  animation: waveform-in 0.2s ease-out;
+}
+
+.waveform > span {
+  flex: 1;
+  max-width: 4px;
+  height: 100%;
+  border-radius: 2px;
+  background: var(--score-low);
+  transform: scaleY(0.12);
+  transition: transform 0.07s linear;
+}
+
+@keyframes waveform-in {
+  from { opacity: 0; }
+}
+
+.reader .waveform { flex: none; height: 40px; }
+
 .loading {
   display: flex;
   align-items: center;
@@ -1516,7 +1544,9 @@ p, h1, h2, h3 { margin: 0; }
   .score-bubble,
   .score-bubble .score-ring,
   .icon-button.mic[aria-pressed="true"],
-  .action.mic[aria-pressed="true"] { animation: none; }
+  .action.mic[aria-pressed="true"],
+  .waveform { animation: none; }
+  .waveform > span { transition: none; }
   .spinner svg { animation-duration: 2.4s; }
   .theme-changing,
   .theme-changing * { transition: none !important; }

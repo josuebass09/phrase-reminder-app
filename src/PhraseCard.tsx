@@ -3,6 +3,7 @@ import { savedLabel } from './format.ts'
 import { useLanguage, useT } from './i18n.ts'
 import { PlayIcon, StopIcon } from './icons.tsx'
 import { MicButton, ScoreBadge, ScoreBubble, type Attempt } from './Score.tsx'
+import { Waveform } from './Waveform.tsx'
 
 /** Which speed is reading a phrase, if any. */
 export type Speaking = 'normal' | 'slow' | null
@@ -41,6 +42,7 @@ export function PhraseCard({
   const language = useLanguage()
   const playing = speaking === 'normal'
   const score = phrase.lastScore ?? null // Missing from a backend from before scores.
+  const listening = attempt?.state === 'recording' ? attempt.level : undefined
 
   return (
     <li className="card" data-id={phrase.id}>
@@ -72,12 +74,17 @@ export function PhraseCard({
             {onPronounce && <MicButton attempt={attempt} onClick={() => onPronounce(phrase)} />}
           </div>
         )}
-        <span className="card-meta">
-          {score !== null && <ScoreBadge score={score} />}
-          <time className="when" dateTime={phrase.createdAt}>
-            {savedLabel(phrase.createdAt, language)}
-          </time>
-        </span>
+        {listening ? (
+          // In place of the score and date while the user speaks, which leaves it room.
+          <Waveform level={listening} />
+        ) : (
+          <span className="card-meta">
+            {score !== null && <ScoreBadge score={score} />}
+            <time className="when" dateTime={phrase.createdAt}>
+              {savedLabel(phrase.createdAt, language)}
+            </time>
+          </span>
+        )}
       </div>
       {attempt?.state === 'scored' && (
         <ScoreBubble

@@ -53,7 +53,7 @@ Browsers without speech synthesis show no play buttons.
 
 ## Say a phrase and get a score
 
-The microphone on Today's cards, and **Say it** in a phrase's sheet, record you saying the phrase: tap it, say the phrase, and tap it again. It also stops on its own after 10 seconds. While it records it turns red, and nothing is read aloud, so the microphone only hears you. The backend scores it from 1 to 10, and the result shows under the phrase:
+The microphone on Today's cards, and **Say it** in a phrase's sheet, record you saying the phrase: tap it, say the phrase, and tap it again. It also stops on its own after 10 seconds. While it records it turns red, and nothing is read aloud, so the microphone only hears you. A red waveform follows your voice as you speak, rising while you talk and lying flat while you're quiet, and goes away when the recording stops. It takes the place of the score and date on a card, and sits under the buttons in the sheet. The backend scores it from 1 to 10, and the result shows under the phrase:
 
 - **1 to 6**, red, with a shake: poor pronunciation
 - **7**, amber, with a nudge: almost there

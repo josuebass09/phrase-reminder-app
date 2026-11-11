@@ -274,7 +274,19 @@ function fakeMicrophone({ blocked = false } = {}) {
     }
   }
   vi.stubGlobal('MediaRecorder', FakeMediaRecorder)
-  return { getUserMedia, stopTrack }
+  // Hears a steady voice, for the waveform.
+  const closeAudio = vi.fn(async () => {})
+  const node = { connect: <T,>(next: T) => next }
+  class FakeAudioContext {
+    destination = {}
+    createAnalyser = () => ({ ...node, fftSize: 0, getByteTimeDomainData: (samples: Uint8Array) => samples.fill(170) })
+    createGain = () => ({ ...node, gain: { value: 1 } })
+    createMediaStreamSource = () => node
+    resume = async () => {}
+    close = closeAudio
+  }
+  vi.stubGlobal('AudioContext', FakeAudioContext)
+  return { getUserMedia, stopTrack, closeAudio }
 }
 
 afterEach(() => {
@@ -463,9 +475,14 @@ describe('the app', () => {
 
     await user.click(mic)
     await waitFor(() => expect(mic.getAttribute('aria-pressed')).toBe('true'))
+    // The voice's waveform, in place of the score and date while recording.
+    await waitFor(() => expect(row.querySelector('.waveform')).not.toBeNull())
+    expect(row.querySelector('.card-meta')).toBeNull()
     await user.click(mic)
 
     const bubble = await within(row).findByRole('status')
+    expect(row.querySelector('.waveform')).toBeNull() // Gone once the recording stops.
+    expect(microphone.closeAudio).toHaveBeenCalled()
     expect(bubble.classList).toContain('score-good')
     expect(within(bubble).getByText('Good pronunciation')).toBeTruthy()
     expect(bubble.querySelector('mark')?.textContent).toBe('slipt')
@@ -496,9 +513,11 @@ describe('the app', () => {
 
     await user.click(mic)
     await waitFor(() => expect(mic.getAttribute('aria-pressed')).toBe('true'))
+    await waitFor(() => expect(sheet.querySelector('.waveform')).not.toBeNull())
     await user.click(mic)
 
     const bubble = await within(sheet).findByRole('status')
+    expect(sheet.querySelector('.waveform')).toBeNull()
     expect(within(bubble).getByText('Good pronunciation')).toBeTruthy()
     expect(within(sheet).getByText('Last score: 9 of 10, good pronunciation')).toBeTruthy()
     expect(within(firstCard()).getByText('Last score: 9 of 10, good pronunciation')).toBeTruthy()
@@ -517,7 +536,7 @@ describe('the app', () => {
 
   it('says when the microphone is blocked', async () => {
     fakeBackend([typo], [typo.id])
-    fakeMicrophone({ blocked: true })
+    const microphone = fakeMicrophone({ blocked: true })
     const user = userEvent.setup()
     startLoggedIn()
     await screen.findAllByText('It slipt my mind.')
@@ -527,6 +546,8 @@ describe('the app', () => {
 
     expect(await screen.findByText('The microphone is blocked. Allow it in your settings.')).toBeTruthy()
     expect(mic.getAttribute('aria-pressed')).toBe('false')
+    expect(microphone.closeAudio).toHaveBeenCalled() // Opened for the waveform before asking.
+    expect(document.querySelector('.waveform')).toBeNull()
   })
 
   it("shows the backend's reason when it can't score, and keeps no score", async () => {

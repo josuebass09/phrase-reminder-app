@@ -7,7 +7,8 @@ import { Spinner } from './Spinner.tsx'
 
 /** Saying a phrase aloud: recording it, waiting for the score, or the score that came back. */
 export type Attempt =
-  | { state: 'recording' }
+  /** The level is there once the microphone is on, where the browser can measure it. */
+  | { state: 'recording'; level?: () => number }
   | { state: 'scoring' }
   /** The id tells one try from the next, even with the same result. */
   | { state: 'scored'; result: Pronunciation; id: number }

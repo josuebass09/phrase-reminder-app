@@ -6,6 +6,7 @@ import { CloseIcon, PenIcon, PlayIcon, StopIcon, TranslateIcon, TrashIcon } from
 import type { Speaking } from './PhraseCard.tsx'
 import { MicButton, ScoreBadge, ScoreBubble, type Attempt } from './Score.tsx'
 import { Spinner } from './Spinner.tsx'
+import { Waveform } from './Waveform.tsx'
 
 const MAX_PHRASE_LENGTH = 500 // Matches the backend.
 
@@ -234,6 +235,7 @@ export function PhraseSheet({
               )}
               {onPronounce && <MicButton labeled attempt={attempt} onClick={() => onPronounce(phrase)} />}
             </div>
+            {attempt?.state === 'recording' && attempt.level && <Waveform level={attempt.level} bars={40} />}
             {attempt?.state === 'scored' && (
               <ScoreBubble
                 attempt={attempt}
