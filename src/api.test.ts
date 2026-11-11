@@ -133,4 +133,33 @@ describe('api', () => {
 
     await expect(api.recent()).rejects.toMatchObject({ status: 500, message: 'Something went wrong. Try again.' })
   })
+
+  it('asks the chat for options with the text', async () => {
+    const options = { formal: { text: 'Hello.', es: 'Hola.' }, informal: { text: 'Hi!', es: '¡Hola!' } }
+    const fetchMock = respond(200, options)
+
+    expect(await api.suggest('Hola')).toEqual(options)
+    const [url, init] = fetchMock.mock.calls[0] as unknown as [string, RequestInit]
+    expect(url).toMatch(/\/api\/suggestions$/)
+    expect(init).toMatchObject({ method: 'POST', body: JSON.stringify({ text: 'Hola' }) })
+  })
+
+  it('sends the context with the text when there is one', async () => {
+    const fetchMock = respond(200, { formal: { text: 'a', es: 'a' }, informal: { text: 'b', es: 'b' } })
+
+    await api.suggest('Hola', 'Email to a client')
+
+    const [, init] = fetchMock.mock.calls[0] as unknown as [string, RequestInit]
+    expect(init.body).toBe(JSON.stringify({ text: 'Hola', context: 'Email to a client' }))
+  })
+
+  it('sends a translation with a new phrase only when there is one', async () => {
+    const fetchMock = respond(201, { id: 1, text: 'Hi!', createdAt: '2026-11-10T12:00:00.000Z' })
+
+    await api.add('Hi!', '¡Hola!')
+    await api.add('Hello.')
+
+    const bodies = fetchMock.mock.calls.map((call) => (call as unknown as [string, RequestInit])[1].body)
+    expect(bodies).toEqual([JSON.stringify({ text: 'Hi!', translation: '¡Hola!' }), JSON.stringify({ text: 'Hello.' })])
+  })
 })

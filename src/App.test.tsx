@@ -12,6 +12,12 @@ const TOKEN = 'token-1'
 const TWELVE_HOURS = 12 * 60 * 60 * 1000
 const INVITE_CODE = 'invite-code-for-friends'
 const SPANISH: Record<string, string> = { 'It slipt my mind.': 'Se me olvidó.' }
+const OPTIONS: Record<string, { formal: { text: string; es: string }; informal: { text: string; es: string } }> = {
+  '¿Puedes revisarlo?': {
+    formal: { text: 'Could you please take a look at it?', es: '¿Podría revisarlo, por favor?' },
+    informal: { text: 'Can you take a look?', es: '¿Le echas un ojo?' },
+  },
+}
 
 /** An in-memory stand-in for the backend API, behind a mocked fetch. */
 /** Lets a test hold back the backend's answer for one path, to see what shows while waiting. */
@@ -29,18 +35,26 @@ function fakeBackend(
     translationFails = false,
     settingsFail = false,
     translationLimitReached = false,
+    suggestionsFail = 0,
+    suggestionLimitReached = false,
     hold,
   }: {
     admin?: boolean
     translationFails?: boolean
     settingsFail?: boolean
     translationLimitReached?: boolean
+    /** How many chat requests fail before one works. */
+    suggestionsFail?: number
+    suggestionLimitReached?: boolean
     hold?: ReturnType<typeof holdBack>
   } = {},
 ) {
   const phrases = [...seed] // Newest first, like the backend returns them.
   const settings = { remindersOn: true, reminderTime: '12:00', timeZone: deviceTimeZone(), phrasesPerDay: 3 }
+  const savedTranslations: Record<number, string> = {}
   let translationsUsed = 0
+  let suggestionsUsed = 0
+  let failuresLeft = suggestionsFail
   let nextId = Math.max(0, ...phrases.map((phrase) => phrase.id)) + 1
   const json = (status: number, body?: unknown) =>
     new Response(body === undefined ? null : JSON.stringify(body), { status })
@@ -68,7 +82,21 @@ function fakeBackend(
       if (headers.Authorization !== `Bearer ${TOKEN}`) return json(401, { error: 'Not logged in' })
 
       if (path === '/api/me') return json(200, { id: 1, email: EMAIL, isAdmin: admin })
-      if (path === '/api/translation-usage') return json(200, { used: translationsUsed, limit: admin ? null : 30 })
+      if (path === '/api/usage') {
+        return json(200, {
+          translations: { used: translationsUsed, limit: admin ? null : 30 },
+          suggestions: { used: suggestionsUsed, limit: admin ? null : 20 },
+        })
+      }
+      if (path === '/api/suggestions') {
+        if (suggestionLimitReached) return json(429, { error: "You've used today's 20 chat answers. More tomorrow." })
+        if (failuresLeft > 0) {
+          failuresLeft -= 1
+          return json(502, { error: "Couldn't get an answer right now. Try again." })
+        }
+        suggestionsUsed += 1
+        return json(200, OPTIONS[body.text] ?? { formal: { text: `Formal ${body.text}`, es: 'f' }, informal: { text: `Informal ${body.text}`, es: 'i' } })
+      }
       if (path === '/api/settings') {
         if (method === 'PATCH') {
           if (settingsFail) return json(500, { error: 'Database down' })
@@ -84,12 +112,14 @@ function fakeBackend(
       if (path === '/api/phrases' && method === 'POST') {
         const phrase = { id: nextId++, text: body.text, createdAt: new Date().toISOString() }
         phrases.unshift(phrase)
+        if (body.translation) savedTranslations[phrase.id] = body.translation
         return json(201, phrase)
       }
       const translationOf = Number(path.match(/^\/api\/phrases\/(\d+)\/translation$/)?.[1])
       if (translationOf) {
         const phrase = phrases.find((candidate) => candidate.id === translationOf)
         if (!phrase) return json(404, { error: 'Phrase not found' })
+        if (savedTranslations[phrase.id]) return json(200, { translation: savedTranslations[phrase.id] })
         if (translationFails) return json(502, { error: "Couldn't translate right now" })
         if (translationLimitReached) return json(429, { error: "You've used today's 30 translations. More tomorrow." })
         translationsUsed += 1
@@ -704,7 +734,9 @@ describe('the app', () => {
 
     await user.click(screen.getByRole('button', { name: 'Settings' }))
 
-    expect(await within(screen.getByRole('dialog')).findByText('1 of 30')).toBeTruthy()
+    const sheet = screen.getByRole('dialog')
+    expect(await within(sheet).findByText('1 of 30')).toBeTruthy()
+    expect(within(sheet).getByText('0 of 20')).toBeTruthy()
   })
 
   it('shows the admin no limit', async () => {
@@ -715,6 +747,182 @@ describe('the app', () => {
 
     await user.click(screen.getByRole('button', { name: 'Settings' }))
 
-    expect(await within(screen.getByRole('dialog')).findByText('0 · no limit')).toBeTruthy()
+    expect(await within(screen.getByRole('dialog')).findAllByText('0 · no limit')).toHaveLength(2)
+  })
+})
+
+describe('the chat', () => {
+  const input = () => screen.getByLabelText('What do you want to say?')
+
+  async function openChat() {
+    const user = userEvent.setup()
+    startLoggedIn()
+    await screen.findByText('It slipt my mind.')
+    await user.click(screen.getByRole('tab', { name: 'Chat' }))
+    return user
+  }
+
+  it('gives a formal and an informal option, and saves the one picked with its Spanish', async () => {
+    const phrases = fakeBackend([typo])
+    const user = await openChat()
+
+    expect(screen.getByRole('tab', { name: 'Chat' }).getAttribute('aria-selected')).toBe('true')
+    expect(screen.queryByRole('textbox', { name: 'New phrase' })).toBeNull()
+    await user.type(input(), '¿Puedes revisarlo?')
+    await user.click(screen.getByRole('button', { name: 'Send' }))
+
+    const formal = await screen.findByRole('article', { name: 'Formal' })
+    expect(within(formal).getByText('Could you please take a look at it?')).toBeTruthy()
+    expect(within(formal).getByText('¿Podría revisarlo, por favor?')).toBeTruthy()
+    const informal = screen.getByRole('article', { name: 'Informal' })
+    expect(within(informal).getByText('Can you take a look?')).toBeTruthy()
+    expect(input()).toHaveProperty('value', '')
+
+    await user.click(within(informal).getByRole('button', { name: 'Save informal' }))
+
+    expect(await within(informal).findByRole('button', { name: 'Informal saved' })).toHaveProperty('disabled', true)
+    expect(await screen.findByText('Saved to your phrases')).toBeTruthy()
+    expect(phrases[0].text).toBe('Can you take a look?')
+    expect(within(formal).getByRole('button', { name: 'Save formal' })).toHaveProperty('disabled', false)
+
+    // Its Spanish came with it, so translating it in the list asks for nothing.
+    const fetchMock = vi.mocked(fetch)
+    fetchMock.mockClear()
+    await user.click(screen.getByRole('tab', { name: 'Phrases' }))
+    const row = within(screen.getByRole('tabpanel')).getByText('Can you take a look?').closest('li')!
+    await user.click(within(row).getByRole('button', { name: 'Translate to Spanish' }))
+
+    expect(within(row).getByText('¿Le echas un ojo?')).toBeTruthy()
+    const paths = fetchMock.mock.calls.map(([url]) => new URL(String(url), 'http://app.test').pathname)
+    expect(paths.filter((path) => path.endsWith('/translation'))).toEqual([])
+  })
+
+  it('shows that it is thinking while it waits, and sends with Enter', async () => {
+    const hold = holdBack('/api/suggestions')
+    fakeBackend([typo], [], { hold })
+    const user = await openChat()
+
+    await user.type(input(), 'Voy tarde{Enter}')
+
+    expect(screen.getByText('Voy tarde')).toBeTruthy()
+    expect(within(screen.getByRole('log')).getByRole('status').textContent).toContain('Thinking…')
+    expect(screen.getByRole('button', { name: 'Send' })).toHaveProperty('disabled', true)
+    hold.release()
+    expect(await screen.findByText('Formal Voy tarde')).toBeTruthy()
+    expect(within(screen.getByRole('log')).queryByRole('status')).toBeNull()
+  })
+
+  it('offers to try again when the answer fails', async () => {
+    fakeBackend([typo], [], { suggestionsFail: 1 })
+    const user = await openChat()
+
+    await user.type(input(), 'Hola{Enter}')
+    expect(await screen.findByText("Couldn't get an answer right now. Try again.")).toBeTruthy()
+    await user.click(screen.getByRole('button', { name: 'Try again' }))
+
+    expect(await screen.findByText('Formal Hola')).toBeTruthy()
+    expect(screen.queryByRole('alert')).toBeNull()
+  })
+
+  it("says when today's chat answers are used up, without offering to try again", async () => {
+    fakeBackend([typo], [], { suggestionLimitReached: true })
+    const user = await openChat()
+
+    await user.type(input(), 'Hola{Enter}')
+
+    expect(await screen.findByText("You've used today's 20 chat answers. More tomorrow.")).toBeTruthy()
+    expect(screen.queryByRole('button', { name: 'Try again' })).toBeNull()
+  })
+
+  it('reads an option aloud, and stops when going back to the phrases', async () => {
+    fakeBackend([typo])
+    const { synth, spoken } = fakeSpeech()
+    const user = await openChat()
+    await user.type(input(), '¿Puedes revisarlo?{Enter}')
+    const formal = await screen.findByRole('article', { name: 'Formal' })
+    const slow = within(formal).getByRole('button', { name: 'Listen at 0.5x' })
+
+    await user.click(slow)
+
+    expect(spoken.map((utterance) => [utterance.text, utterance.rate])).toEqual([['Could you please take a look at it?', 0.5]])
+    expect(slow.getAttribute('aria-pressed')).toBe('true')
+    synth.cancel.mockClear()
+    await user.click(screen.getByRole('tab', { name: 'Phrases' }))
+    expect(synth.cancel).toHaveBeenCalled()
+  })
+
+  it('fills the box with an example, and keeps the conversation across tabs', async () => {
+    fakeBackend([typo])
+    const user = await openChat()
+
+    await user.click(screen.getByRole('button', { name: 'Voy un poco tarde' }))
+    expect(input()).toHaveProperty('value', 'Voy un poco tarde')
+    await user.click(screen.getByRole('button', { name: 'Send' }))
+    await screen.findByText('Formal Voy un poco tarde')
+    await user.click(screen.getByRole('tab', { name: 'Phrases' }))
+    await user.click(screen.getByRole('tab', { name: 'Chat' }))
+
+    expect(screen.getByText('Formal Voy un poco tarde')).toBeTruthy()
+  })
+
+  it('sends the context with each message until it is cleared, and shows it under them', async () => {
+    fakeBackend([typo])
+    const user = await openChat()
+    const sentBodies = () =>
+      vi
+        .mocked(fetch)
+        .mock.calls.filter(([url]) => String(url).endsWith('/api/suggestions'))
+        .map(([, init]) => JSON.parse(String(init?.body)))
+
+    const contextButton = screen.getByRole('button', { name: 'Context' })
+    await user.click(contextButton)
+    expect(contextButton.getAttribute('aria-expanded')).toBe('true')
+    await user.type(screen.getByLabelText('Context'), 'Slack message to my manager')
+    await user.click(screen.getByRole('button', { name: 'Done' }))
+    expect(screen.getByRole('button', { name: 'Context: Slack message to my manager' })).toBeTruthy()
+
+    await user.type(input(), 'Voy tarde{Enter}')
+    await screen.findByText('Formal Voy tarde')
+    await user.type(input(), 'Ya casi{Enter}')
+    await screen.findByText('Formal Ya casi')
+    await user.click(screen.getByRole('button', { name: 'Clear context' }))
+    await user.type(input(), 'Listo{Enter}')
+    await screen.findByText('Formal Listo')
+
+    expect(sentBodies()).toEqual([
+      { text: 'Voy tarde', context: 'Slack message to my manager' },
+      { text: 'Ya casi', context: 'Slack message to my manager' },
+      { text: 'Listo' },
+    ])
+    const log = screen.getByRole('log')
+    expect(within(log).getAllByText('Slack message to my manager')).toHaveLength(2)
+    expect(screen.queryByRole('button', { name: /^Context:/ })).toBeNull()
+  })
+
+  it('closes the context with Escape and keeps what was written', async () => {
+    fakeBackend([typo])
+    const user = await openChat()
+
+    await user.click(screen.getByRole('button', { name: 'Context' }))
+    await user.type(screen.getByLabelText('Context'), 'Email to a client{Escape}')
+
+    expect(screen.getByRole('button', { name: 'Context' }).getAttribute('aria-expanded')).toBe('false')
+    expect(document.activeElement).toBe(input())
+    expect(screen.getByRole('button', { name: 'Context: Email to a client' })).toBeTruthy()
+  })
+
+  it('switches tabs with the arrow keys', async () => {
+    fakeBackend([typo])
+    const user = userEvent.setup()
+    startLoggedIn()
+    await screen.findByText('It slipt my mind.')
+
+    screen.getByRole('tab', { name: 'Phrases' }).focus()
+    await user.keyboard('{ArrowRight}')
+
+    const chat = screen.getByRole('tab', { name: 'Chat' })
+    expect(document.activeElement).toBe(chat)
+    expect(chat.getAttribute('aria-selected')).toBe('true')
+    expect(screen.getByRole('tabpanel').id).toBe('panel-chat')
   })
 })

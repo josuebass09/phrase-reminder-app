@@ -35,9 +35,15 @@ The 文A button next to the speed buttons shows the phrase in Spanish, in a spee
 
 Each user may ask for 30 new translations a day (the admin has no limit); reopening a saved one doesn't count. Past the limit, the app says so and the count starts over at the user's midnight. Settings shows how many they've used today.
 
+## Chat
+
+The Chat tab, next to Phrases, asks how to say something. Write it in Spanish or English, and the answer shows a formal way to say it in English (for work) and an informal one (for friends), each with its Spanish and the 1x and 0.5x buttons. Save the one you like and it joins your phrases, with that Spanish as its translation, so 文A opens it without using a translation. Enter sends, and the examples under the welcome fill in the box. The Context button beside the box takes a note about the situation, such as "Slack message to my manager about a late deploy", so the AI fits the words and tone to it; it stays for the next messages until cleared, and shows under each message sent with it.
+
+The conversation lasts until the app closes; only saved options are kept. Each user may get 20 answers a day (the admin has no limit), and Settings shows how many they've used. The backend asks a free AI on Groq; see the backend's README.
+
 ## Design
 
-The app follows the platform it runs on, set from the browser's user agent before the first render: iOS conventions on iPhone and iPad (large title, grouped lists, sheets, buttons that dim when pressed, the spoked activity indicator), and Material 3 on Android (top app bar, outlined fields and chips, a floating Save button, snackbars, pressed-state layers, the circular progress indicator). Every wait shows a spinner in that platform's style: logging in, the first load, saving, editing and deleting, translating, turning on reminders, and creating an invite.
+The app follows the platform it runs on, set from the browser's user agent before the first render: iOS conventions on iPhone and iPad (large title, grouped lists, sheets, buttons that dim when pressed, the spoked activity indicator), and Material 3 on Android (top app bar, outlined fields and chips, a floating Save button, snackbars, pressed-state layers, the circular progress indicator). The two tabs are a segmented control on iOS and Material tabs on Android. Every wait shows a spinner in that platform's style: logging in, the first load, saving, editing and deleting, translating, the chat's answer, turning on reminders, and creating an invite.
 
 The colors are "Salvia y papel": muted sage on warm paper, with a matching dark mode, chosen to be easy on the eyes while keeping text readable (WCAG AA contrast). They're the variables at the top of `src/styles.css`.
 

@@ -1,12 +1,15 @@
 import { useCallback, useEffect, useRef, useState, type FormEvent } from 'react'
 import { api, ApiError, NotFoundError, UnauthorizedError, type Phrase, type ReminderSettings, type Session } from './api.ts'
 import { Brand } from './Brand.tsx'
+import { Chat } from './Chat.tsx'
 import { Editor } from './Editor.tsx'
 import { deviceTimeZone, timeLabel } from './format.ts'
 import { BellIcon, CheckIcon, ClockIcon, HistoryIcon, PenIcon, SaveIcon, SunIcon, UserIcon } from './icons.tsx'
 import { PhraseRow, type Speaking, type Translation } from './PhraseRow.tsx'
 import { Settings } from './Settings.tsx'
 import { Spinner } from './Spinner.tsx'
+import { panelId, tabId, type Tab } from './sections.ts'
+import { Tabs } from './Tabs.tsx'
 import { ThemeToggle } from './ThemeToggle.tsx'
 import { currentSubscription, pushSupported, subscribe } from './push.ts'
 import { NORMAL_RATE, SLOW_RATE, speak, speechSupported, stopSpeaking } from './speech.ts'
@@ -43,7 +46,9 @@ export function PhraseApp({ session, onLogOut, onExpired }: PhraseAppProps) {
   const [settings, setSettings] = useState<ReminderSettings | null>(null)
   const [isAdmin, setIsAdmin] = useState(false)
   const [canSpeak] = useState(speechSupported)
-  const [playing, setPlaying] = useState<{ id: number; slow: boolean } | null>(null)
+  const [tab, setTab] = useState<Tab>('phrases')
+  // What is being read aloud: a phrase, or a chat option, by key (see phraseKey and Chat).
+  const [playing, setPlaying] = useState<{ key: string; slow: boolean } | null>(null)
   // By phrase id. A translation stays here after its bubble closes, so reopening it needs no request.
   const [translations, setTranslations] = useState<Record<number, Translation>>({})
   const [reminders, setReminders] = useState<Reminders>(pushSupported ? 'checking' : 'off')
@@ -215,22 +220,29 @@ export function PhraseApp({ session, onLogOut, onExpired }: PhraseAppProps) {
   }
 
   /**
-   * Reads a phrase aloud at either speed, or stops it if that's what is playing.
+   * Reads text aloud at either speed, or stops it if that's what is playing.
    * One plays at a time, so tapping the other speed switches to it.
    */
-  function toggleSpeech(phrase: Phrase, slow: boolean) {
-    if (playing?.id === phrase.id && playing.slow === slow) {
+  function toggleSpeech(key: string, text: string, slow: boolean) {
+    if (playing?.key === key && playing.slow === slow) {
       stopSpeaking()
       setPlaying(null)
       return
     }
-    const started = { id: phrase.id, slow }
+    const started = { key, slow }
     setPlaying(started)
-    speak(phrase.text, () => setPlaying((now) => (now === started ? null : now)), slow ? SLOW_RATE : NORMAL_RATE)
+    speak(text, () => setPlaying((now) => (now === started ? null : now)), slow ? SLOW_RATE : NORMAL_RATE)
   }
 
-  const speakingOf = (phrase: Phrase): Speaking =>
-    playing?.id === phrase.id ? (playing.slow ? 'slow' : 'normal') : null
+  const speakingOf = (key: string): Speaking => (playing?.key === key ? (playing.slow ? 'slow' : 'normal') : null)
+  const phraseKey = (phrase: Phrase) => `phrase-${phrase.id}`
+
+  function changeTab(next: Tab) {
+    if (next === tab) return
+    stopSpeaking() // What was playing is no longer on screen.
+    setPlaying(null)
+    setTab(next)
+  }
 
   const setTranslation = (id: number, next: Translation | null) =>
     setTranslations((all) => {
@@ -259,10 +271,19 @@ export function PhraseApp({ session, onLogOut, onExpired }: PhraseAppProps) {
   }
 
   const rowProps = (phrase: Phrase) => ({
-    ...(canSpeak ? { onSpeak: toggleSpeech, speaking: speakingOf(phrase) } : {}),
+    ...(canSpeak
+      ? { onSpeak: (spoken: Phrase, slow: boolean) => toggleSpeech(phraseKey(spoken), spoken.text, slow), speaking: speakingOf(phraseKey(phrase)) }
+      : {}),
     onTranslate: toggleTranslation,
     translation: translations[phrase.id],
   })
+
+  /** A chat option became a phrase. Its Spanish came with it, so translating it needs no request. */
+  function addFromChat(phrase: Phrase, translation: string) {
+    setRecent((list) => [phrase, ...list])
+    setTranslation(phrase.id, { text: translation, loading: false, open: false })
+    showToast('Saved to your phrases')
+  }
 
   // A phrase can be in both Today and Recent, so changes apply to both lists.
   function replacePhrase(updated: Phrase) {
@@ -319,7 +340,8 @@ export function PhraseApp({ session, onLogOut, onExpired }: PhraseAppProps) {
             </button>
           </div>
         </header>
-        <form id="phrase-form" className="composer" onSubmit={addPhrase}>
+        <Tabs tab={tab} onChange={changeTab} />
+        <form id="phrase-form" className="composer" hidden={tab !== 'phrases'} onSubmit={addPhrase}>
           <div className="field">
             <label htmlFor="phrase">
               <PenIcon />
@@ -339,7 +361,13 @@ export function PhraseApp({ session, onLogOut, onExpired }: PhraseAppProps) {
           </p>
         </form>
       </div>
-      <main className="content">
+      <main
+        id={panelId('phrases')}
+        className="content"
+        role="tabpanel"
+        aria-labelledby={tabId('phrases')}
+        hidden={tab !== 'phrases'}
+      >
         <section id="today" className="group" hidden={today.length === 0}>
           <h2>
             <SunIcon />
@@ -370,7 +398,15 @@ export function PhraseApp({ session, onLogOut, onExpired }: PhraseAppProps) {
           {loaded && <p className="empty">Your saved phrases will appear here.</p>}
         </section>
       </main>
-      <div className="actions">
+      <Chat
+        hidden={tab !== 'chat'}
+        onSpeak={canSpeak ? toggleSpeech : undefined}
+        speakingOf={speakingOf}
+        onSaved={addFromChat}
+        onFail={fail}
+        onUnauthorized={onExpired}
+      />
+      <div className="actions" hidden={tab !== 'phrases'}>
         <button
           id="save"
           className="primary"

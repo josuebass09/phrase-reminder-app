@@ -4,6 +4,25 @@ export interface Phrase {
   createdAt: string
 }
 
+/** One way to say something in English, from the chat. */
+export interface PhraseOption {
+  text: string
+  /** What the English says, in Spanish. */
+  es: string
+}
+
+/** The chat's answer: a way to say it at work, and one for friends. */
+export interface Suggestions {
+  formal: PhraseOption
+  informal: PhraseOption
+}
+
+/** What the user has used of a daily limit today. The limit is null for the admin. */
+export interface Usage {
+  used: number
+  limit: number | null
+}
+
 /** A logged-in user's access token. It lasts 12 hours; after that, the user logs in again. */
 export interface Session {
   token: string
@@ -143,8 +162,8 @@ export const api = {
   config: () => request<{ vapidPublicKey: string }>('/api/config'),
   me: () => request<{ id: number; email: string; isAdmin: boolean }>('/api/me'),
   settings: () => request<ReminderSettings>('/api/settings'),
-  /** New translations used today, and the daily limit, which is null for the admin. */
-  translationUsage: () => request<{ used: number; limit: number | null }>('/api/translation-usage'),
+  /** Today's new translations and chat answers, each with its daily limit. */
+  usage: () => request<{ translations: Usage; suggestions: Usage }>('/api/usage'),
   /** Saves only the settings given, and returns them all. */
   updateSettings: (changes: Partial<ReminderSettings>) =>
     request<ReminderSettings>('/api/settings', { method: 'PATCH', body: changes }),
@@ -152,11 +171,16 @@ export const api = {
   createInvite: () => request<{ code: string; expiresAt: string }>('/api/invites', { method: 'POST' }),
   recent: () => request<Phrase[]>('/api/phrases'),
   today: () => request<Phrase[]>('/api/today'),
-  add: (text: string) => request<Phrase>('/api/phrases', { method: 'POST', body: { text } }),
+  /** A translation, such as the Spanish of a chat option, is saved with the phrase. */
+  add: (text: string, translation?: string) =>
+    request<Phrase>('/api/phrases', { method: 'POST', body: translation ? { text, translation } : { text } }),
   update: (id: number, text: string) => request<Phrase>(`/api/phrases/${id}`, { method: 'PATCH', body: { text } }),
   remove: (id: number) => request<void>(`/api/phrases/${id}`, { method: 'DELETE' }),
   /** The phrase in Spanish. The backend translates it once and keeps it. */
   translate: (id: number) => request<{ translation: string }>(`/api/phrases/${id}/translation`),
+  /** A formal and an informal way to say the text in English, fitted to the context if there is one. Nothing is saved. */
+  suggest: (text: string, context?: string) =>
+    request<Suggestions>('/api/suggestions', { method: 'POST', body: context ? { text, context } : { text } }),
   subscribe: (subscription: PushSubscription) =>
     request<void>('/api/push/subscribe', { method: 'POST', body: subscription.toJSON() }),
 }
