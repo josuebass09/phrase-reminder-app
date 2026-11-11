@@ -38,6 +38,11 @@ app.use(async (c, next) => {
   c.header('Cache-Control', immutable ? 'public, max-age=31536000, immutable' : 'no-cache')
 })
 
+// The commit this deploy serves, from Railway at run time, for the admin's Versions.
+// It isn't available while the app builds, so it can't go into the bundle.
+const version = process.env.RAILWAY_GIT_COMMIT_SHA?.slice(0, 7) || null
+app.get('/version.json', (c) => c.json({ version }))
+
 app.use(serveStatic({ root: './dist' }))
 
 serve({ fetch: app.fetch, port: Number(process.env.PORT ?? 3000) }, ({ port }) => {

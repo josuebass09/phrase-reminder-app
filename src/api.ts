@@ -333,6 +333,16 @@ export const api = {
     users: () => request<AdminUser[]>('/api/admin/users'),
     system: () => request<AdminSystem>('/api/admin/system'),
     endSessions: (userId: number) => request<{ ended: number }>(`/api/admin/users/${userId}/sessions`, { method: 'DELETE' }),
+    /** The commit the app's own server serves (see server.mjs), or null where it doesn't say, as in development. */
+    appVersion: async (): Promise<string | null> => {
+      try {
+        const response = await fetch('/version.json', { cache: 'no-store' })
+        const body = response.ok ? await response.json() : null
+        return typeof body?.version === 'string' ? body.version : null
+      } catch {
+        return null
+      }
+    },
   },
   /** The newest 50, those after the phrase `before`, or those whose text or Spanish has `search`. */
   recent: ({ search, before }: { search?: string; before?: number } = {}) => {

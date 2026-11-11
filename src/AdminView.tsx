@@ -44,6 +44,7 @@ export function AdminView({ onUnauthorized }: { onUnauthorized: () => void }) {
   const [ai, reloadAi] = useLoad(api.admin.ai, onUnauthorized)
   const [users, reloadUsers, setUsers] = useLoad(api.admin.users, onUnauthorized)
   const [system, reloadSystem] = useLoad(api.admin.system, onUnauthorized)
+  const [appVersion] = useLoad(api.admin.appVersion, onUnauthorized)
 
   return (
     <div className="page admin">
@@ -97,7 +98,7 @@ export function AdminView({ onUnauthorized }: { onUnauthorized: () => void }) {
           <h3 id="system-heading">{t.adminSystem}</h3>
         </div>
         <Section data={system} onRetry={reloadSystem}>
-          {(loaded) => <SystemPanel system={loaded} />}
+          {(loaded) => <SystemPanel system={loaded} app={typeof appVersion === 'string' ? appVersion : null} />}
         </Section>
       </section>
     </div>
@@ -406,13 +407,12 @@ function UserRow({ user, onUnauthorized, onEnded }: { user: AdminUser; onUnautho
 }
 
 /** The cron's runs and deliveries, the database's size, and the versions running. */
-function SystemPanel({ system }: { system: AdminSystem }) {
+function SystemPanel({ system, app }: { system: AdminSystem; app: string | null }) {
   const t = useT()
   const language = useLanguage()
   const { cron, database, versions, reminders } = system
   const stopped = cronLooksStopped(cron.lastRunAt)
   const count = (value: number) => countLabel(value, language)
-  const app = typeof __APP_VERSION__ === 'string' ? __APP_VERSION__ : null
   const running = [app, versions.api, versions.cron]
   const versionsMatch = running.every((version) => version !== null && version === running[0])
   const totalDelivered = cron.deliveries.reduce((sum, day) => sum + day.delivered, 0)

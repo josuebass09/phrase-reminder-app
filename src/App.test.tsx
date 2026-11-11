@@ -96,6 +96,7 @@ function fakeBackend(
         renewal
           ? { token, expiresAt: '', expiresIn: 3600, refreshToken, user: { id: 1, email: EMAIL } }
           : { token, expiresAt: '', expiresIn: TWELVE_HOURS / 1000, user: { id: 1, email: EMAIL } }
+      if (path === '/version.json') return json(200, { version: 'abc1234' }) // From the app's own server, with no login.
       if (path === '/api/login') {
         return body.email === EMAIL && body.password === PASSWORD
           ? json(200, tokens())
@@ -1644,6 +1645,10 @@ describe('admin tab', () => {
     expect(within(system).getByText('12.5 MB in all')).toBeTruthy()
     const tables = within(system).getAllByRole('listitem').map((item) => item.textContent)
     expect(tables[0]).toMatch(/^Activity300 rows · 192 kB$/) // The biggest first.
+    const versions = within(system).getByRole('article', { name: 'Versions' })
+    await waitFor(() =>
+      expect(within(versions).getAllByRole('definition').map((each) => each.textContent)).toEqual(['abc1234', 'abc1234', 'def5678']),
+    )
     expect(within(system).getByText(/^Not all on the same commit/)).toBeTruthy()
   })
 })
