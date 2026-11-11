@@ -413,8 +413,9 @@ function SystemPanel({ system, app }: { system: AdminSystem; app: string | null 
   const { cron, database, versions, reminders } = system
   const stopped = cronLooksStopped(cron.lastRunAt)
   const count = (value: number) => countLabel(value, language)
-  const running = [app, versions.api, versions.cron]
-  const versionsMatch = running.every((version) => version !== null && version === running[0])
+  // The API and the cron deploy from the same repository, so they should run the same commit;
+  // the app has its own repository, so its commit is only shown.
+  const backendKnown = versions.api !== null && versions.cron !== null
   const totalDelivered = cron.deliveries.reduce((sum, day) => sum + day.delivered, 0)
 
   return (
@@ -481,7 +482,12 @@ function SystemPanel({ system, app }: { system: AdminSystem; app: string | null 
             </div>
           ))}
         </dl>
-        <Status level={versionsMatch ? 'fine' : 'near'}>{versionsMatch ? t.versionsMatch : t.versionsDiffer}</Status>
+        {backendKnown && (
+          <Status level={versions.api === versions.cron ? 'fine' : 'near'}>
+            {versions.api === versions.cron ? t.versionsMatch : t.versionsDiffer}
+          </Status>
+        )}
+        <p className="usage-hint">{t.versionsNote}</p>
       </article>
     </div>
   )

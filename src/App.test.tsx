@@ -1629,7 +1629,7 @@ describe('admin tab', () => {
     expect(calledPaths()).toContain('/api/admin/users/2/sessions')
   })
 
-  it("warns that the cron stopped and the versions don't match, and shows the database's size", async () => {
+  it("warns that the cron stopped and runs another commit than the API, and shows the database's size", async () => {
     fakeBackend([typo])
     const user = userEvent.setup()
     startLoggedIn()
@@ -1649,6 +1649,6 @@ describe('admin tab', () => {
     await waitFor(() =>
       expect(within(versions).getAllByRole('definition').map((each) => each.textContent)).toEqual(['abc1234', 'abc1234', 'def5678']),
     )
-    expect(within(system).getByText(/^Not all on the same commit/)).toBeTruthy()
+    expect(within(system).getByText(/^The cron runs another commit than the API/)).toBeTruthy()
   })
 })

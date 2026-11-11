@@ -251,8 +251,9 @@ const en = {
   } as Record<string, string>,
   tableRows: (rows: number, shown: string, size: string) => `${shown} ${rows === 1 ? 'row' : 'rows'} · ${size}`,
   versions: 'Versions',
-  versionsMatch: 'All on the same commit',
-  versionsDiffer: "Not all on the same commit: a deploy may be under way, or stuck",
+  versionsMatch: 'The API and the cron run the same commit',
+  versionsDiffer: 'The cron runs another commit than the API: a deploy may be under way, or stuck',
+  versionsNote: 'The app has its own repository, so its commit is another.',
   versionUnknown: 'unknown',
 
   // Invites
@@ -510,8 +511,9 @@ const es: Messages = {
   },
   tableRows: (rows, shown, size) => `${shown} ${rows === 1 ? 'fila' : 'filas'} · ${size}`,
   versions: 'Versiones',
-  versionsMatch: 'Todo en el mismo commit',
-  versionsDiffer: 'No todo está en el mismo commit: puede haber un despliegue en curso, o trabado',
+  versionsMatch: 'El API y el cron corren el mismo commit',
+  versionsDiffer: 'El cron corre otro commit que el API: puede haber un despliegue en curso, o trabado',
+  versionsNote: 'La app tiene su propio repositorio, así que su commit es otro.',
   versionUnknown: 'desconocida',
 
   inviteSomeone: 'Invitar a alguien',
