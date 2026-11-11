@@ -702,11 +702,13 @@ p, h1, h2, h3 { margin: 0; }
   }
 }
 
+/* flex-basis auto, not flex: 1's 0%: the sheet takes its height from this, and
+   Safari sizes it to 0 from a 0% basis, leaving only the backdrop on screen. */
 .sheet-form {
   display: flex;
   flex-direction: column;
   min-height: 0;
-  flex: 1;
+  flex: 1 1 auto;
 }
 
 .sheet-bar {
