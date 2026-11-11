@@ -17,6 +17,8 @@ import { NORMAL_RATE, SLOW_RATE, speak, speechSupported, stopSpeaking } from './
 
 const MAX_PHRASE_LENGTH = 500 // Matches the backend.
 const MAX_CONTEXT_LENGTH = 300 // Matches the backend.
+/** What public/sw.js sends when the daily notification is tapped while the app is open. */
+const SHOW_TODAY = 'show-today'
 
 type Reminders = 'checking' | 'off' | 'enabling' | 'on'
 
@@ -37,6 +39,7 @@ export function PhraseApp({ session, onLogOut, onExpired }: PhraseAppProps) {
   const t = useT()
   const appRef = useRef<HTMLDivElement>(null)
   const recentRef = useRef<HTMLUListElement>(null)
+  const todayRef = useRef<HTMLElement>(null)
   const [recent, setRecent] = useState<Phrase[]>([])
   const [today, setToday] = useState<Phrase[]>([])
   const [loaded, setLoaded] = useState(false)
@@ -82,30 +85,47 @@ export function PhraseApp({ session, onLogOut, onExpired }: PhraseAppProps) {
   // so tapping a notification may bring back an old copy.
   useEffect(() => {
     let active = true
-    async function load(quiet: boolean) {
+    /** Returns whether the phrases loaded. */
+    async function load(quiet: boolean): Promise<boolean> {
       try {
         const [recentPhrases, todayPhrases] = await Promise.all([api.recent(), api.today()])
-        if (!active) return
+        if (!active) return false
         setRecent(recentPhrases)
         setToday(todayPhrases)
         setLoaded(true)
+        return true
       } catch (err) {
-        if (!active) return
+        if (!active) return false
         if (err instanceof UnauthorizedError) onExpired()
         else if (!quiet) {
           setLoadFailed(true)
           showToast(messagesFor(getLanguage()).couldntLoad, true)
         }
+        return false
       }
     }
     load(false)
     const onVisible = () => {
       if (document.visibilityState === 'visible') load(true)
     }
+    // Tapping the daily notification while the app is open brings it back as it was,
+    // perhaps scrolled down to Recent or with Settings open, so the service worker asks
+    // for Today. Settings saves its changes right away, so closing it loses nothing.
+    // A phrase open to read or edit stays open, since it may hold an unsaved fix.
+    const onMessage = (event: MessageEvent) => {
+      if (event.data?.type !== SHOW_TODAY) return
+      setSettingsOpen(false)
+      load(true).then((done) => {
+        if (done) requestAnimationFrame(() => todayRef.current?.scrollIntoView?.({ block: 'start' }))
+      })
+    }
+    const worker = 'serviceWorker' in navigator ? navigator.serviceWorker : null
     document.addEventListener('visibilitychange', onVisible)
+    worker?.addEventListener('message', onMessage)
     return () => {
       active = false
       document.removeEventListener('visibilitychange', onVisible)
+      worker?.removeEventListener('message', onMessage)
     }
   }, [onExpired, showToast])
 
@@ -438,7 +458,7 @@ export function PhraseApp({ session, onLogOut, onExpired }: PhraseAppProps) {
             speakingOf={(style) => speakingOf(optionKey(style))}
           />
         )}
-        <section id="today" className="group" hidden={today.length === 0}>
+        <section id="today" className="group" hidden={today.length === 0} ref={todayRef}>
           <h2>
             <SunIcon />
             <span>{t.today}</span>

@@ -18,6 +18,8 @@ The person icon at the top opens Settings. Under **Daily reminder**, each person
 
 The bell button at the top shows the reminder's time, or **Paused**, once the device has reminders on; tapping it opens Settings.
 
+Tapping the daily notification opens the app on Today. If the app was already open, it closes Settings, loads the phrases just sent, and scrolls up to Today. A phrase open to read or edit stays open, in case it holds an unsaved fix.
+
 ## Listen to a phrase
 
 Under each phrase, two buttons read it aloud in English, labeled with their speed like a video player's: **1x** at normal speed and **0.5x** at half speed, to hear each sound. The one playing fills in; tap it again to stop, or tap the other to switch speeds. Only one phrase plays at a time.

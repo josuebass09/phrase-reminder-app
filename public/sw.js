@@ -12,12 +12,21 @@ self.addEventListener('push', (event) => {
   );
 });
 
+// Nothing is cached, so a new version can take over at once instead of waiting
+// for every window of the app to close, which an installed app may never do.
+self.addEventListener('install', () => self.skipWaiting());
+
+// Every notification is the daily reminder, whose phrases the app shows under Today.
 self.addEventListener('notificationclick', (event) => {
   event.notification.close();
   event.waitUntil(
     self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then((windows) => {
       const [existing] = windows;
-      return existing ? existing.focus() : self.clients.openWindow('/');
+      // A new window opens on Today, its first section. An open one comes back as it
+      // was, so it's asked to go to Today and load the phrases just sent (see PhraseApp).
+      if (!existing) return self.clients.openWindow('/');
+      existing.postMessage({ type: 'show-today' });
+      return existing.focus();
     }),
   );
 });

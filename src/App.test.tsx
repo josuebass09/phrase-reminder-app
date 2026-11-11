@@ -233,6 +233,39 @@ describe('the app', () => {
     expect(paths.filter((path) => path !== '/api/config')).toEqual([])
   })
 
+  it('goes to Today with the new phrases when the notification is tapped while the app is open', async () => {
+    const todayIds: number[] = []
+    fakeBackend([typo], todayIds)
+    // jsdom has no service workers; this stands in for the one that sends the message.
+    const worker = new EventTarget()
+    Object.defineProperty(navigator, 'serviceWorker', { value: worker, configurable: true })
+    try {
+      const user = userEvent.setup()
+      startLoggedIn()
+      await screen.findByText('It slipt my mind.')
+      const todaySection = document.getElementById('today')!
+      expect(todaySection.hidden).toBe(true)
+      let scrolledToToday = false
+      todaySection.scrollIntoView = () => {
+        scrolledToToday = true
+      }
+      await user.click(screen.getByRole('button', { name: 'Settings' }))
+      expect(screen.getByRole('dialog')).toBeTruthy()
+
+      todayIds.push(typo.id) // The reminder just went out with this phrase.
+      act(() => {
+        worker.dispatchEvent(new MessageEvent('message', { data: { type: 'show-today' } }))
+      })
+
+      await waitFor(() => expect(scrolledToToday).toBe(true))
+      expect(screen.queryByRole('dialog')).toBeNull()
+      expect(todaySection.hidden).toBe(false)
+      expect(within(todaySection).getByText('It slipt my mind.')).toBeTruthy()
+    } finally {
+      Reflect.deleteProperty(navigator, 'serviceWorker')
+    }
+  })
+
   it('saves the picked option at the top of Recent, and clears the new phrase', async () => {
     const phrases = fakeBackend([typo])
     const user = userEvent.setup()
