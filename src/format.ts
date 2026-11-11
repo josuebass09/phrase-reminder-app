@@ -61,3 +61,42 @@ export function untilMidnight(now: Date): { hours: number; minutes: number } {
   const minutes = Math.max(1, Math.ceil((midnight.getTime() - now.getTime()) / 60_000))
   return { hours: Math.floor(minutes / 60), minutes: minutes % 60 }
 }
+
+/** How long ago something happened, such as "5 min ago" or "hace 5 min", or "now". */
+export function timeAgo(iso: string, language: Language = 'en', now = new Date()): string {
+  const format = new Intl.RelativeTimeFormat(dateLocale(language), { numeric: 'auto', style: 'short' })
+  const minutes = Math.round((now.getTime() - new Date(iso).getTime()) / 60_000)
+  if (minutes < 1) return format.format(0, 'second')
+  if (minutes < 60) return format.format(-minutes, 'minute')
+  const hours = Math.round(minutes / 60)
+  if (hours < 24) return format.format(-hours, 'hour')
+  return format.format(-Math.round(hours / 24), 'day')
+}
+
+/** A size on disk, such as "12.3 MB", in powers of 1,024 as databases count them. */
+export function bytesLabel(bytes: number, language: Language = 'en'): string {
+  const units = ['byte', 'kilobyte', 'megabyte', 'gigabyte'] as const
+  let value = bytes
+  let unit = 0
+  while (value >= 1024 && unit < units.length - 1) {
+    value /= 1024
+    unit += 1
+  }
+  return new Intl.NumberFormat(dateLocale(language), {
+    style: 'unit',
+    unit: units[unit],
+    unitDisplay: 'short',
+    maximumFractionDigits: unit < 2 ? 0 : 1,
+  }).format(value)
+}
+
+/** A count, shortened past the thousands, such as "1,284" or "12.9K". */
+export function countLabel(count: number, language: Language = 'en'): string {
+  const options: Intl.NumberFormatOptions = count >= 10_000 ? { notation: 'compact', maximumFractionDigits: 1 } : {}
+  return new Intl.NumberFormat(dateLocale(language), options).format(count)
+}
+
+/** A UTC day, such as 2026-11-03, as "Nov 3" or "3 nov". */
+export function dayLabel(day: string, language: Language = 'en'): string {
+  return new Date(`${day}T00:00:00Z`).toLocaleDateString(dateLocale(language), { month: 'short', day: 'numeric', timeZone: 'UTC' })
+}

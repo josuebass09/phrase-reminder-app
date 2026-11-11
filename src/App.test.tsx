@@ -2,7 +2,7 @@ import { act, fireEvent, render, screen, waitFor, within } from '@testing-librar
 import userEvent from '@testing-library/user-event'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import App from './App.tsx'
-import { readSession, type Phrase, type Pronunciation } from './api.ts'
+import { readSession, type AdminAi, type AdminSystem, type AdminUser, type Phrase, type Pronunciation } from './api.ts'
 import { fakeSpeech } from './test/fake-speech.ts'
 import { deviceTimeZone } from './format.ts'
 
@@ -152,6 +152,11 @@ function fakeBackend(
       if (path === '/api/invites') {
         return admin ? json(201, { code: 'new-invite-code', expiresAt: '2026-11-17T12:00:00.000Z' }) : json(403, {})
       }
+      if (path.startsWith('/api/admin/') && !admin) return json(403, { error: 'Only the admin can see this' })
+      if (path === '/api/admin/ai') return json(200, ADMIN_AI())
+      if (path === '/api/admin/users') return json(200, ADMIN_USERS())
+      if (path === '/api/admin/system') return json(200, ADMIN_SYSTEM())
+      if (/^\/api\/admin\/users\/\d+\/sessions$/.test(path) && method === 'DELETE') return json(200, { ended: 2 })
       if (path === '/api/phrases' && method === 'GET') {
         // Like the backend: those that match q, after the phrase before, 50 at a time.
         const search = url.searchParams.get('q')?.toLowerCase()
@@ -213,6 +218,79 @@ function fakeBackend(
     }),
   )
   return Object.assign(phrases, { settings, activity })
+}
+
+const ago = (ms: number) => new Date(Date.now() - ms).toISOString()
+const HOUR = 3_600_000
+
+/** The admin's AI numbers: a quiet month, and today 12 chat requests and 4,200 of MyMemory's 5,000 characters. */
+function ADMIN_AI(): AdminAi {
+  const zero = { calls: 0, failures: 0, rateLimited: 0, units: 0 }
+  const history = Array.from({ length: 30 }, (_, index) => ({
+    day: ago((29 - index) * 24 * HOUR).slice(0, 10),
+    groq_chat: { ...zero, calls: index % 5 },
+    groq_speech: zero,
+    mymemory: zero,
+  }))
+  history[29] = {
+    ...history[29],
+    groq_chat: { calls: 12, failures: 1, rateLimited: 1, units: 3400 },
+    mymemory: { calls: 30, failures: 0, rateLimited: 0, units: 4200 },
+  }
+  return {
+    history,
+    quotas: { groq_chat: { limit: 1000, left: 860, checkedAt: ago(5 * 60_000) }, groq_speech: null },
+    mymemoryCharsPerDay: 5000,
+    available: { groq: true, mymemory: true },
+    perUserPerDay: { suggestions: 20, translations: 30, pronunciations: 20 },
+    limitedUsers: 3,
+    averagePhraseLength: 20,
+  }
+}
+
+function ADMIN_USERS(): AdminUser[] {
+  const none = { suggestions: 0, translations: 0, pronunciations: 0 }
+  return [
+    { id: 1, email: EMAIL, isAdmin: true, createdAt: '2026-10-01T12:00:00Z', lastActiveAt: ago(0), phrases: 40, devices: 2, sessions: 1, remindersOn: true, today: none },
+    {
+      id: 2,
+      email: 'bob@example.com',
+      isAdmin: false,
+      createdAt: '2026-10-20T12:00:00Z',
+      lastActiveAt: ago(3 * HOUR),
+      phrases: 12,
+      devices: 1,
+      sessions: 2,
+      remindersOn: true,
+      today: { suggestions: 3, translations: 1, pronunciations: 5 },
+    },
+    { id: 3, email: 'carol@example.com', isAdmin: false, createdAt: '2026-09-01T12:00:00Z', lastActiveAt: ago(20 * 24 * HOUR), phrases: 2, devices: 0, sessions: 0, remindersOn: false, today: none },
+    // Signed up an hour ago, and hasn't done anything yet.
+    { id: 4, email: 'dan@example.com', isAdmin: false, createdAt: ago(HOUR), lastActiveAt: null, phrases: 0, devices: 0, sessions: 0, remindersOn: true, today: none },
+  ]
+}
+
+/** A cron that stopped 2 hours ago, and versions that don't match. */
+function ADMIN_SYSTEM(): AdminSystem {
+  return {
+    cron: {
+      lastRunAt: ago(2 * HOUR),
+      runsLastDay: 90,
+      failedRunsLastDay: 2,
+      lastError: { at: ago(3 * HOUR), message: 'Push service down' },
+      removedLastWeek: 1,
+      deliveries: Array.from({ length: 7 }, (_, index) => ({ day: ago((6 - index) * 24 * HOUR).slice(0, 10), delivered: 2 })),
+    },
+    reminders: { usersOn: 2, devices: 3 },
+    database: {
+      bytes: 12.5 * 1024 * 1024,
+      tables: [
+        { name: 'phrases', rows: 54, bytes: 96 * 1024 },
+        { name: 'activity', rows: 300, bytes: 192 * 1024 },
+      ],
+    },
+    versions: { api: 'abc1234', cron: 'def5678' },
+  }
 }
 
 const typo: Phrase = { id: 1, text: 'It slipt my mind.', createdAt: '2026-11-01T12:00:00.000Z' }
@@ -692,7 +770,7 @@ describe('the app', () => {
     startLoggedIn()
     await screen.findByText('It slipt my mind.')
 
-    await user.click(screen.getByRole('button', { name: 'Settings' }))
+    await showTab(user, 'Admin')
     await user.click(await screen.findByRole('button', { name: 'Invite someone' }))
     const link = (await screen.findByLabelText('Invite link')) as HTMLInputElement
     expect(link.value).toBe(`${window.location.origin}/?invite=new-invite-code`)
@@ -714,6 +792,7 @@ describe('the app', () => {
 
     expect(within(settings).getByRole('button', { name: 'Log out' })).toBeTruthy()
     expect(screen.queryByRole('button', { name: 'Invite someone' })).toBeNull()
+    expect(within(screen.getByRole('navigation')).queryByRole('button', { name: 'Admin' })).toBeNull()
   })
 
   it('reads a phrase aloud from its play button without opening it', async () => {
@@ -1089,7 +1168,7 @@ describe('the app', () => {
     expect(within(pronunciations).getByText('20 of 20 today')).toBeTruthy()
   })
 
-  it('shows the admin no limit', async () => {
+  it("leaves today's usage out of the admin's Settings, since the admin has no limits", async () => {
     fakeBackend([typo])
     const user = userEvent.setup()
     startLoggedIn()
@@ -1097,8 +1176,8 @@ describe('the app', () => {
 
     const settings = await showTab(user, 'Settings')
 
-    expect(await within(settings).findAllByText('No limit')).toHaveLength(3)
-    expect(within(settings).getAllByText('0 today')).toHaveLength(3)
+    expect(within(settings).queryByRole('region', { name: "Today's usage" })).toBeNull()
+    expect(within(settings).getByRole('button', { name: 'Log out' })).toBeTruthy()
   })
 })
 
@@ -1489,5 +1568,82 @@ describe('the Today tab', () => {
     expect(within(card).getByText('It slipt my mind.')).toBeTruthy()
     expect(within(card).getByText('Se me olvidó.')).toBeTruthy()
     expect(within(card).getByText('Last score: 7 of 10, almost there')).toBeTruthy()
+  })
+})
+
+describe('admin tab', () => {
+  const card = (region: HTMLElement, name: string) => within(region).getByRole('article', { name })
+
+  it('shows how close each AI service runs to its daily quota, and how many users fit', async () => {
+    fakeBackend([typo])
+    const user = userEvent.setup()
+    startLoggedIn()
+    await screen.findByText('It slipt my mind.')
+
+    const admin = await showTab(user, 'Admin')
+    const quotas = within(admin).getByRole('region', { name: 'AI quotas' })
+
+    const chat = await within(quotas).findByRole('article', { name: 'Groq chat' })
+    expect(within(chat).getByText('12 today')).toBeTruthy()
+    expect(within(chat).getByText('3,400 tokens')).toBeTruthy()
+    expect(within(chat).getByText(/^860 of 1,000 requests left today · per Groq, 5 min\. ago$/)).toBeTruthy()
+    expect(within(chat).getByText('Within quota')).toBeTruthy()
+    expect(within(chat).getByText(/With 3 users at their limits: up to 120 a day, of 1,000\. Room for about 25 users/)).toBeTruthy()
+    expect(within(chat).getByText('1 failed today, 1 for a limit')).toBeTruthy()
+    expect(within(chat).getByText('Today · 12 requests')).toBeTruthy()
+
+    expect(within(card(quotas, 'Groq speech')).getByText('Groq tells its quota with the next request.')).toBeTruthy()
+
+    const mymemory = card(quotas, 'MyMemory')
+    expect(within(mymemory).getByText(/^4,200 of 5,000 characters today/)).toBeTruthy()
+    expect(within(mymemory).getByText('Near the limit')).toBeTruthy()
+    expect(mymemory.classList).toContain('level-near')
+  })
+
+  it('lists the users, and logs one out of every device with a second tap', async () => {
+    fakeBackend([typo])
+    const user = userEvent.setup()
+    startLoggedIn()
+    await screen.findByText('It slipt my mind.')
+
+    const admin = await showTab(user, 'Admin')
+    const users = within(admin).getByRole('region', { name: 'Users · 4' })
+    const row = (email: string) => within(users).getByText(email).closest('li')!
+
+    await within(users).findByText('bob@example.com')
+    expect(within(row('bob@example.com')).getByText('Today: 3 translate · 1 Spanish · 5 scores')).toBeTruthy()
+    expect(within(row('carol@example.com')).getByText('Inactive for over 2 weeks')).toBeTruthy()
+    expect(within(row('carol@example.com')).getByText('Reminders paused')).toBeTruthy()
+    expect(within(row('dan@example.com')).getByText(/no activity yet/)).toBeTruthy()
+    expect(within(row('dan@example.com')).queryByText('Inactive for over 2 weeks')).toBeNull() // New, not inactive.
+    expect(within(row('carol@example.com')).getByRole('button', { name: 'Log out everywhere' })).toHaveProperty('disabled', true)
+    expect(within(row(EMAIL)).queryByRole('button', { name: 'Log out everywhere' })).toBeNull() // Not the admin.
+
+    await user.click(within(row('bob@example.com')).getByRole('button', { name: 'Log out everywhere' }))
+    expect(calledPaths()).not.toContain('/api/admin/users/2/sessions')
+    await user.click(within(row('bob@example.com')).getByRole('button', { name: 'Tap again to log out' }))
+
+    expect(await within(row('bob@example.com')).findByText('Logged out of 2 devices')).toBeTruthy()
+    expect(within(row('bob@example.com')).getByText('0 sessions')).toBeTruthy()
+    expect(calledPaths()).toContain('/api/admin/users/2/sessions')
+  })
+
+  it("warns that the cron stopped and the versions don't match, and shows the database's size", async () => {
+    fakeBackend([typo])
+    const user = userEvent.setup()
+    startLoggedIn()
+    await screen.findByText('It slipt my mind.')
+
+    const admin = await showTab(user, 'Admin')
+    const system = within(admin).getByRole('region', { name: 'System' })
+
+    expect(await within(system).findByText("The reminder cron hasn't run since 2 hr. ago")).toBeTruthy()
+    expect(within(system).getByText('90 runs in the last day, 2 with errors')).toBeTruthy()
+    expect(within(system).getByText('Last error, 3 hr. ago: Push service down')).toBeTruthy()
+    expect(within(system).getByText('Today · 2 delivered')).toBeTruthy()
+    expect(within(system).getByText('12.5 MB in all')).toBeTruthy()
+    const tables = within(system).getAllByRole('listitem').map((item) => item.textContent)
+    expect(tables[0]).toMatch(/^Activity300 rows · 192 kB$/) // The biggest first.
+    expect(within(system).getByText(/^Not all on the same commit/)).toBeTruthy()
   })
 })

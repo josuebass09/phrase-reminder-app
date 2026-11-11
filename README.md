@@ -6,11 +6,15 @@ It's a React app built with Vite. It talks to the backend's API with a bearer to
 
 ## How it's laid out
 
-Three tabs at the bottom:
+Three tabs at the bottom, and a fourth for the admin:
 
 - **Today:** the latest reminder's phrases, to hear and say aloud. With none yet, it says when the next one comes, or how to turn reminders on, and offers to add a phrase. The bell at the top shows the reminder's time, or **Paused**; it opens Settings, or turns reminders on for a device that doesn't have them.
 - **Phrases:** every phrase, newest first, 50 at a time with **Load more**, and a search over their English and Spanish.
-- **Settings:** the daily reminder, today's usage, the theme and the language, and the account. **Today's usage** has a row for each daily limit: what spends it, a bar of how much is used, and how many are left. The bar turns amber when a few are left (the last fifth, at most 5) and red when none are, and the heading counts down to midnight, when they all start over. The admin sees today's count and "No limit".
+- **Settings:** the daily reminder, today's usage, the theme and the language, and the account. **Today's usage** has a row for each daily limit: what spends it, a bar of how much is used, and how many are left. The bar turns amber when a few are left (the last fifth, at most 5) and red when none are, and the heading counts down to midnight, when they all start over. The admin has no limits, so their Settings leaves it out.
+- **Admin** (the admin only): what helps look after the app as it grows, loaded again each time the tab opens.
+  - **AI quotas:** a card for each service whose free plan the whole account shares (Groq's chat and speech models, and MyMemory): today's requests and what they used, a meter of today's share of the daily quota (what Groq last said is left, or MyMemory's documented characters), and the worst case with every user at their limits, with how many users would fit. A status says each state in words with an icon, never by color alone, as amber and red read alike to many. Below, columns for the last 30 UTC days, today in the accent; hovering, tapping, or the arrow keys give a day's value, and **Show by day** lists them all.
+  - **Users:** inviting someone, and each user's sign-up date, last activity, phrases, devices with reminders, sessions, and today's usage, flagging anyone inactive for over 2 weeks. **Log out everywhere** ends a user's sessions on every device after a second tap, keeping their data.
+  - **System:** when the reminder cron last ran (a warning after 45 minutes, 3 missed runs), its runs and errors in the last day and its last error, reminders delivered on each of the last 7 days, the database's size and its biggest tables, and the commit the app, the API, and the cron run, with a warning when they differ. The app's commit comes from Railway's `RAILWAY_GIT_COMMIT_SHA` at build time.
 
 The **+** button on Today and Phrases adds a phrase. Each phrase shows on a card: the English, its Spanish once known, a play button, its last score and when it was saved. Today's cards also have the microphone. A tap anywhere else on a card opens the phrase's sheet, with everything for it. Each tab keeps its place when you switch, and tapping the tab you're on scrolls it back to the top.
 

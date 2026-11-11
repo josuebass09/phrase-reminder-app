@@ -3,7 +3,7 @@ import { track } from './activity.ts'
 import { api, ApiError, NotFoundError, UnauthorizedError, type Phrase, type ReminderSettings, type Session } from './api.ts'
 import { deviceTimeZone } from './format.ts'
 import { messagesFor, useT } from './i18n.ts'
-import { CheckIcon, ListIcon, PlusIcon, SettingsIcon, SunIcon } from './icons.tsx'
+import { CheckIcon, GaugeIcon, ListIcon, PlusIcon, SettingsIcon, SunIcon } from './icons.tsx'
 import { getLanguage, isLanguage, setLanguage, type Language } from './language.ts'
 import { NewPhraseSheet } from './NewPhraseSheet.tsx'
 import type { OptionStyle } from './OptionCard.tsx'
@@ -14,6 +14,7 @@ import { currentSubscription, pushSupported, subscribe } from './push.ts'
 import { recordingSupported, SilentMicrophoneError, startRecording, type Recorder } from './recorder.ts'
 import type { Attempt } from './Score.tsx'
 import { SettingsView } from './SettingsView.tsx'
+import { AdminView } from './AdminView.tsx'
 import { NORMAL_RATE, SLOW_RATE, speak, speechSupported, stopSpeaking } from './speech.ts'
 import { TodayView } from './TodayView.tsx'
 
@@ -22,7 +23,7 @@ const SHOW_TODAY = 'show-today'
 /** The backend sends phrases 50 at a time; a full page may have more after it. */
 const PAGE_SIZE = 50
 
-type Tab = 'today' | 'phrases' | 'settings'
+type Tab = 'today' | 'phrases' | 'settings' | 'admin'
 type Reminders = 'checking' | 'off' | 'enabling' | 'on'
 
 interface Toast {
@@ -49,9 +50,11 @@ export function PhraseApp({ session, fromReminder = false, onLogOut, onExpired }
   const t = useT()
   const appRef = useRef<HTMLDivElement>(null)
   // Each tab scrolls on its own, so switching tabs keeps each one's place.
-  const panels = useRef<Record<Tab, HTMLElement | null>>({ today: null, phrases: null, settings: null })
+  const panels = useRef<Record<Tab, HTMLElement | null>>({ today: null, phrases: null, settings: null, admin: null })
   const [tab, setTab] = useState<Tab>('today')
   const [settingsVisits, setSettingsVisits] = useState(0)
+  // Each visit to Admin loads its numbers again.
+  const [adminVisits, setAdminVisits] = useState(0)
   const [phrases, setPhrases] = useState<Phrase[]>([])
   const [hasMore, setHasMore] = useState(false)
   const [loadingMore, setLoadingMore] = useState(false)
@@ -234,6 +237,7 @@ export function PhraseApp({ session, fromReminder = false, onLogOut, onExpired }
   function goTo(next: Tab) {
     if (next === tab) panels.current[next]?.scrollTo?.({ top: 0, behavior: 'smooth' })
     if (next === 'settings' && tab !== 'settings') setSettingsVisits((visits) => visits + 1)
+    if (next === 'admin' && tab !== 'admin') setAdminVisits((visits) => visits + 1)
     setTab(next)
   }
 
@@ -473,6 +477,7 @@ export function PhraseApp({ session, fromReminder = false, onLogOut, onExpired }
     ['today', SunIcon, t.today],
     ['phrases', ListIcon, t.phrases],
     ['settings', SettingsIcon, t.settings],
+    ...(isAdmin ? [['admin', GaugeIcon, t.admin] as [Tab, ComponentType, string]] : []),
   ]
   const panel = (id: Tab) => ({
     ref: (element: HTMLElement | null) => {
@@ -525,8 +530,13 @@ export function PhraseApp({ session, fromReminder = false, onLogOut, onExpired }
             onLanguageChange={changeLanguage}
           />
         </section>
+        {isAdmin && (
+          <section {...panel('admin')} aria-labelledby="admin-title">
+            {adminVisits > 0 && <AdminView key={adminVisits} onUnauthorized={onExpired} />}
+          </section>
+        )}
       </main>
-      {tab !== 'settings' && (
+      {(tab === 'today' || tab === 'phrases') && (
         <button className="fab" type="button" aria-label={t.newPhrase} onClick={() => setAdding(true)}>
           <PlusIcon />
         </button>

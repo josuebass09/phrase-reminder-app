@@ -241,6 +241,64 @@ function saveSession({ token, expiresIn, refreshToken, user }: LoginResponse): S
   return session
 }
 
+/** One AI service's requests on one UTC day. */
+export interface AiDayCounts {
+  calls: number
+  failures: number
+  rateLimited: number
+  /** Tokens for Groq's chat, seconds of audio for its speech model, characters for MyMemory. */
+  units: number
+}
+
+export type AiService = 'groq_chat' | 'groq_speech' | 'mymemory'
+
+/** What Groq last said about a model's daily requests. */
+export interface AiQuota {
+  limit: number
+  left: number
+  checkedAt: string
+}
+
+export interface AdminAi {
+  /** The last 30 UTC days, oldest first; the last is today. */
+  history: ({ day: string } & Record<AiService, AiDayCounts>)[]
+  quotas: { groq_chat: AiQuota | null; groq_speech: AiQuota | null }
+  mymemoryCharsPerDay: number
+  available: { groq: boolean; mymemory: boolean }
+  perUserPerDay: { suggestions: number; translations: number; pronunciations: number }
+  /** Users with daily limits: everyone but the admin. */
+  limitedUsers: number
+  averagePhraseLength: number
+}
+
+export interface AdminUser {
+  id: number
+  email: string
+  isAdmin: boolean
+  createdAt: string
+  lastActiveAt: string | null
+  phrases: number
+  devices: number
+  sessions: number
+  remindersOn: boolean
+  today: { suggestions: number; translations: number; pronunciations: number }
+}
+
+export interface AdminSystem {
+  cron: {
+    lastRunAt: string | null
+    runsLastDay: number
+    failedRunsLastDay: number
+    lastError: { at: string; message: string | null } | null
+    removedLastWeek: number
+    /** Reminders delivered on each of the last 7 UTC days, oldest first. */
+    deliveries: { day: string; delivered: number }[]
+  }
+  reminders: { usersOn: number; devices: number }
+  database: { bytes: number; tables: { name: string; rows: number; bytes: number }[] }
+  versions: { api: string | null; cron: string | null }
+}
+
 export const api = {
   /** Saves and returns the new session. Throws UnauthorizedError for a wrong email or password. */
   login: async (email: string, password: string) =>
@@ -269,6 +327,13 @@ export const api = {
     request<ReminderSettings>('/api/settings', { method: 'PATCH', body: changes }),
   /** Admins only. The code is shown once: the backend keeps only its hash. */
   createInvite: () => request<{ code: string; expiresAt: string }>('/api/invites', { method: 'POST' }),
+  /** For the admin only. */
+  admin: {
+    ai: () => request<AdminAi>('/api/admin/ai'),
+    users: () => request<AdminUser[]>('/api/admin/users'),
+    system: () => request<AdminSystem>('/api/admin/system'),
+    endSessions: (userId: number) => request<{ ended: number }>(`/api/admin/users/${userId}/sessions`, { method: 'DELETE' }),
+  },
   /** The newest 50, those after the phrase `before`, or those whose text or Spanish has `search`. */
   recent: ({ search, before }: { search?: string; before?: number } = {}) => {
     const query = new URLSearchParams()

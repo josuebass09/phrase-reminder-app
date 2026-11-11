@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { savedLabel, scoreBand, todayLabel, untilMidnight, usageLevel } from './format.ts'
+import { bytesLabel, countLabel, dayLabel, savedLabel, scoreBand, timeAgo, todayLabel, untilMidnight, usageLevel } from './format.ts'
 
 describe('savedLabel', () => {
   const now = new Date(2026, 10, 10, 9, 0)
@@ -62,5 +62,42 @@ describe('untilMidnight', () => {
   it('rounds up the last seconds, and never says zero', () => {
     expect(untilMidnight(new Date(2026, 10, 11, 23, 59, 30))).toEqual({ hours: 0, minutes: 1 })
     expect(untilMidnight(new Date(2026, 10, 11, 0, 0))).toEqual({ hours: 24, minutes: 0 })
+  })
+})
+
+describe('timeAgo', () => {
+  const now = new Date('2026-11-11T18:00:00Z')
+  it.each([
+    ['2026-11-11T17:59:40Z', 'now', 'ahora'],
+    ['2026-11-11T17:53:00Z', '7 min. ago', 'hace 7 min'],
+    ['2026-11-11T15:00:00Z', '3 hr. ago', 'hace 3 h'],
+    ['2026-11-08T18:00:00Z', '3 days ago', 'hace 3 d'],
+  ])('%s', (iso, en, es) => {
+    expect(timeAgo(iso, 'en', now)).toBe(en)
+    expect(timeAgo(iso, 'es', now)).toBe(es)
+  })
+})
+
+describe('bytesLabel', () => {
+  it('counts in powers of 1,024', () => {
+    expect(bytesLabel(900)).toBe('900 byte')
+    expect(bytesLabel(8 * 1024)).toBe('8 kB')
+    expect(bytesLabel(12.34 * 1024 * 1024)).toBe('12.3 MB')
+    expect(bytesLabel(12.34 * 1024 * 1024, 'es')).toBe('12,3 MB')
+  })
+})
+
+describe('countLabel', () => {
+  it('shortens only past the thousands', () => {
+    expect(countLabel(1284)).toBe('1,284')
+    expect(countLabel(12_900)).toBe('12.9K')
+    expect(countLabel(1284, 'es')).toBe('1284')
+  })
+})
+
+describe('dayLabel', () => {
+  it('reads a UTC day in the language', () => {
+    expect(dayLabel('2026-11-03')).toBe('Nov 3')
+    expect(dayLabel('2026-11-03', 'es')).toBe('3 nov')
   })
 })

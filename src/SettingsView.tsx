@@ -3,7 +3,6 @@ import type { ReminderSettings } from './api.ts'
 import { DailyUsage } from './DailyUsage.tsx'
 import { useLanguage, useT } from './i18n.ts'
 import { LogOutIcon } from './icons.tsx'
-import { InviteSection } from './InviteSection.tsx'
 import { LANGUAGES, type Language } from './language.ts'
 import { ReminderSettingsSection, type DeviceReminders } from './ReminderSettings.tsx'
 import { getThemeChoice, setThemeChoice, subscribeTheme, type ThemeChoice } from './theme.ts'
@@ -68,7 +67,8 @@ export function SettingsView({
         onTurnOnDevice={onTurnOnDevice}
         onUnauthorized={onUnauthorized}
       />
-      <DailyUsage key={visits} />
+      {/* The admin has no limits; their Admin tab shows everyone's usage instead. */}
+      {!isAdmin && <DailyUsage key={visits} />}
       <section className="settings-section" aria-labelledby="appearance-heading">
         <div className="settings-heading">
           <h3 id="appearance-heading">{t.appearance}</h3>
@@ -119,7 +119,6 @@ export function SettingsView({
             <p className="account-note">{until === null ? t.staysLoggedIn : t.loggedInUntil(until)}</p>
           </div>
         </div>
-        {isAdmin && <InviteSection onUnauthorized={onUnauthorized} />}
         <div className="settings-group">
           <button className="setting-row setting-button" type="button" onClick={onLogOut}>
             <LogOutIcon />
