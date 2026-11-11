@@ -1,9 +1,9 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { startRecording } from './recorder.ts'
+import { SilentMicrophoneError, startRecording } from './recorder.ts'
 
 /** A microphone and recorder that do nothing, and an audio context that hears `sample` (128 is silence). */
-function fakeDevice({ sample, audio = true }: { sample: number; audio?: boolean }) {
-  const stream = { getTracks: () => [{ stop: vi.fn() }] }
+function fakeDevice({ sample, audio = true, track = new FakeTrack() }: { sample: number; audio?: boolean; track?: FakeTrack }) {
+  const stream = { getTracks: () => [track] }
   Object.defineProperty(navigator, 'mediaDevices', { value: { getUserMedia: async () => stream }, configurable: true })
   vi.stubGlobal(
     'MediaRecorder',
@@ -38,10 +38,26 @@ function fakeDevice({ sample, audio = true }: { sample: number; audio?: boolean 
       },
     )
   }
-  return { close }
+  return { close, track }
+}
+
+/** A microphone track that can go quiet, as iOS 27 leaves it after reading a phrase aloud. */
+class FakeTrack extends EventTarget {
+  kind = 'audio'
+  stop = vi.fn()
+  muted: boolean
+  constructor(muted = false) {
+    super()
+    this.muted = muted
+  }
+  setMuted(muted: boolean) {
+    this.muted = muted
+    this.dispatchEvent(new Event(muted ? 'mute' : 'unmute'))
+  }
 }
 
 afterEach(() => {
+  vi.useRealTimers()
   vi.unstubAllGlobals()
   Reflect.deleteProperty(navigator, 'mediaDevices')
 })
@@ -75,6 +91,42 @@ describe('startRecording', () => {
     const recorder = await startRecording()
     recorder.stop()
     expect(await recorder.done).toBeInstanceOf(Blob)
+    expect(device.close).toHaveBeenCalled()
+  })
+
+  it('says the microphone gives no sound when it comes muted and stays so, before the user speaks', async () => {
+    vi.useFakeTimers()
+    const device = fakeDevice({ sample: 128, track: new FakeTrack(true) })
+    const started = startRecording().catch((error) => error)
+
+    await vi.advanceTimersByTimeAsync(1000)
+
+    expect(await started).toBeInstanceOf(SilentMicrophoneError)
+    expect(device.track.stop).toHaveBeenCalled()
+    expect(device.close).toHaveBeenCalled()
+  })
+
+  it('records from a microphone that comes muted for a moment', async () => {
+    vi.useFakeTimers()
+    const device = fakeDevice({ sample: 128, track: new FakeTrack(true) })
+    const started = startRecording()
+
+    await vi.advanceTimersByTimeAsync(200)
+    device.track.setMuted(false)
+    const recorder = await started
+    recorder.stop()
+
+    expect(await recorder.done).toBeInstanceOf(Blob)
+  })
+
+  it('drops a recording whose microphone went quiet partway', async () => {
+    const device = fakeDevice({ sample: 128 })
+    const recorder = await startRecording()
+
+    device.track.setMuted(true)
+    recorder.stop()
+
+    await expect(recorder.done).rejects.toBeInstanceOf(SilentMicrophoneError)
     expect(device.close).toHaveBeenCalled()
   })
 

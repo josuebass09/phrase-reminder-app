@@ -11,7 +11,7 @@ import type { PhraseCardProps, Speaking } from './PhraseCard.tsx'
 import { PhraseSheet } from './PhraseSheet.tsx'
 import { PhrasesView } from './PhrasesView.tsx'
 import { currentSubscription, pushSupported, subscribe } from './push.ts'
-import { recordingSupported, startRecording, type Recorder } from './recorder.ts'
+import { recordingSupported, SilentMicrophoneError, startRecording, type Recorder } from './recorder.ts'
 import type { Attempt } from './Score.tsx'
 import { SettingsView } from './SettingsView.tsx'
 import { NORMAL_RATE, SLOW_RATE, speak, speechSupported, stopSpeaking } from './speech.ts'
@@ -86,7 +86,8 @@ export function PhraseApp({ session, fromReminder = false, onLogOut, onExpired }
 
   useEffect(() => {
     if (!toast) return
-    const timer = setTimeout(() => setToast(null), 2500)
+    // Long enough to read: a short note goes in 2.5 s, and a long explanation stays longer.
+    const timer = setTimeout(() => setToast(null), Math.max(2500, toast.message.length * 60))
     return () => clearTimeout(timer)
   }, [toast])
 
@@ -365,7 +366,8 @@ export function PhraseApp({ session, fromReminder = false, onLogOut, onExpired }
       recording = await recorder.done
     } catch (err) {
       setAttempt(phrase.id, null)
-      showToast((err as { name?: string } | null)?.name === 'NotAllowedError' ? t.micBlocked : t.couldntRecord, true)
+      const name = (err as { name?: string } | null)?.name
+      showToast(name === 'NotAllowedError' ? t.micBlocked : err instanceof SilentMicrophoneError ? t.micSilent : t.couldntRecord, true)
       return
     } finally {
       if (recorderRef.current?.id === phrase.id) recorderRef.current = null

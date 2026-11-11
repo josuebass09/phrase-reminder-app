@@ -249,9 +249,11 @@ async function openNewPhrase(user: User) {
 /** A microphone and MediaRecorder for jsdom, which has neither. Each recording is "fake audio". */
 function fakeMicrophone({ blocked = false } = {}) {
   const stopTrack = vi.fn()
+  // Muted is what iOS 27 does to it after a phrase is read aloud.
+  const track = { kind: 'audio', muted: false, stop: stopTrack, addEventListener: vi.fn(), removeEventListener: vi.fn() }
   const getUserMedia = vi.fn(async () => {
     if (blocked) throw new DOMException('Permission denied', 'NotAllowedError')
-    return { getTracks: () => [{ stop: stopTrack }] }
+    return { getTracks: () => [track] }
   })
   Object.defineProperty(navigator, 'mediaDevices', { value: { getUserMedia }, configurable: true })
   class FakeMediaRecorder {
@@ -286,7 +288,7 @@ function fakeMicrophone({ blocked = false } = {}) {
     close = closeAudio
   }
   vi.stubGlobal('AudioContext', FakeAudioContext)
-  return { getUserMedia, stopTrack, closeAudio }
+  return { getUserMedia, stopTrack, closeAudio, track }
 }
 
 afterEach(() => {
@@ -548,6 +550,24 @@ describe('the app', () => {
     expect(mic.getAttribute('aria-pressed')).toBe('false')
     expect(microphone.closeAudio).toHaveBeenCalled() // Opened for the waveform before asking.
     expect(document.querySelector('.waveform')).toBeNull()
+  })
+
+  it('says to reload when the microphone went quiet, and sends nothing to score', async () => {
+    fakeBackend([typo], [typo.id])
+    const microphone = fakeMicrophone()
+    const user = userEvent.setup()
+    startLoggedIn()
+    await screen.findAllByText('It slipt my mind.')
+    const mic = screen.getByRole('button', { name: 'Say it and get a score' })
+
+    await user.click(mic)
+    await waitFor(() => expect(mic.getAttribute('aria-pressed')).toBe('true'))
+    microphone.track.muted = true
+    await user.click(mic)
+
+    expect(await screen.findByText(/reload the page and try again/)).toBeTruthy()
+    expect(mic.getAttribute('aria-pressed')).toBe('false')
+    expect(calledPaths().some((path) => path.endsWith('/pronunciation'))).toBe(false)
   })
 
   it("shows the backend's reason when it can't score, and keeps no score", async () => {

@@ -100,6 +100,7 @@ const en = {
   couldntSave: "Couldn't save. Try again.",
   couldntTranslate: "Couldn't translate. Try again.",
   micBlocked: 'The microphone is blocked. Allow it in your settings.',
+  micSilent: "The microphone isn't picking up any sound. On iPhone this happens after a phrase is read aloud: reload the page and try again.",
   couldntRecord: "Couldn't record. Try again.",
   couldntScore: "Couldn't get the score. Check your connection.",
 
@@ -264,6 +265,7 @@ const es: Messages = {
   couldntSave: 'No se pudo guardar. Inténtalo de nuevo.',
   couldntTranslate: 'No se pudo traducir. Inténtalo de nuevo.',
   micBlocked: 'El micrófono está bloqueado. Permítelo en tus ajustes.',
+  micSilent: 'El micrófono no está captando sonido. En iPhone pasa después de escuchar una frase: recarga la página e inténtalo de nuevo.',
   couldntRecord: 'No se pudo grabar. Inténtalo de nuevo.',
   couldntScore: 'No se pudo obtener la nota. Revisa tu conexión.',
 

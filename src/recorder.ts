@@ -27,6 +27,37 @@ export interface Recorder {
   level?: () => number
 }
 
+/**
+ * The microphone gives no sound at all. On iOS 27, reading a phrase aloud with speech synthesis
+ * silences the page's microphone until it reloads (https://bugs.webkit.org/show_bug.cgi?id=218815):
+ * its tracks come muted, and a recording from them holds no audio.
+ */
+export class SilentMicrophoneError extends Error {
+  constructor() {
+    super('The microphone gives no sound')
+    this.name = 'SilentMicrophoneError'
+  }
+}
+
+/** How long a muted microphone gets to come on, since some start muted for a moment. */
+const UNMUTE_WAIT_MS = 1000
+
+/** Whether the track gives sound, waiting a moment for one that starts muted. */
+function soundsSoon(track: MediaStreamTrack): Promise<boolean> {
+  if (!track.muted) return Promise.resolve(true)
+  return new Promise((resolve) => {
+    const unmuted = () => {
+      clearTimeout(timer)
+      resolve(true)
+    }
+    const timer = setTimeout(() => {
+      track.removeEventListener('unmute', unmuted)
+      resolve(false)
+    }, UNMUTE_WAIT_MS)
+    track.addEventListener('unmute', unmuted, { once: true })
+  })
+}
+
 // Loudness in decibels, mapped onto 0 to 1: a quiet room is below the floor, and speaking up reaches the top.
 const SILENCE_DB = -50
 const LOUD_DB = -10
@@ -78,6 +109,13 @@ export async function startRecording(): Promise<Recorder> {
     closeAudio()
     throw error
   }
+  // Said before the user speaks, rather than after, from a recording with no audio.
+  const track = stream.getTracks().find((candidate) => candidate.kind === 'audio')
+  if (track && !(await soundsSoon(track))) {
+    stream.getTracks().forEach((each) => each.stop())
+    closeAudio()
+    throw new SilentMicrophoneError()
+  }
   const type = TYPES.find((candidate) => MediaRecorder.isTypeSupported?.(candidate))
   let recorder: MediaRecorder
   try {
@@ -112,8 +150,12 @@ export async function startRecording(): Promise<Recorder> {
       if (event.data.size > 0) chunks.push(event.data)
     }
     recorder.onstop = () => {
+      // Silenced partway, the recording has no audio from then on: not worth scoring.
+      const silenced = track?.muted === true
       release()
-      resolve(cancelled ? null : new Blob(chunks, { type: recorder.mimeType || type || 'audio/webm' }))
+      if (cancelled) resolve(null)
+      else if (silenced) reject(new SilentMicrophoneError())
+      else resolve(new Blob(chunks, { type: recorder.mimeType || type || 'audio/webm' }))
     }
     recorder.onerror = () => {
       release()
