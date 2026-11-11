@@ -802,6 +802,10 @@ p, h1, h2, h3 { margin: 0; }
   margin-top: 6px;
 }
 
+/* Listen and Slower share a row; saying the phrase, the main practice, gets its own, which also
+   keeps "Pronunciar" whole on a phone, where three in a row cut it off. */
+.action.mic { flex-basis: 100%; }
+
 .action {
   flex: 1 1 0;
   min-width: 0;
