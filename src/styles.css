@@ -266,6 +266,67 @@ p, h1, h2, h3 { margin: 0; }
 
 .card:has(.card-open:active) { background: var(--chip); }
 
+/* Today's cards swipe off sideways, tilting as they go; up and down stays the page's scroll. */
+.card.swipeable {
+  touch-action: pan-y;
+  -webkit-user-select: none;
+  user-select: none;
+  transform-origin: 50% 140%;
+  transition: transform 0.25s cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+
+.card.swiping {
+  z-index: 2;
+  box-shadow: var(--shadow-raised);
+}
+
+/* Far enough that letting go swipes it away. */
+.card.swipe-ready { border-color: var(--score-good); }
+
+/* The stamp a swipe puts on the card: remembered going right, read going left. */
+.card-stamp {
+  position: absolute;
+  top: 12px;
+  z-index: 2;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px;
+  border: 2px solid var(--score-good);
+  border-radius: 8px;
+  background: var(--surface);
+  color: var(--score-good);
+  font-size: 15px;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  pointer-events: none;
+  opacity: 0;
+}
+
+.card-stamp .icon { width: 16px; height: 16px; }
+.stamp-remembered { left: 14px; transform: rotate(-10deg); }
+.stamp-read { right: 14px; transform: rotate(10deg); }
+
+/* In a phrase's sheet, from Today: read or remembered, in the stamps' green. */
+.sheet-review {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin-top: 8px;
+}
+
+.action.done {
+  background: color-mix(in srgb, var(--score-good) 14%, var(--surface));
+  color: var(--score-good);
+}
+
+.swipe-hint {
+  color: var(--muted);
+  font-size: 14px;
+  text-wrap: pretty;
+}
+
 /* The open button stretches over the whole card, so a tap anywhere opens the phrase. */
 .card-open {
   position: absolute;
@@ -578,6 +639,21 @@ p, h1, h2, h3 { margin: 0; }
 }
 
 .toast .icon { width: 16px; height: 16px; }
+
+/* Undo, on a note: tappable, unlike the rest of the note, which lets taps through. */
+.toast-action {
+  margin: -6px -8px -6px 4px;
+  padding: 6px 10px;
+  border: 0;
+  border-radius: 999px;
+  background: none;
+  color: inherit;
+  font-size: 15px;
+  font-weight: 700;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  pointer-events: auto;
+}
 .toast-error { background: var(--danger); color: var(--on-score); }
 .toast-error .icon { display: none; }
 
@@ -1904,7 +1980,8 @@ p, h1, h2, h3 { margin: 0; }
   .action.mic[aria-pressed="true"],
   .waveform { animation: none; }
   .waveform > span,
-  .usage-bar > span { transition: none; }
+  .usage-bar > span,
+  .card.swipeable { transition: none; }
   .spinner svg { animation-duration: 2.4s; }
   .theme-changing,
   .theme-changing * { transition: none !important; }

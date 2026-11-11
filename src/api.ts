@@ -358,6 +358,10 @@ export const api = {
     request<Phrase>('/api/phrases', { method: 'POST', body: translation ? { text, translation } : { text } }),
   update: (id: number, text: string) => request<Phrase>(`/api/phrases/${id}`, { method: 'PATCH', body: { text } }),
   remove: (id: number) => request<void>(`/api/phrases/${id}`, { method: 'DELETE' }),
+  /** Takes a phrase off Today as read or remembered, until a later reminder sends it again. */
+  review: (id: number, as: 'read' | 'remembered') => request<void>(`/api/phrases/${id}/review`, { method: 'POST', body: { as } }),
+  /** Undoes review(): back on Today. */
+  unreview: (id: number) => request<void>(`/api/phrases/${id}/review`, { method: 'DELETE' }),
   /** The phrase in Spanish. The backend translates it once and keeps it. */
   translate: (id: number) => request<{ translation: string }>(`/api/phrases/${id}/translation`),
   /** A formal and an informal way to say the text in English, fitted to the context if there is one. Nothing is saved. */

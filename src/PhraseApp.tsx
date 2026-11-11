@@ -7,7 +7,7 @@ import { CheckIcon, GaugeIcon, ListIcon, PlusIcon, SettingsIcon, SunIcon } from 
 import { getLanguage, isLanguage, setLanguage, type Language } from './language.ts'
 import { NewPhraseSheet } from './NewPhraseSheet.tsx'
 import type { OptionStyle } from './OptionCard.tsx'
-import type { PhraseCardProps, Speaking } from './PhraseCard.tsx'
+import type { PhraseCardProps, Review, Speaking } from './PhraseCard.tsx'
 import { PhraseSheet } from './PhraseSheet.tsx'
 import { PhrasesView } from './PhrasesView.tsx'
 import { currentSubscription, pushSupported, subscribe } from './push.ts'
@@ -30,6 +30,8 @@ interface Toast {
   id: number
   message: string
   isError: boolean
+  /** A button on the note, such as Undo. */
+  action?: { label: string; run: () => void }
 }
 
 export interface PhraseAppProps {
@@ -83,14 +85,15 @@ export function PhraseApp({ session, fromReminder = false, onLogOut, onExpired }
   const [reminders, setReminders] = useState<Reminders>(pushSupported ? 'checking' : 'off')
   const [vapidKey, setVapidKey] = useState<string | null>(null)
 
-  const showToast = useCallback((message: string, isError = false) => {
-    setToast({ id: Date.now(), message, isError })
+  const showToast = useCallback((message: string, isError = false, action?: Toast['action']) => {
+    setToast({ id: Date.now(), message, isError, action })
   }, [])
 
   useEffect(() => {
     if (!toast) return
     // Long enough to read: a short note goes in 2.5 s, and a long explanation stays longer.
-    const timer = setTimeout(() => setToast(null), Math.max(2500, toast.message.length * 60))
+    // One with a button, such as Undo, stays 5 s, to give time to tap it.
+    const timer = setTimeout(() => setToast(null), Math.max(toast.action ? 5000 : 2500, toast.message.length * 60))
     return () => clearTimeout(timer)
   }, [toast])
 
@@ -397,6 +400,59 @@ export function PhraseApp({ session, fromReminder = false, onLogOut, onExpired }
 
   const closeScore = (phrase: Phrase) => setAttempt(phrase.id, null)
 
+  // How many of today's phrases were swiped off this visit, to say when all of them are done.
+  const [reviewedToday, setReviewedToday] = useState(0)
+  // Each phrase's save in flight, so an undo waits for it and the two don't cross.
+  const reviewing = useRef(new Map<number, Promise<unknown>>())
+
+  /** Takes a phrase off Today as read or remembered, with Undo, and saves that. */
+  function reviewPhrase(phrase: Phrase, as: Review) {
+    const index = today.findIndex((each) => each.id === phrase.id)
+    if (index < 0) return
+    if (playing?.key === phraseKey(phrase)) {
+      stopSpeaking()
+      setPlaying(null)
+    }
+    setAttempt(phrase.id, null)
+    setToday((list) => list.filter((each) => each.id !== phrase.id))
+    setReviewedToday((count) => count + 1)
+    if (open?.id === phrase.id) setOpen(null)
+    showToast(as === 'remembered' ? t.markedRemembered : t.markedRead, false, {
+      label: t.undo,
+      run: () => undoReview(phrase, index),
+    })
+    const saving = api.review(phrase.id, as).catch((err) => {
+      putBack(phrase, index)
+      if (err instanceof NotFoundError) dropPhrase(phrase.id, true)
+      else fail(err, t.couldntReview)
+    })
+    reviewing.current.set(phrase.id, saving)
+  }
+
+  /** Puts a phrase back on Today where it was. */
+  function putBack(phrase: Phrase, index: number) {
+    setToday((list) => {
+      if (list.some((each) => each.id === phrase.id)) return list
+      const next = [...list]
+      next.splice(Math.min(index, next.length), 0, phrase)
+      return next
+    })
+    setReviewedToday((count) => Math.max(0, count - 1))
+  }
+
+  /** Undo on the note: back on Today, once the save it undoes has finished. */
+  async function undoReview(phrase: Phrase, index: number) {
+    setToast(null)
+    putBack(phrase, index)
+    await reviewing.current.get(phrase.id)
+    reviewing.current.delete(phrase.id)
+    try {
+      await api.unreview(phrase.id)
+    } catch (err) {
+      if (!(err instanceof NotFoundError)) fail(err, t.couldntUndo)
+    }
+  }
+
   /** Gets the phrase's Spanish from the backend, which translates it once and keeps it. */
   async function translate(phrase: Phrase) {
     if (phrase.translation || translating !== null) return
@@ -470,6 +526,7 @@ export function PhraseApp({ session, fromReminder = false, onLogOut, onExpired }
       onOpen: setOpen,
       ...(canSpeak ? { onSpeak: speakPhrase, speaking: speakingOf(phraseKey(phrase)) } : {}),
       ...(practice && canRecord ? { onPronounce: togglePronounce, onCloseScore: closeScore, attempt: attempts[phrase.id] } : {}),
+      ...(practice ? { onReview: reviewPhrase } : {}),
     })
 
   const device = pushSupported ? reminders : 'unsupported'
@@ -500,6 +557,7 @@ export function PhraseApp({ session, fromReminder = false, onLogOut, onExpired }
             onOpenSettings={() => goTo('settings')}
             onAdd={() => setAdding(true)}
             cardProps={cardProps(true)}
+            reviewedToday={reviewedToday}
           />
         </section>
         <section {...panel('phrases')} aria-labelledby="phrases-title">
@@ -554,6 +612,11 @@ export function PhraseApp({ session, fromReminder = false, onLogOut, onExpired }
           <div key={toast.id} className={`toast${toast.isError ? ' toast-error' : ''}`}>
             <CheckIcon />
             <span>{toast.message}</span>
+            {toast.action && (
+              <button className="toast-action" type="button" onClick={toast.action.run}>
+                {toast.action.label}
+              </button>
+            )}
           </div>
         )}
       </div>
@@ -569,6 +632,7 @@ export function PhraseApp({ session, fromReminder = false, onLogOut, onExpired }
           onUnauthorized={onExpired}
           {...(canSpeak ? { onSpeak: speakPhrase, speaking: speakingOf(phraseKey(open)) } : {})}
           {...(canRecord ? { onPronounce: togglePronounce, onCloseScore: closeScore, attempt: attempts[open.id] } : {})}
+          {...(today.some((phrase) => phrase.id === open.id) ? { onReview: reviewPhrase } : {})}
         />
       )}
       {adding && (

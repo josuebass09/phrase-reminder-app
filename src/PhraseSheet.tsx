@@ -2,8 +2,8 @@ import { useEffect, useRef, useState, type FormEvent, type MouseEvent } from 're
 import { api, NotFoundError, UnauthorizedError, type Phrase } from './api.ts'
 import { savedLabel } from './format.ts'
 import { useLanguage, useT } from './i18n.ts'
-import { CloseIcon, PenIcon, PlayIcon, StopIcon, TranslateIcon, TrashIcon } from './icons.tsx'
-import type { Speaking } from './PhraseCard.tsx'
+import { BookIcon, CloseIcon, OkIcon, PenIcon, PlayIcon, StopIcon, TranslateIcon, TrashIcon } from './icons.tsx'
+import type { Review, Speaking } from './PhraseCard.tsx'
 import { MicButton, ScoreBadge, ScoreBubble, type Attempt } from './Score.tsx'
 import { Spinner } from './Spinner.tsx'
 import { Waveform } from './Waveform.tsx'
@@ -30,6 +30,8 @@ export interface PhraseSheetProps {
   /** Closes the score's bubble. */
   onCloseScore?: (phrase: Phrase) => void
   attempt?: Attempt
+  /** For a phrase on Today: takes it off as read or remembered, as swiping its card does. */
+  onReview?: (phrase: Phrase, as: Review) => void
 }
 
 /**
@@ -51,6 +53,7 @@ export function PhraseSheet({
   onPronounce,
   onCloseScore,
   attempt,
+  onReview,
 }: PhraseSheetProps) {
   const t = useT()
   const language = useLanguage()
@@ -243,6 +246,25 @@ export function PhraseSheet({
                 onListenSlowly={onSpeak && (() => onSpeak(phrase, true))}
                 slowPlaying={speaking === 'slow'}
               />
+            )}
+            {onReview && (
+              // The same as swiping the card on Today, for anyone who can't or won't swipe. Read first,
+              // on the left, and remembered on the right, as the swipes go.
+              <div className="sheet-review" role="group" aria-labelledby="review-question">
+                <p id="review-question" className="usage-hint">
+                  {t.reviewedHow}
+                </p>
+                <div className="actions">
+                  <button className="action done" type="button" onClick={() => onReview(phrase, 'read')}>
+                    <BookIcon />
+                    <span>{t.read}</span>
+                  </button>
+                  <button className="action done" type="button" onClick={() => onReview(phrase, 'remembered')}>
+                    <OkIcon />
+                    <span>{t.remembered}</span>
+                  </button>
+                </div>
+              </div>
             )}
           </div>
         </div>

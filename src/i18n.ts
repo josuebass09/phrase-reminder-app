@@ -170,6 +170,18 @@ const en = {
   usageRetry: 'Try again',
   usageNote: 'Your recordings are sent to Groq to be heard, and aren’t kept.',
 
+  // Reviewing Today's phrases
+  remembered: 'Remembered',
+  read: 'Read',
+  swipeHint: 'Swipe a phrase once you’ve gone over it: right if you remembered it, left if you read it.',
+  markedRemembered: 'Remembered. Off Today.',
+  markedRead: 'Read. Off Today.',
+  undo: 'Undo',
+  couldntReview: "Couldn't save that. It's back on Today.",
+  couldntUndo: "Couldn't undo that. Try again.",
+  allReviewed: (count: number) => (count === 1 ? 'You went over today’s phrase.' : `You went over all ${count} of today’s phrases.`),
+  reviewedHow: 'Done with it?',
+
   // Admin
   admin: 'Admin',
   adminRefresh: 'Refresh',
@@ -431,6 +443,16 @@ const es: Messages = {
   usageRetry: 'Reintentar',
   usageNote: 'Tus grabaciones se envían a Groq para escucharlas, y no se guardan.',
 
+  remembered: 'Recordada',
+  read: 'Leída',
+  swipeHint: 'Desliza una frase cuando la hayas repasado: a la derecha si la recordaste, a la izquierda si la leíste.',
+  markedRemembered: 'Recordada. Fuera de Hoy.',
+  markedRead: 'Leída. Fuera de Hoy.',
+  undo: 'Deshacer',
+  couldntReview: 'No se pudo guardar. Volvió a Hoy.',
+  couldntUndo: 'No se pudo deshacer. Inténtalo de nuevo.',
+  allReviewed: (count) => (count === 1 ? 'Repasaste la frase de hoy.' : `Repasaste las ${count} frases de hoy.`),
+  reviewedHow: '¿Ya la repasaste?',
   admin: 'Admin',
   adminRefresh: 'Actualizar',
   adminLoadFailed: 'No se pudo cargar. Revisa tu conexión.',

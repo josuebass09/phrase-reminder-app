@@ -1,6 +1,6 @@
 import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { afterEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import App from './App.tsx'
 import { readSession, type AdminAi, type AdminSystem, type AdminUser, type Phrase, type Pronunciation } from './api.ts'
 import { fakeSpeech } from './test/fake-speech.ts'
@@ -44,6 +44,7 @@ function fakeBackend(
     renewal,
     refuseFirstToken = false,
     usage = {},
+    reviewFails = false,
   }: {
     admin?: boolean
     translationFails?: boolean
@@ -65,6 +66,8 @@ function fakeBackend(
     refuseFirstToken?: boolean
     /** What's already been used today of each limit. */
     usage?: { suggestions?: number; pronunciations?: number }
+    /** Saving a swipe off Today fails, as with no connection. */
+    reviewFails?: boolean
   } = {},
 ) {
   const phrases = [...seed] // Newest first, like the backend returns them.
@@ -75,6 +78,7 @@ function fakeBackend(
   let failuresLeft = suggestionsFail
   let nextId = Math.max(0, ...phrases.map((phrase) => phrase.id)) + 1
   const activity: { kind: string; phraseId?: number }[] = []
+  reviews.length = 0
   let token = TOKEN
   let refreshToken = 'refresh-1'
   let renewals = 0
@@ -169,6 +173,11 @@ function fakeBackend(
         return json(200, listed.slice(0, 50))
       }
       if (path === '/api/today') return json(200, phrases.filter((phrase) => todayIds.includes(phrase.id)))
+      if (/^\/api\/phrases\/\d+\/review$/.test(path)) {
+        if (reviewFails) return json(500, { error: 'Database down' })
+        reviews.push(method === 'POST' ? `${path} ${body.as}` : `${path} undone`)
+        return json(204)
+      }
       if (path === '/api/phrases' && method === 'POST') {
         const phrase = { id: nextId++, text: body.text, createdAt: new Date().toISOString() }
         phrases.unshift(phrase)
@@ -220,6 +229,9 @@ function fakeBackend(
   )
   return Object.assign(phrases, { settings, activity })
 }
+
+/** Swipes off Today the fake backend saved, such as "/api/phrases/1/review remembered". */
+const reviews: string[] = []
 
 const ago = (ms: number) => new Date(Date.now() - ms).toISOString()
 const HOUR = 3_600_000
@@ -1650,5 +1662,104 @@ describe('admin tab', () => {
       expect(within(versions).getAllByRole('definition').map((each) => each.textContent)).toEqual(['abc1234', 'abc1234', 'def5678']),
     )
     expect(within(system).getByText(/^The cron runs another commit than the API/)).toBeTruthy()
+  })
+})
+
+describe("reviewing Today's phrases", () => {
+  const second: Phrase = { id: 2, text: 'Keep me posted.', createdAt: '2026-11-02T12:00:00.000Z' }
+  const card = (text: string) => screen.getAllByText(text).map((each) => each.closest<HTMLElement>('#today .card')).find(Boolean)!
+
+  /** Drags a card sideways by `dx` pixels, as a finger does, and lets go. */
+  function swipe(element: HTMLElement, dx: number) {
+    fireEvent.pointerDown(element, { pointerId: 1, clientX: 100, clientY: 100, button: 0 })
+    for (const step of [0.25, 0.5, 0.75, 1]) {
+      fireEvent.pointerMove(element, { pointerId: 1, clientX: 100 + dx * step, clientY: 102 })
+    }
+    fireEvent.pointerUp(element, { pointerId: 1, clientX: 100 + dx, clientY: 102 })
+  }
+
+  // jsdom lays nothing out; cards are 300px wide, so a swipe needs 90px to go.
+  let width: ReturnType<typeof vi.spyOn>
+  beforeEach(() => {
+    width = vi.spyOn(HTMLElement.prototype, 'offsetWidth', 'get').mockReturnValue(300)
+  })
+  afterEach(() => width.mockRestore())
+
+  it('takes a phrase off Today with a swipe right as remembered, and Undo brings it back', async () => {
+    fakeBackend([second, typo], [typo.id, second.id])
+    const user = userEvent.setup()
+    startLoggedIn()
+    await screen.findAllByText('It slipt my mind.')
+    expect(screen.getByText(/^Swipe a phrase once you’ve gone over it/)).toBeTruthy()
+    const order = () => [...document.querySelectorAll('#today .card-text')].map((each) => each.textContent)
+    const before = order()
+
+    swipe(card('It slipt my mind.'), 160)
+
+    expect(await screen.findByText('Remembered. Off Today.')).toBeTruthy()
+    await waitFor(() => expect(document.querySelectorAll('#today .card')).toHaveLength(1))
+    expect(reviews).toEqual(['/api/phrases/1/review remembered'])
+    expect(document.querySelector('#phrases')!.textContent).toContain('It slipt my mind.') // Still saved, off Today only.
+
+    await user.click(screen.getByRole('button', { name: 'Undo' }))
+
+    await waitFor(() => expect(reviews).toEqual(['/api/phrases/1/review remembered', '/api/phrases/1/review undone']))
+    expect(order()).toEqual(before) // Back where it was.
+  })
+
+  it('marks a phrase read with a swipe left, and leaves it for a short one', async () => {
+    fakeBackend([second, typo], [typo.id, second.id])
+    startLoggedIn()
+    await screen.findAllByText('Keep me posted.')
+
+    swipe(card('Keep me posted.'), -30) // Short of 90px, and too short for a flick: it springs back.
+    await new Promise((resolve) => setTimeout(resolve, 600))
+    expect(document.querySelectorAll('#today .card')).toHaveLength(2)
+
+    swipe(card('Keep me posted.'), -200)
+
+    expect(await screen.findByText('Read. Off Today.')).toBeTruthy()
+    expect(reviews).toEqual(['/api/phrases/2/review read'])
+  })
+
+  it("offers read and remembered in a Today phrase's sheet, and says when all are done", async () => {
+    fakeBackend([typo], [typo.id])
+    const user = userEvent.setup()
+    startLoggedIn()
+    await screen.findAllByText('It slipt my mind.')
+
+    await user.click(within(card('It slipt my mind.')).getByRole('button', { name: 'Open phrase' }))
+    const sheet = screen.getByRole('dialog')
+    const done = within(sheet).getByRole('group', { name: 'Done with it?' })
+    await user.click(within(done).getByRole('button', { name: 'Read' }))
+
+    expect(screen.queryByRole('dialog')).toBeNull()
+    expect(await screen.findByText('You went over today’s phrase.')).toBeTruthy()
+    expect(reviews).toEqual(['/api/phrases/1/review read'])
+  })
+
+  it("offers nothing of the kind for a phrase that isn't on Today", async () => {
+    fakeBackend([typo])
+    const user = userEvent.setup()
+    startLoggedIn()
+    await screen.findByText('It slipt my mind.')
+    await showTab(user, 'Phrases')
+
+    await user.click(within(firstCard()).getByRole('button', { name: 'Open phrase' }))
+
+    expect(within(screen.getByRole('dialog')).queryByRole('group', { name: 'Done with it?' })).toBeNull()
+  })
+
+  it("puts the phrase back and says so when the swipe can't be saved", async () => {
+    fakeBackend([typo], [typo.id], { reviewFails: true })
+    const user = userEvent.setup()
+    startLoggedIn()
+    await screen.findAllByText('It slipt my mind.')
+
+    await user.click(within(card('It slipt my mind.')).getByRole('button', { name: 'Open phrase' }))
+    await user.click(within(screen.getByRole('dialog')).getByRole('button', { name: 'Remembered' }))
+
+    expect(await screen.findByText("Couldn't save that. It's back on Today.")).toBeTruthy()
+    expect(document.querySelectorAll('#today .card')).toHaveLength(1)
   })
 })
