@@ -134,7 +134,7 @@ describe('api', () => {
     await expect(api.recent()).rejects.toMatchObject({ status: 500, message: 'Something went wrong. Try again.' })
   })
 
-  it('asks the chat for options with the text', async () => {
+  it('asks for options with the text', async () => {
     const options = { formal: { text: 'Hello.', es: 'Hola.' }, informal: { text: 'Hi!', es: '¡Hola!' } }
     const fetchMock = respond(200, options)
 

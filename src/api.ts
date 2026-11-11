@@ -4,14 +4,14 @@ export interface Phrase {
   createdAt: string
 }
 
-/** One way to say something in English, from the chat. */
+/** One way to say a new phrase in English, from the AI. */
 export interface PhraseOption {
   text: string
   /** What the English says, in Spanish. */
   es: string
 }
 
-/** The chat's answer: a way to say it at work, and one for friends. */
+/** The AI's answer: a way to say it at work, and one for friends. */
 export interface Suggestions {
   formal: PhraseOption
   informal: PhraseOption
@@ -162,7 +162,7 @@ export const api = {
   config: () => request<{ vapidPublicKey: string }>('/api/config'),
   me: () => request<{ id: number; email: string; isAdmin: boolean }>('/api/me'),
   settings: () => request<ReminderSettings>('/api/settings'),
-  /** Today's new translations and chat answers, each with its daily limit. */
+  /** Today's new translations and suggestions, each with its daily limit. */
   usage: () => request<{ translations: Usage; suggestions: Usage }>('/api/usage'),
   /** Saves only the settings given, and returns them all. */
   updateSettings: (changes: Partial<ReminderSettings>) =>
@@ -171,7 +171,7 @@ export const api = {
   createInvite: () => request<{ code: string; expiresAt: string }>('/api/invites', { method: 'POST' }),
   recent: () => request<Phrase[]>('/api/phrases'),
   today: () => request<Phrase[]>('/api/today'),
-  /** A translation, such as the Spanish of a chat option, is saved with the phrase. */
+  /** A translation, such as the Spanish of a suggested option, is saved with the phrase. */
   add: (text: string, translation?: string) =>
     request<Phrase>('/api/phrases', { method: 'POST', body: translation ? { text, translation } : { text } }),
   update: (id: number, text: string) => request<Phrase>(`/api/phrases/${id}`, { method: 'PATCH', body: { text } }),

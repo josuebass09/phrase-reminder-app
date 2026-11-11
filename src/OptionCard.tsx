@@ -11,7 +11,7 @@ const LABELS: Record<OptionStyle, { title: string; hint: string }> = {
   informal: { title: 'Informal', hint: 'For friends and close teammates' },
 }
 
-export interface ChatOptionProps {
+export interface OptionCardProps {
   style: OptionStyle
   option: PhraseOption
   /** Unset until the user saves this option. */
@@ -22,12 +22,12 @@ export interface ChatOptionProps {
   speaking?: Speaking
 }
 
-/** One of the chat's answers: the English, its Spanish, and buttons to hear and save it. */
-export function ChatOption({ style, option, saved, onSave, onSpeak, speaking = null }: ChatOptionProps) {
+/** One way to say the new phrase: the English, its Spanish, and buttons to hear and save it. */
+export function OptionCard({ style, option, saved, onSave, onSpeak, speaking = null }: OptionCardProps) {
   const { title, hint } = LABELS[style]
 
   return (
-    <article className={`chat-option option-${style} ${style === 'formal' ? 'tone-2' : 'tone-0'}`} aria-label={title}>
+    <article className={`option-card option-${style} ${style === 'formal' ? 'tone-2' : 'tone-0'}`} aria-label={title}>
       <header className="option-head">
         <span className="option-title">{title}</span>
         <span className="option-hint">{hint}</span>

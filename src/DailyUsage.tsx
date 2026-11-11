@@ -4,7 +4,7 @@ import { Spinner } from './Spinner.tsx'
 
 type Counts = { translations: Usage; suggestions: Usage }
 
-/** What the user has used today of each daily limit: new translations and chat answers. */
+/** What the user has used today of each daily limit: new translations and AI suggestions. */
 export function DailyUsage() {
   const [counts, setCounts] = useState<Counts | 'failed' | null>(null)
 
@@ -39,15 +39,15 @@ export function DailyUsage() {
           </span>
         </div>
         <div className="setting-row">
-          <span>Chat answers</span>
+          <span>Suggestions</span>
           <span className="setting-value" aria-busy={counts === null}>
             {valueOf('suggestions')}
           </span>
         </div>
       </div>
       <p className="settings-note">
-        Both start over at midnight. Only new translations count: phrases you've already translated, and phrases saved
-        from the chat, open their Spanish for free.
+        Both start over at midnight. Each Get options is one suggestion. Only new translations count: phrases you've
+        already translated, and options you saved, open their Spanish for free.
       </p>
     </section>
   )

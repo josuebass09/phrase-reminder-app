@@ -1,20 +1,20 @@
 import { useCallback, useEffect, useRef, useState, type FormEvent } from 'react'
 import { api, ApiError, NotFoundError, UnauthorizedError, type Phrase, type ReminderSettings, type Session } from './api.ts'
 import { Brand } from './Brand.tsx'
-import { Chat } from './Chat.tsx'
 import { Editor } from './Editor.tsx'
 import { deviceTimeZone, timeLabel } from './format.ts'
-import { BellIcon, CheckIcon, ClockIcon, HistoryIcon, PenIcon, SaveIcon, SunIcon, UserIcon } from './icons.tsx'
+import { BellIcon, CheckIcon, ClockIcon, ContextIcon, HistoryIcon, PenIcon, SparklesIcon, SunIcon, UserIcon } from './icons.tsx'
+import type { OptionStyle } from './OptionCard.tsx'
 import { PhraseRow, type Speaking, type Translation } from './PhraseRow.tsx'
 import { Settings } from './Settings.tsx'
 import { Spinner } from './Spinner.tsx'
-import { panelId, tabId, type Tab } from './sections.ts'
-import { Tabs } from './Tabs.tsx'
+import { SuggestionPanel, type Suggestion } from './SuggestionPanel.tsx'
 import { ThemeToggle } from './ThemeToggle.tsx'
 import { currentSubscription, pushSupported, subscribe } from './push.ts'
 import { NORMAL_RATE, SLOW_RATE, speak, speechSupported, stopSpeaking } from './speech.ts'
 
 const MAX_PHRASE_LENGTH = 500 // Matches the backend.
+const MAX_CONTEXT_LENGTH = 300 // Matches the backend.
 
 type Reminders = 'checking' | 'off' | 'enabling' | 'on'
 
@@ -39,15 +39,17 @@ export function PhraseApp({ session, onLogOut, onExpired }: PhraseAppProps) {
   const [loaded, setLoaded] = useState(false)
   const [loadFailed, setLoadFailed] = useState(false)
   const [text, setText] = useState('')
-  const [saving, setSaving] = useState(false)
+  // Who the phrase is for, where, or what it's about. It stays for the next phrase.
+  const [context, setContext] = useState('')
+  const [suggestion, setSuggestion] = useState<Suggestion | null>(null)
+  const [savingAs, setSavingAs] = useState<OptionStyle | 'typed' | null>(null)
   const [toast, setToast] = useState<Toast | null>(null)
   const [editing, setEditing] = useState<Phrase | null>(null)
   const [settingsOpen, setSettingsOpen] = useState(false)
   const [settings, setSettings] = useState<ReminderSettings | null>(null)
   const [isAdmin, setIsAdmin] = useState(false)
   const [canSpeak] = useState(speechSupported)
-  const [tab, setTab] = useState<Tab>('phrases')
-  // What is being read aloud: a phrase, or a chat option, by key (see phraseKey and Chat).
+  // What is being read aloud: a phrase, or one of the options, by key (see phraseKey and optionKey).
   const [playing, setPlaying] = useState<{ key: string; slow: boolean } | null>(null)
   // By phrase id. A translation stays here after its bubble closes, so reopening it needs no request.
   const [translations, setTranslations] = useState<Record<number, Translation>>({})
@@ -172,22 +174,58 @@ export function PhraseApp({ session, onLogOut, onExpired }: PhraseAppProps) {
     return () => viewport.removeEventListener('resize', fit)
   }, [])
 
-  async function addPhrase(event: FormEvent) {
-    event.preventDefault()
+  const asking = suggestion?.state === 'waiting'
+
+  /** Asks the AI for a formal and an informal way to say the new phrase, fitted to the context. */
+  async function getOptions(event?: FormEvent) {
+    event?.preventDefault()
     const trimmed = text.trim()
-    if (!trimmed || saving) return
-    setSaving(true)
+    if (!trimmed || asking || savingAs) return
+    stopOptionSpeech()
+    setSuggestion({ state: 'waiting' })
+    // The options show above the lists, which may be scrolled down.
+    requestAnimationFrame(() => document.getElementById('options')?.scrollIntoView?.({ block: 'nearest' }))
     try {
-      const phrase = await api.add(trimmed)
+      setSuggestion({ state: 'answered', options: await api.suggest(trimmed, context.trim() || undefined) })
+    } catch (err) {
+      if (err instanceof UnauthorizedError) {
+        onExpired()
+        return
+      }
+      setSuggestion({
+        state: 'failed',
+        error: err instanceof ApiError ? err.message : "Couldn't get options. Check your connection.",
+        canRetry: !(err instanceof ApiError && err.status === 429), // Not after today's limit.
+      })
+    }
+  }
+
+  /** Saves the picked option, with its Spanish, or the text as typed, at the top of Recent. */
+  async function savePhrase(as: OptionStyle | 'typed') {
+    const option = as !== 'typed' && suggestion?.state === 'answered' ? suggestion.options[as] : null
+    const phraseText = option ? option.text : text.trim()
+    if (!phraseText || savingAs) return
+    setSavingAs(as)
+    try {
+      const phrase = await api.add(phraseText, option?.es)
       setRecent((list) => [phrase, ...list])
+      // Its Spanish came with it, so translating it needs no request.
+      if (option) setTranslation(phrase.id, { text: option.es, loading: false, open: false })
+      stopOptionSpeech()
+      setSuggestion(null)
       setText('')
       showToast('Phrase saved')
       requestAnimationFrame(() => recentRef.current?.firstElementChild?.scrollIntoView?.({ block: 'nearest' }))
     } catch (err) {
-      fail(err, "Couldn't save. Your text is still here.")
+      fail(err, "Couldn't save. Try again.")
     } finally {
-      setSaving(false)
+      setSavingAs(null)
     }
+  }
+
+  function dismissOptions() {
+    stopOptionSpeech()
+    setSuggestion(null)
   }
 
   /** Turns reminders on for this device: the permission prompt, then saving its subscription. */
@@ -236,12 +274,13 @@ export function PhraseApp({ session, onLogOut, onExpired }: PhraseAppProps) {
 
   const speakingOf = (key: string): Speaking => (playing?.key === key ? (playing.slow ? 'slow' : 'normal') : null)
   const phraseKey = (phrase: Phrase) => `phrase-${phrase.id}`
+  const optionKey = (style: OptionStyle) => `option-${style}`
 
-  function changeTab(next: Tab) {
-    if (next === tab) return
-    stopSpeaking() // What was playing is no longer on screen.
+  /** The options are about to change or go away, so one being read aloud stops. */
+  function stopOptionSpeech() {
+    if (!playing?.key.startsWith('option-')) return
+    stopSpeaking()
     setPlaying(null)
-    setTab(next)
   }
 
   const setTranslation = (id: number, next: Translation | null) =>
@@ -277,13 +316,6 @@ export function PhraseApp({ session, onLogOut, onExpired }: PhraseAppProps) {
     onTranslate: toggleTranslation,
     translation: translations[phrase.id],
   })
-
-  /** A chat option became a phrase. Its Spanish came with it, so translating it needs no request. */
-  function addFromChat(phrase: Phrase, translation: string) {
-    setRecent((list) => [phrase, ...list])
-    setTranslation(phrase.id, { text: translation, loading: false, open: false })
-    showToast('Saved to your phrases')
-  }
 
   // A phrase can be in both Today and Recent, so changes apply to both lists.
   function replacePhrase(updated: Phrase) {
@@ -340,8 +372,7 @@ export function PhraseApp({ session, onLogOut, onExpired }: PhraseAppProps) {
             </button>
           </div>
         </header>
-        <Tabs tab={tab} onChange={changeTab} />
-        <form id="phrase-form" className="composer" hidden={tab !== 'phrases'} onSubmit={addPhrase}>
+        <form id="phrase-form" className="composer" onSubmit={getOptions}>
           <div className="field">
             <label htmlFor="phrase">
               <PenIcon />
@@ -350,9 +381,25 @@ export function PhraseApp({ session, onLogOut, onExpired }: PhraseAppProps) {
             <textarea
               id="phrase"
               maxLength={MAX_PHRASE_LENGTH}
-              placeholder="Type an English phrase"
+              placeholder="Type it in Spanish or English"
               value={text}
               onChange={(event) => setText(event.target.value)}
+            />
+          </div>
+          <div className="field context-field">
+            <label htmlFor="context">
+              <ContextIcon />
+              <span>Context</span>
+            </label>
+            <input
+              id="context"
+              type="text"
+              maxLength={MAX_CONTEXT_LENGTH}
+              autoComplete="off"
+              enterKeyHint="go"
+              placeholder="Optional: who it's for, or where"
+              value={context}
+              onChange={(event) => setContext(event.target.value)}
             />
           </div>
           <p className="hint">
@@ -361,13 +408,24 @@ export function PhraseApp({ session, onLogOut, onExpired }: PhraseAppProps) {
           </p>
         </form>
       </div>
-      <main
-        id={panelId('phrases')}
-        className="content"
-        role="tabpanel"
-        aria-labelledby={tabId('phrases')}
-        hidden={tab !== 'phrases'}
-      >
+      <main className="content">
+        {suggestion && (
+          <SuggestionPanel
+            suggestion={suggestion}
+            savingAs={savingAs}
+            canSaveTyped={text.trim() !== ''}
+            onSave={savePhrase}
+            onSaveTyped={() => savePhrase('typed')}
+            onRetry={() => getOptions()}
+            onDismiss={dismissOptions}
+            onSpeak={
+              canSpeak && suggestion.state === 'answered'
+                ? (style, slow) => toggleSpeech(optionKey(style), suggestion.options[style].text, slow)
+                : undefined
+            }
+            speakingOf={(style) => speakingOf(optionKey(style))}
+          />
+        )}
         <section id="today" className="group" hidden={today.length === 0}>
           <h2>
             <SunIcon />
@@ -398,25 +456,17 @@ export function PhraseApp({ session, onLogOut, onExpired }: PhraseAppProps) {
           {loaded && <p className="empty">Your saved phrases will appear here.</p>}
         </section>
       </main>
-      <Chat
-        hidden={tab !== 'chat'}
-        onSpeak={canSpeak ? toggleSpeech : undefined}
-        speakingOf={speakingOf}
-        onSaved={addFromChat}
-        onFail={fail}
-        onUnauthorized={onExpired}
-      />
-      <div className="actions" hidden={tab !== 'phrases'}>
+      <div className="actions">
         <button
-          id="save"
+          id="get-options"
           className="primary"
           type="submit"
           form="phrase-form"
-          disabled={saving || !text.trim()}
-          aria-busy={saving}
+          disabled={asking || savingAs !== null || !text.trim()}
+          aria-busy={asking}
         >
-          {saving ? <Spinner /> : <SaveIcon />}
-          <span>{saving ? 'Saving…' : 'Save'}</span>
+          {asking ? <Spinner /> : <SparklesIcon />}
+          <span>{asking ? 'Thinking…' : 'Get options'}</span>
         </button>
       </div>
       <div className="toast-region" role="status" aria-live="polite">

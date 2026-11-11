@@ -43,7 +43,7 @@ function fakeBackend(
     translationFails?: boolean
     settingsFail?: boolean
     translationLimitReached?: boolean
-    /** How many chat requests fail before one works. */
+    /** How many suggestion requests fail before one works. */
     suggestionsFail?: number
     suggestionLimitReached?: boolean
     hold?: ReturnType<typeof holdBack>
@@ -89,7 +89,7 @@ function fakeBackend(
         })
       }
       if (path === '/api/suggestions') {
-        if (suggestionLimitReached) return json(429, { error: "You've used today's 20 chat answers. More tomorrow." })
+        if (suggestionLimitReached) return json(429, { error: "You've used today's 20 suggestions. More tomorrow." })
         if (failuresLeft > 0) {
           failuresLeft -= 1
           return json(502, { error: "Couldn't get an answer right now. Try again." })
@@ -230,18 +230,42 @@ describe('the app', () => {
     expect(paths.filter((path) => path !== '/api/config')).toEqual([])
   })
 
-  it('saves a new phrase at the top of Recent', async () => {
+  it('saves the picked option at the top of Recent, and clears the new phrase', async () => {
     const phrases = fakeBackend([typo])
     const user = userEvent.setup()
     startLoggedIn()
     await screen.findByText('It slipt my mind.')
 
+    await user.type(screen.getByLabelText('New phrase'), '¿Puedes revisarlo?')
+    await user.click(screen.getByRole('button', { name: 'Get options' }))
+    const formal = await screen.findByRole('article', { name: 'Formal' })
+    expect(within(formal).getByText('Could you please take a look at it?')).toBeTruthy()
+    expect(within(formal).getByText('¿Podría revisarlo, por favor?')).toBeTruthy()
+    await user.click(within(formal).getByRole('button', { name: 'Save formal' }))
+
+    const recent = document.getElementById('phrases')!
+    await waitFor(() => expect(recent.querySelector('.row-text')?.textContent).toBe('Could you please take a look at it?'))
+    expect(screen.getByLabelText('New phrase')).toHaveProperty('value', '')
+    expect(screen.queryByRole('article')).toBeNull()
+    expect(screen.getByText('Phrase saved')).toBeTruthy()
+    expect(phrases.map((phrase) => phrase.text)).toEqual(['Could you please take a look at it?', 'It slipt my mind.'])
+  })
+
+  it('saves the new phrase as written, without the AI', async () => {
+    const phrases = fakeBackend([typo], [], { suggestionLimitReached: true })
+    const user = userEvent.setup()
+    startLoggedIn()
+    await screen.findByText('It slipt my mind.')
+
     await user.type(screen.getByLabelText('New phrase'), "I'll keep you posted.")
-    await user.click(screen.getByRole('button', { name: 'Save' }))
+    await user.click(screen.getByRole('button', { name: 'Get options' }))
+    expect(await screen.findByText("You've used today's 20 suggestions. More tomorrow.")).toBeTruthy()
+    expect(screen.queryByRole('button', { name: 'Try again' })).toBeNull()
+    await user.click(screen.getByRole('button', { name: 'Save it as I wrote it' }))
 
     const recent = document.getElementById('phrases')!
     await waitFor(() => expect(recent.querySelector('.row-text')?.textContent).toBe("I'll keep you posted."))
-    expect(screen.getByLabelText('New phrase')).toHaveProperty('value', '')
+    expect(screen.queryByRole('alert')).toBeNull()
     expect(phrases.map((phrase) => phrase.text)).toEqual(["I'll keep you posted.", 'It slipt my mind.'])
   })
 
@@ -560,26 +584,34 @@ describe('the app', () => {
     await screen.findByText('It slipt my mind.')
   })
 
-  it('shows a spinner on Save while the phrase is saved', async () => {
-    const hold = holdBack('/api/phrases')
-    fakeBackend([typo])
+  it('shows spinners while the options come and while the picked one is saved', async () => {
+    const thinking = holdBack('/api/suggestions')
+    fakeBackend([typo], [], { hold: thinking })
     const user = userEvent.setup()
     startLoggedIn()
     await screen.findByText('It slipt my mind.')
-    // Only the save is held back: the list already loaded.
-    const phrases = vi.mocked(fetch).getMockImplementation()!
+
+    await user.type(screen.getByLabelText('New phrase'), 'Hola')
+    await user.click(screen.getByRole('button', { name: 'Get options' }))
+    expect(screen.getByRole('button', { name: 'Thinking…' }).querySelector('.spinner')).toBeTruthy()
+    expect(within(document.getElementById('options')!).getByRole('status').textContent).toContain('Finding the best ways')
+    thinking.release()
+    const informal = await screen.findByRole('article', { name: 'Informal' })
+
+    // Only the save is held back now.
+    const saving = holdBack('/api/phrases')
+    const backend = vi.mocked(fetch).getMockImplementation()!
     vi.mocked(fetch).mockImplementation(async (input, init) => {
-      if (init?.method === 'POST' && String(input).endsWith(hold.path)) await hold.released
-      return phrases(input, init)
+      if (init?.method === 'POST' && String(input).endsWith(saving.path)) await saving.released
+      return backend(input, init)
     })
+    await user.click(within(informal).getByRole('button', { name: 'Save informal' }))
 
-    await user.type(screen.getByLabelText('New phrase'), 'Let me sleep on it.')
-    await user.click(screen.getByRole('button', { name: 'Save' }))
-
-    expect(screen.getByRole('button', { name: 'Saving…' }).querySelector('.spinner')).toBeTruthy()
-    hold.release()
-    await screen.findByText('Let me sleep on it.')
-    expect(screen.getByRole('button', { name: 'Save' })).toBeTruthy()
+    expect(within(informal).getByRole('button', { name: 'Save informal' }).querySelector('.spinner')).toBeTruthy()
+    expect(within(informal).getByText('Saving…')).toBeTruthy()
+    saving.release()
+    await waitFor(() => expect(screen.queryByRole('article')).toBeNull())
+    expect(screen.getByRole('button', { name: 'Get options' })).toBeTruthy()
   })
 
   it('shows a spinner in the translate button while the translation loads', async () => {
@@ -751,72 +783,72 @@ describe('the app', () => {
   })
 })
 
-describe('the chat', () => {
-  const input = () => screen.getByLabelText('What do you want to say?')
+describe('suggestions', () => {
+  const phraseBox = () => screen.getByLabelText('New phrase')
 
-  async function openChat() {
+  async function start(options: Parameters<typeof fakeBackend>[2] = {}) {
+    const phrases = fakeBackend([typo], [], options)
     const user = userEvent.setup()
     startLoggedIn()
     await screen.findByText('It slipt my mind.')
-    await user.click(screen.getByRole('tab', { name: 'Chat' }))
-    return user
+    return { user, phrases }
   }
 
-  it('gives a formal and an informal option, and saves the one picked with its Spanish', async () => {
-    const phrases = fakeBackend([typo])
-    const user = await openChat()
+  const sentBodies = () =>
+    vi
+      .mocked(fetch)
+      .mock.calls.filter(([url]) => String(url).endsWith('/api/suggestions'))
+      .map(([, init]) => JSON.parse(String(init?.body)))
 
-    expect(screen.getByRole('tab', { name: 'Chat' }).getAttribute('aria-selected')).toBe('true')
-    expect(screen.queryByRole('textbox', { name: 'New phrase' })).toBeNull()
-    await user.type(input(), '¿Puedes revisarlo?')
-    await user.click(screen.getByRole('button', { name: 'Send' }))
+  it('sends the context with the phrase, and keeps it for the next phrase', async () => {
+    const { user } = await start()
 
-    const formal = await screen.findByRole('article', { name: 'Formal' })
-    expect(within(formal).getByText('Could you please take a look at it?')).toBeTruthy()
-    expect(within(formal).getByText('¿Podría revisarlo, por favor?')).toBeTruthy()
-    const informal = screen.getByRole('article', { name: 'Informal' })
-    expect(within(informal).getByText('Can you take a look?')).toBeTruthy()
-    expect(input()).toHaveProperty('value', '')
+    await user.type(screen.getByLabelText('Context'), 'Slack message to my manager')
+    await user.type(phraseBox(), 'Voy tarde')
+    await user.click(screen.getByRole('button', { name: 'Get options' }))
+    await user.click(within(await screen.findByRole('article', { name: 'Informal' })).getByRole('button', { name: 'Save informal' }))
+    await screen.findByText('Phrase saved')
+    await user.type(phraseBox(), 'Ya casi')
+    await user.click(screen.getByRole('button', { name: 'Get options' }))
+    await screen.findByText('Formal Ya casi')
 
-    await user.click(within(informal).getByRole('button', { name: 'Save informal' }))
+    expect(screen.getByLabelText('Context')).toHaveProperty('value', 'Slack message to my manager')
+    expect(sentBodies()).toEqual([
+      { text: 'Voy tarde', context: 'Slack message to my manager' },
+      { text: 'Ya casi', context: 'Slack message to my manager' },
+    ])
+  })
 
-    expect(await within(informal).findByRole('button', { name: 'Informal saved' })).toHaveProperty('disabled', true)
-    expect(await screen.findByText('Saved to your phrases')).toBeTruthy()
-    expect(phrases[0].text).toBe('Can you take a look?')
-    expect(within(formal).getByRole('button', { name: 'Save formal' })).toHaveProperty('disabled', false)
+  it('asks for options from Enter in the context box', async () => {
+    const { user } = await start()
 
-    // Its Spanish came with it, so translating it in the list asks for nothing.
-    const fetchMock = vi.mocked(fetch)
-    fetchMock.mockClear()
-    await user.click(screen.getByRole('tab', { name: 'Phrases' }))
-    const row = within(screen.getByRole('tabpanel')).getByText('Can you take a look?').closest('li')!
+    await user.type(phraseBox(), 'Hola')
+    await user.type(screen.getByLabelText('Context'), 'Email to a client{Enter}')
+
+    expect(await screen.findByText('Formal Hola')).toBeTruthy()
+    expect(sentBodies()).toEqual([{ text: 'Hola', context: 'Email to a client' }])
+  })
+
+  it('opens the Spanish of a saved option without asking for a translation', async () => {
+    const { user } = await start()
+    await user.type(phraseBox(), '¿Puedes revisarlo?')
+    await user.click(screen.getByRole('button', { name: 'Get options' }))
+    await user.click(within(await screen.findByRole('article', { name: 'Informal' })).getByRole('button', { name: 'Save informal' }))
+    const row = (await within(document.getElementById('phrases')!).findByText('Can you take a look?')).closest('li')!
+    vi.mocked(fetch).mockClear()
+
     await user.click(within(row).getByRole('button', { name: 'Translate to Spanish' }))
 
     expect(within(row).getByText('¿Le echas un ojo?')).toBeTruthy()
-    const paths = fetchMock.mock.calls.map(([url]) => new URL(String(url), 'http://app.test').pathname)
+    const paths = vi.mocked(fetch).mock.calls.map(([url]) => new URL(String(url), 'http://app.test').pathname)
     expect(paths.filter((path) => path.endsWith('/translation'))).toEqual([])
   })
 
-  it('shows that it is thinking while it waits, and sends with Enter', async () => {
-    const hold = holdBack('/api/suggestions')
-    fakeBackend([typo], [], { hold })
-    const user = await openChat()
+  it('offers to try again when the options fail', async () => {
+    const { user } = await start({ suggestionsFail: 1 })
 
-    await user.type(input(), 'Voy tarde{Enter}')
-
-    expect(screen.getByText('Voy tarde')).toBeTruthy()
-    expect(within(screen.getByRole('log')).getByRole('status').textContent).toContain('Thinking…')
-    expect(screen.getByRole('button', { name: 'Send' })).toHaveProperty('disabled', true)
-    hold.release()
-    expect(await screen.findByText('Formal Voy tarde')).toBeTruthy()
-    expect(within(screen.getByRole('log')).queryByRole('status')).toBeNull()
-  })
-
-  it('offers to try again when the answer fails', async () => {
-    fakeBackend([typo], [], { suggestionsFail: 1 })
-    const user = await openChat()
-
-    await user.type(input(), 'Hola{Enter}')
+    await user.type(phraseBox(), 'Hola')
+    await user.click(screen.getByRole('button', { name: 'Get options' }))
     expect(await screen.findByText("Couldn't get an answer right now. Try again.")).toBeTruthy()
     await user.click(screen.getByRole('button', { name: 'Try again' }))
 
@@ -824,21 +856,27 @@ describe('the chat', () => {
     expect(screen.queryByRole('alert')).toBeNull()
   })
 
-  it("says when today's chat answers are used up, without offering to try again", async () => {
-    fakeBackend([typo], [], { suggestionLimitReached: true })
-    const user = await openChat()
+  it('closes the options without saving, and keeps the new phrase', async () => {
+    const { user, phrases } = await start()
 
-    await user.type(input(), 'Hola{Enter}')
+    await user.type(phraseBox(), 'Hola')
+    await user.click(screen.getByRole('button', { name: 'Get options' }))
+    await screen.findByText('Formal Hola')
+    await user.click(screen.getByRole('button', { name: 'Close options' }))
 
-    expect(await screen.findByText("You've used today's 20 chat answers. More tomorrow.")).toBeTruthy()
-    expect(screen.queryByRole('button', { name: 'Try again' })).toBeNull()
+    expect(screen.queryByRole('article')).toBeNull()
+    expect(phraseBox()).toHaveProperty('value', 'Hola')
+    expect(phrases).toHaveLength(1)
   })
 
-  it('reads an option aloud, and stops when going back to the phrases', async () => {
+  it('reads an option aloud, and stops when the options close', async () => {
     fakeBackend([typo])
     const { synth, spoken } = fakeSpeech()
-    const user = await openChat()
-    await user.type(input(), '¿Puedes revisarlo?{Enter}')
+    const user = userEvent.setup()
+    startLoggedIn()
+    await screen.findByText('It slipt my mind.')
+    await user.type(phraseBox(), '¿Puedes revisarlo?')
+    await user.click(screen.getByRole('button', { name: 'Get options' }))
     const formal = await screen.findByRole('article', { name: 'Formal' })
     const slow = within(formal).getByRole('button', { name: 'Listen at 0.5x' })
 
@@ -847,82 +885,7 @@ describe('the chat', () => {
     expect(spoken.map((utterance) => [utterance.text, utterance.rate])).toEqual([['Could you please take a look at it?', 0.5]])
     expect(slow.getAttribute('aria-pressed')).toBe('true')
     synth.cancel.mockClear()
-    await user.click(screen.getByRole('tab', { name: 'Phrases' }))
+    await user.click(screen.getByRole('button', { name: 'Close options' }))
     expect(synth.cancel).toHaveBeenCalled()
-  })
-
-  it('fills the box with an example, and keeps the conversation across tabs', async () => {
-    fakeBackend([typo])
-    const user = await openChat()
-
-    await user.click(screen.getByRole('button', { name: 'Voy un poco tarde' }))
-    expect(input()).toHaveProperty('value', 'Voy un poco tarde')
-    await user.click(screen.getByRole('button', { name: 'Send' }))
-    await screen.findByText('Formal Voy un poco tarde')
-    await user.click(screen.getByRole('tab', { name: 'Phrases' }))
-    await user.click(screen.getByRole('tab', { name: 'Chat' }))
-
-    expect(screen.getByText('Formal Voy un poco tarde')).toBeTruthy()
-  })
-
-  it('sends the context with each message until it is cleared, and shows it under them', async () => {
-    fakeBackend([typo])
-    const user = await openChat()
-    const sentBodies = () =>
-      vi
-        .mocked(fetch)
-        .mock.calls.filter(([url]) => String(url).endsWith('/api/suggestions'))
-        .map(([, init]) => JSON.parse(String(init?.body)))
-
-    const contextButton = screen.getByRole('button', { name: 'Context' })
-    await user.click(contextButton)
-    expect(contextButton.getAttribute('aria-expanded')).toBe('true')
-    await user.type(screen.getByLabelText('Context'), 'Slack message to my manager')
-    await user.click(screen.getByRole('button', { name: 'Done' }))
-    expect(screen.getByRole('button', { name: 'Context: Slack message to my manager' })).toBeTruthy()
-
-    await user.type(input(), 'Voy tarde{Enter}')
-    await screen.findByText('Formal Voy tarde')
-    await user.type(input(), 'Ya casi{Enter}')
-    await screen.findByText('Formal Ya casi')
-    await user.click(screen.getByRole('button', { name: 'Clear context' }))
-    await user.type(input(), 'Listo{Enter}')
-    await screen.findByText('Formal Listo')
-
-    expect(sentBodies()).toEqual([
-      { text: 'Voy tarde', context: 'Slack message to my manager' },
-      { text: 'Ya casi', context: 'Slack message to my manager' },
-      { text: 'Listo' },
-    ])
-    const log = screen.getByRole('log')
-    expect(within(log).getAllByText('Slack message to my manager')).toHaveLength(2)
-    expect(screen.queryByRole('button', { name: /^Context:/ })).toBeNull()
-  })
-
-  it('closes the context with Escape and keeps what was written', async () => {
-    fakeBackend([typo])
-    const user = await openChat()
-
-    await user.click(screen.getByRole('button', { name: 'Context' }))
-    await user.type(screen.getByLabelText('Context'), 'Email to a client{Escape}')
-
-    expect(screen.getByRole('button', { name: 'Context' }).getAttribute('aria-expanded')).toBe('false')
-    expect(document.activeElement).toBe(input())
-    expect(screen.getByRole('button', { name: 'Context: Email to a client' })).toBeTruthy()
-  })
-
-  it('switches tabs with the arrow keys', async () => {
-    fakeBackend([typo])
-    const user = userEvent.setup()
-    startLoggedIn()
-    await screen.findByText('It slipt my mind.')
-
-    screen.getByRole('tab', { name: 'Phrases' }).focus()
-    await user.keyboard('{ArrowRight}')
-
-    const chat = screen.getByRole('tab', { name: 'Chat' })
-    expect(document.activeElement).toBe(chat)
-    expect(chat.getAttribute('aria-selected')).toBe('true')
-    expect(screen.getByRole('tabpanel').id).toBe('panel-chat')
   })
 })
