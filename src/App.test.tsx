@@ -71,6 +71,7 @@ function fakeBackend(
   let suggestionsUsed = 0
   let failuresLeft = suggestionsFail
   let nextId = Math.max(0, ...phrases.map((phrase) => phrase.id)) + 1
+  const activity: { kind: string; phraseId?: number }[] = []
   let token = TOKEN
   let refreshToken = 'refresh-1'
   let renewals = 0
@@ -117,6 +118,10 @@ function fakeBackend(
       if (path === '/api/sessions' && method === 'DELETE') return json(204)
 
       if (path === '/api/me') return json(200, { id: 1, email: EMAIL, isAdmin: admin })
+      if (path === '/api/activity') {
+        activity.push(body)
+        return json(204)
+      }
       if (path === '/api/usage') {
         return json(200, {
           translations: { used: translationsUsed, limit: admin ? null : 30 },
@@ -191,7 +196,7 @@ function fakeBackend(
       return json(405)
     }),
   )
-  return Object.assign(phrases, { settings })
+  return Object.assign(phrases, { settings, activity })
 }
 
 const typo: Phrase = { id: 1, text: 'It slipt my mind.', createdAt: '2026-11-01T12:00:00.000Z' }
@@ -1285,5 +1290,48 @@ describe('long sessions', () => {
     expect(readSession()).toBeNull()
     expect(calledPaths()).toContain('/api/sessions')
     expect(screen.queryByText('Your session ended. Log in again.')).toBeNull()
+  })
+})
+
+describe('activity', () => {
+  it('tells the backend what the user does, once a day each', async () => {
+    const backend = fakeBackend([typo], [typo.id])
+    fakeSpeech()
+    const worker = new EventTarget()
+    Object.defineProperty(navigator, 'serviceWorker', { value: worker, configurable: true })
+    try {
+      const user = userEvent.setup()
+      startLoggedIn()
+      await screen.findAllByText('It slipt my mind.')
+      const row = document.querySelector<HTMLElement>('#phrases .row')!
+
+      await user.click(within(row).getByRole('button', { name: 'Listen at 1x' }))
+      await user.click(within(row).getByRole('button', { name: 'Listen at 1x' })) // Stops it.
+      await user.click(within(row).getByRole('button', { name: 'Listen at 0.5x' }))
+      await user.click(within(row).getByRole('button', { name: 'Translate to Spanish' }))
+      await within(row).findByText('Se me olvidó.')
+      act(() => {
+        worker.dispatchEvent(new MessageEvent('message', { data: { type: 'show-today' } }))
+      })
+
+      await waitFor(() =>
+        expect(backend.activity).toEqual([
+          { kind: 'today_viewed' },
+          { kind: 'phrase_heard', phraseId: typo.id },
+          { kind: 'phrase_translated', phraseId: typo.id },
+          { kind: 'reminder_opened' },
+        ]),
+      )
+    } finally {
+      Reflect.deleteProperty(navigator, 'serviceWorker')
+    }
+  })
+
+  it('tells the backend when the app opened from the notification', async () => {
+    const backend = fakeBackend([typo])
+    saveSession(TOKEN)
+    render(<App fromReminder />)
+
+    await waitFor(() => expect(backend.activity).toEqual([{ kind: 'reminder_opened' }]))
   })
 })

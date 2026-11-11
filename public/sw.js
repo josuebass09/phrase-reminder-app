@@ -24,7 +24,8 @@ self.addEventListener('notificationclick', (event) => {
       const [existing] = windows;
       // A new window opens on Today, its first section. An open one comes back as it
       // was, so it's asked to go to Today and load the phrases just sent (see PhraseApp).
-      if (!existing) return self.clients.openWindow('/');
+      // The mark tells the app it was opened from here (see src/activity.ts).
+      if (!existing) return self.clients.openWindow('/?from=reminder');
       existing.postMessage({ type: 'show-today' });
       return existing.focus();
     }),

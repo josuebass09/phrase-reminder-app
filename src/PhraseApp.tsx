@@ -4,6 +4,7 @@ import { Brand } from './Brand.tsx'
 import { Editor } from './Editor.tsx'
 import { deviceTimeZone, timeLabel } from './format.ts'
 import { messagesFor, useT } from './i18n.ts'
+import { track } from './activity.ts'
 import { BellIcon, CheckIcon, ContextIcon, HistoryIcon, PenIcon, SparklesIcon, SunIcon, UserIcon } from './icons.tsx'
 import { getLanguage, isLanguage, setLanguage, type Language } from './language.ts'
 import type { OptionStyle } from './OptionCard.tsx'
@@ -32,12 +33,14 @@ interface Toast {
 
 export interface PhraseAppProps {
   session: Session
+  /** The page was opened from the daily notification. */
+  fromReminder?: boolean
   onLogOut: () => void
   /** The token expired or the backend refused it. */
   onExpired: () => void
 }
 
-export function PhraseApp({ session, onLogOut, onExpired }: PhraseAppProps) {
+export function PhraseApp({ session, fromReminder = false, onLogOut, onExpired }: PhraseAppProps) {
   const t = useT()
   const appRef = useRef<HTMLDivElement>(null)
   const recentRef = useRef<HTMLUListElement>(null)
@@ -102,6 +105,7 @@ export function PhraseApp({ session, onLogOut, onExpired }: PhraseAppProps) {
         setRecent(recentPhrases)
         setToday(todayPhrases)
         setLoaded(true)
+        if (todayPhrases.length > 0 && document.visibilityState === 'visible') track('today_viewed')
         return true
       } catch (err) {
         if (!active) return false
@@ -123,6 +127,7 @@ export function PhraseApp({ session, onLogOut, onExpired }: PhraseAppProps) {
     // A phrase open to read or edit stays open, since it may hold an unsaved fix.
     const onMessage = (event: MessageEvent) => {
       if (event.data?.type !== SHOW_TODAY) return
+      track('reminder_opened')
       setSettingsOpen(false)
       load(true).then((done) => {
         if (done) requestAnimationFrame(() => todayRef.current?.scrollIntoView?.({ block: 'start' }))
@@ -179,6 +184,10 @@ export function PhraseApp({ session, onLogOut, onExpired }: PhraseAppProps) {
       active = false
     }
   }, [])
+
+  useEffect(() => {
+    if (fromReminder) track('reminder_opened')
+  }, [fromReminder])
 
   // Leaving the app, or logging out, stops a phrase being read, and drops a recording
   // in progress. A suspended app may never report the end, which would leave its
@@ -309,6 +318,8 @@ export function PhraseApp({ session, onLogOut, onExpired }: PhraseAppProps) {
     const started = { key, slow }
     setPlaying(started)
     speak(text, () => setPlaying((now) => (now === started ? null : now)), slow ? SLOW_RATE : NORMAL_RATE)
+    const phraseId = key.startsWith('phrase-') ? Number(key.slice('phrase-'.length)) : null
+    if (phraseId) track('phrase_heard', phraseId)
   }
 
   const speakingOf = (key: string): Speaking => (playing?.key === key ? (playing.slow ? 'slow' : 'normal') : null)
@@ -333,6 +344,7 @@ export function PhraseApp({ session, onLogOut, onExpired }: PhraseAppProps) {
     const current = translations[phrase.id]
     if (current?.loading) return
     if (current?.text) {
+      if (!current.open) track('phrase_translated', phrase.id)
       setTranslation(phrase.id, { ...current, open: !current.open })
       return
     }
@@ -340,6 +352,7 @@ export function PhraseApp({ session, onLogOut, onExpired }: PhraseAppProps) {
     try {
       const { translation } = await api.translate(phrase.id)
       setTranslation(phrase.id, { text: translation, loading: false, open: true })
+      track('phrase_translated', phrase.id)
     } catch (err) {
       setTranslation(phrase.id, null)
       if (err instanceof NotFoundError) dropPhrase(phrase.id, true)

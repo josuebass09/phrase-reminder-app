@@ -282,6 +282,9 @@ export const api = {
   /** Scores a recording of the user saying the phrase. The backend saves the score, not the recording. */
   pronounce: (id: number, recording: Blob) =>
     request<Pronunciation>(`/api/phrases/${id}/pronunciation`, { method: 'POST', audio: recording }),
+  /** Tells the backend what the user did today; see activity.ts. */
+  activity: (kind: string, phraseId?: number) =>
+    request<void>('/api/activity', { method: 'POST', body: phraseId === undefined ? { kind } : { kind, phraseId } }),
   subscribe: (subscription: PushSubscription) =>
     request<void>('/api/push/subscribe', { method: 'POST', body: subscription.toJSON() }),
 }

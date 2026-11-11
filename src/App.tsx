@@ -19,9 +19,11 @@ function initialState(): AuthState {
 export interface AppProps {
   /** The code from an invite link this page was opened with, if any. */
   invite?: string | null
+  /** The page was opened from the daily notification. */
+  fromReminder?: boolean
 }
 
-export default function App({ invite: initialInvite = null }: AppProps) {
+export default function App({ invite: initialInvite = null, fromReminder = false }: AppProps) {
   const [{ session, expired }, setAuth] = useState(initialState)
   // Kept until someone logs in, so it still works after logging out of another account.
   const [invite, setInvite] = useState(initialInvite)
@@ -50,5 +52,5 @@ export default function App({ invite: initialInvite = null }: AppProps) {
   if (!session) {
     return <Login invite={invite} expired={expired} onLoggedIn={logIn} />
   }
-  return <PhraseApp session={session} onLogOut={logOut} onExpired={expire} />
+  return <PhraseApp session={session} fromReminder={fromReminder} onLogOut={logOut} onExpired={expire} />
 }

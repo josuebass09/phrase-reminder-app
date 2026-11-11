@@ -64,6 +64,12 @@ Tapping a phrase opens it in a sheet to read: larger, with when it was saved and
 
 The app speaks English or Spanish. It starts in the device's language, and **Language** under Account in Settings switches it. The choice is saved on the device, so the login screen uses it too, and in the account, so every device and the daily reminder's notification follow it. The backend's messages, such as today's limit, come in the same language.
 
+## Activity
+
+To tell whether the reminders help, the app tells the backend what each person does: opening the app from the notification, looking at Today, and hearing or translating a phrase. The backend adds the reminders it sent and the phrases said aloud. Each counts once a day, or once a day per phrase; the app sends nothing else, never waits for it, and drops it if it fails. The admin sees each person's weeks with the backend's `npm run users -- stats`.
+
+The service worker opens the app at `/?from=reminder` when the notification is tapped and the app isn't open yet; the app removes the mark from the address as it opens.
+
 ## Design
 
 The app follows the platform it runs on, set from the browser's user agent before the first render: iOS conventions on iPhone and iPad (large title, grouped lists, sheets, buttons that dim when pressed, the spoked activity indicator), and Material 3 on Android (top app bar, outlined fields and chips, a floating Save button, snackbars, pressed-state layers, the circular progress indicator). Every wait shows a spinner in that platform's style: logging in, the first load, saving, editing and deleting, translating, getting options, turning on reminders, and creating an invite.
