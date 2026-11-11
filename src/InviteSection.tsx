@@ -1,5 +1,6 @@
 import { useRef, useState } from 'react'
 import { api, UnauthorizedError } from './api.ts'
+import { dateLocale, useLanguage, useT } from './i18n.ts'
 import { CopyIcon, ShareIcon, UserPlusIcon } from './icons.tsx'
 import { inviteLink } from './invite.ts'
 import { Spinner } from './Spinner.tsx'
@@ -11,6 +12,8 @@ interface Invite {
 
 /** For the admin: creates a single-use invite link, to share or copy. */
 export function InviteSection({ onUnauthorized }: { onUnauthorized: () => void }) {
+  const t = useT()
+  const language = useLanguage()
   const linkField = useRef<HTMLInputElement>(null)
   const [invite, setInvite] = useState<Invite | null>(null)
   const [busy, setBusy] = useState(false)
@@ -26,7 +29,7 @@ export function InviteSection({ onUnauthorized }: { onUnauthorized: () => void }
       setInvite({ link: inviteLink(code), expiresAt })
     } catch (err) {
       if (err instanceof UnauthorizedError) onUnauthorized()
-      else setError("Couldn't create an invite. Try again.")
+      else setError(t.couldntCreateInvite)
     } finally {
       setBusy(false)
     }
@@ -34,7 +37,7 @@ export function InviteSection({ onUnauthorized }: { onUnauthorized: () => void }
 
   async function share(link: string) {
     try {
-      await navigator.share({ title: 'Phrases', text: 'Join me on Phrases to remember English phrases.', url: link })
+      await navigator.share({ title: 'Phrases', text: t.shareText, url: link })
     } catch {
       // Closing the share sheet rejects too; the link is still on screen to copy.
     }
@@ -46,7 +49,7 @@ export function InviteSection({ onUnauthorized }: { onUnauthorized: () => void }
       setCopied(true)
     } catch {
       linkField.current?.select()
-      setError("Couldn't copy. The link is selected, so copy it from there.")
+      setError(t.couldntCopy)
     }
   }
 
@@ -57,7 +60,7 @@ export function InviteSection({ onUnauthorized }: { onUnauthorized: () => void }
       {invite ? (
         <div className="invite">
           <label className="invite-label" htmlFor="invite-link">
-            Invite link
+            {t.inviteLink}
           </label>
           <input
             ref={linkField}
@@ -68,26 +71,27 @@ export function InviteSection({ onUnauthorized }: { onUnauthorized: () => void }
             onFocus={(event) => event.target.select()}
           />
           <p className="account-note">
-            Creates one account. Expires on{' '}
-            {new Date(invite.expiresAt).toLocaleDateString([], { month: 'short', day: 'numeric' })}.
+            {t.inviteExpires(
+              new Date(invite.expiresAt).toLocaleDateString(dateLocale(language), { month: 'short', day: 'numeric' }),
+            )}
           </p>
           <div className="invite-actions">
             {canShare && (
               <button className="invite-button primary-action" type="button" onClick={() => share(invite.link)}>
                 <ShareIcon />
-                <span>Share</span>
+                <span>{t.share}</span>
               </button>
             )}
             <button className="invite-button" type="button" onClick={() => copy(invite.link)}>
               <CopyIcon />
-              <span>{copied ? 'Copied' : 'Copy'}</span>
+              <span>{copied ? t.copied : t.copy}</span>
             </button>
           </div>
         </div>
       ) : (
         <button className="sheet-action neutral" type="button" disabled={busy} aria-busy={busy} onClick={createInvite}>
           {busy ? <Spinner /> : <UserPlusIcon />}
-          <span>{busy ? 'Creating link…' : 'Invite someone'}</span>
+          <span>{busy ? t.creatingLink : t.inviteSomeone}</span>
         </button>
       )}
       {error && (

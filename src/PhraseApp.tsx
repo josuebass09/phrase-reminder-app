@@ -3,7 +3,9 @@ import { api, ApiError, NotFoundError, UnauthorizedError, type Phrase, type Remi
 import { Brand } from './Brand.tsx'
 import { Editor } from './Editor.tsx'
 import { deviceTimeZone, timeLabel } from './format.ts'
-import { BellIcon, CheckIcon, ClockIcon, ContextIcon, HistoryIcon, PenIcon, SparklesIcon, SunIcon, UserIcon } from './icons.tsx'
+import { messagesFor, useT } from './i18n.ts'
+import { BellIcon, CheckIcon, ContextIcon, HistoryIcon, PenIcon, SparklesIcon, SunIcon, UserIcon } from './icons.tsx'
+import { getLanguage, isLanguage, setLanguage, type Language } from './language.ts'
 import type { OptionStyle } from './OptionCard.tsx'
 import { PhraseRow, type Speaking, type Translation } from './PhraseRow.tsx'
 import { Settings } from './Settings.tsx'
@@ -32,6 +34,7 @@ export interface PhraseAppProps {
 }
 
 export function PhraseApp({ session, onLogOut, onExpired }: PhraseAppProps) {
+  const t = useT()
   const appRef = useRef<HTMLDivElement>(null)
   const recentRef = useRef<HTMLUListElement>(null)
   const [recent, setRecent] = useState<Phrase[]>([])
@@ -91,7 +94,7 @@ export function PhraseApp({ session, onLogOut, onExpired }: PhraseAppProps) {
         if (err instanceof UnauthorizedError) onExpired()
         else if (!quiet) {
           setLoadFailed(true)
-          showToast("Couldn't load your phrases.", true)
+          showToast(messagesFor(getLanguage()).couldntLoad, true)
         }
       }
     }
@@ -120,12 +123,17 @@ export function PhraseApp({ session, onLogOut, onExpired }: PhraseAppProps) {
       .then((user) => active && setIsAdmin(user.isAdmin))
       .catch(() => {})
     // Reminders go out at the chosen time in this device's time zone, so a phone
-    // that moved to another zone updates it.
+    // that moved to another zone updates it. The account's language wins, so every
+    // device shows the same one; an account without one takes this device's.
     api
       .settings()
       .then(async (saved) => {
+        const changes: Partial<ReminderSettings> = {}
         const zone = deviceTimeZone()
-        const current = zone && zone !== saved.timeZone ? await api.updateSettings({ timeZone: zone }) : saved
+        if (zone && zone !== saved.timeZone) changes.timeZone = zone
+        if (isLanguage(saved.language)) setLanguage(saved.language)
+        else if (saved.language === null) changes.language = getLanguage()
+        const current = Object.keys(changes).length > 0 ? await api.updateSettings(changes) : saved
         if (active) setSettings(current)
       })
       .catch(() => {})
@@ -194,7 +202,7 @@ export function PhraseApp({ session, onLogOut, onExpired }: PhraseAppProps) {
       }
       setSuggestion({
         state: 'failed',
-        error: err instanceof ApiError ? err.message : "Couldn't get options. Check your connection.",
+        error: err instanceof ApiError ? err.message : t.couldntGetOptions,
         canRetry: !(err instanceof ApiError && err.status === 429), // Not after today's limit.
       })
     }
@@ -214,10 +222,11 @@ export function PhraseApp({ session, onLogOut, onExpired }: PhraseAppProps) {
       stopOptionSpeech()
       setSuggestion(null)
       setText('')
-      showToast('Phrase saved')
+      setContext('')
+      showToast(t.phraseSaved)
       requestAnimationFrame(() => recentRef.current?.firstElementChild?.scrollIntoView?.({ block: 'nearest' }))
     } catch (err) {
-      fail(err, "Couldn't save. Try again.")
+      fail(err, t.couldntSave)
     } finally {
       setSavingAs(null)
     }
@@ -231,11 +240,11 @@ export function PhraseApp({ session, onLogOut, onExpired }: PhraseAppProps) {
   /** Turns reminders on for this device: the permission prompt, then saving its subscription. */
   async function turnOnDevice() {
     if (!pushSupported) {
-      showToast('Add this app to your Home Screen to turn on reminders.', true)
+      showToast(t.addToHomeScreen, true)
       return
     }
     if (!vapidKey) {
-      showToast("Couldn't turn on reminders. Try again.", true)
+      showToast(t.couldntTurnOn, true)
       return
     }
     if (reminders === 'enabling') return
@@ -245,15 +254,15 @@ export function PhraseApp({ session, onLogOut, onExpired }: PhraseAppProps) {
       const subscription = await subscribe(vapidKey)
       if (subscription === 'denied') {
         setReminders('off')
-        showToast('Notifications are blocked. Allow them in your settings.', true)
+        showToast(t.notificationsBlocked, true)
         return
       }
       await api.subscribe(subscription)
       setReminders('on')
-      showToast('Reminders on')
+      showToast(t.remindersOn)
     } catch (err) {
       setReminders('off')
-      fail(err, "Couldn't turn on reminders. Try again.")
+      fail(err, t.couldntTurnOn)
     }
   }
 
@@ -305,7 +314,7 @@ export function PhraseApp({ session, onLogOut, onExpired }: PhraseAppProps) {
       setTranslation(phrase.id, null)
       if (err instanceof NotFoundError) dropPhrase(phrase.id, true)
       else if (err instanceof ApiError && err.status === 429) showToast(err.message, true) // Today's limit.
-      else fail(err, "Couldn't translate. Try again.")
+      else fail(err, t.couldntTranslate)
     }
   }
 
@@ -324,7 +333,7 @@ export function PhraseApp({ session, onLogOut, onExpired }: PhraseAppProps) {
     setToday(swap)
     setTranslation(updated.id, null) // The text may have changed, so the old translation may be wrong.
     setEditing(null)
-    showToast('Phrase updated')
+    showToast(t.phraseUpdated)
   }
 
   function dropPhrase(id: number, alreadyGone: boolean) {
@@ -333,20 +342,29 @@ export function PhraseApp({ session, onLogOut, onExpired }: PhraseAppProps) {
     setToday(without)
     setTranslation(id, null)
     setEditing(null)
-    showToast(alreadyGone ? 'That phrase was already deleted.' : 'Phrase deleted', alreadyGone)
+    showToast(alreadyGone ? t.alreadyDeleted : t.phraseDeleted, alreadyGone)
   }
 
   const remindersOn = reminders === 'on'
   const enabling = reminders === 'enabling'
   const paused = remindersOn && settings?.remindersOn === false
-  const pillLabel = !remindersOn ? 'Turn on' : !settings ? '…' : paused ? 'Paused' : timeLabel(settings.reminderTime)
+  const pillLabel = !remindersOn ? t.turnOn : !settings ? '…' : paused ? t.paused : timeLabel(settings.reminderTime)
   const pillAria = !remindersOn
     ? enabling
-      ? 'Turning on daily reminder'
-      : 'Turn on daily reminder'
+      ? t.turningOnReminder
+      : t.turnOnReminder
     : paused
-      ? 'Daily reminder paused. Open settings'
-      : `Daily reminder at ${pillLabel}. Open settings`
+      ? t.reminderPaused
+      : t.reminderAt(pillLabel)
+
+  /** Switches the app's language, and saves it to the account so reminders use it too. */
+  function changeLanguage(next: Language) {
+    setLanguage(next)
+    api
+      .updateSettings({ language: next })
+      .then(setSettings)
+      .catch((err) => err instanceof UnauthorizedError && onExpired())
+  }
 
   return (
     <div className="app" ref={appRef}>
@@ -367,7 +385,7 @@ export function PhraseApp({ session, onLogOut, onExpired }: PhraseAppProps) {
               <span>{pillLabel}</span>
             </button>
             <ThemeToggle />
-            <button className="bar-button account-button" type="button" aria-label="Settings" onClick={() => setSettingsOpen(true)}>
+            <button className="bar-button account-button" type="button" aria-label={t.settings} onClick={() => setSettingsOpen(true)}>
               <UserIcon />
             </button>
           </div>
@@ -376,12 +394,12 @@ export function PhraseApp({ session, onLogOut, onExpired }: PhraseAppProps) {
           <div className="field">
             <label htmlFor="phrase">
               <PenIcon />
-              <span>New phrase</span>
+              <span>{t.translatePhrase}</span>
             </label>
             <textarea
               id="phrase"
               maxLength={MAX_PHRASE_LENGTH}
-              placeholder="Type it in Spanish or English"
+              placeholder={t.phrasePlaceholder}
               value={text}
               onChange={(event) => setText(event.target.value)}
             />
@@ -389,7 +407,7 @@ export function PhraseApp({ session, onLogOut, onExpired }: PhraseAppProps) {
           <div className="field context-field">
             <label htmlFor="context">
               <ContextIcon />
-              <span>Context</span>
+              <span>{t.context}</span>
             </label>
             <input
               id="context"
@@ -397,15 +415,11 @@ export function PhraseApp({ session, onLogOut, onExpired }: PhraseAppProps) {
               maxLength={MAX_CONTEXT_LENGTH}
               autoComplete="off"
               enterKeyHint="go"
-              placeholder="Optional: who it's for, or where"
+              placeholder={t.contextPlaceholder}
               value={context}
               onChange={(event) => setContext(event.target.value)}
             />
           </div>
-          <p className="hint">
-            <ClockIcon />
-            <span>Comes back in your reminders after 14 days.</span>
-          </p>
         </form>
       </div>
       <main className="content">
@@ -429,7 +443,7 @@ export function PhraseApp({ session, onLogOut, onExpired }: PhraseAppProps) {
         <section id="today" className="group" hidden={today.length === 0}>
           <h2>
             <SunIcon />
-            <span>Today</span>
+            <span>{t.today}</span>
           </h2>
           <ul className="phrases">
             {today.map((phrase) => (
@@ -440,7 +454,7 @@ export function PhraseApp({ session, onLogOut, onExpired }: PhraseAppProps) {
         <section className="group">
           <h2>
             <HistoryIcon />
-            <span>Recent</span>
+            <span>{t.recent}</span>
           </h2>
           <ul id="phrases" className="phrases" ref={recentRef}>
             {recent.map((phrase) => (
@@ -450,15 +464,15 @@ export function PhraseApp({ session, onLogOut, onExpired }: PhraseAppProps) {
           {!loaded && !loadFailed && (
             <p className="loading" role="status">
               <Spinner />
-              <span>Loading your phrases…</span>
+              <span>{t.loadingPhrases}</span>
             </p>
           )}
-          {loaded && <p className="empty">Your saved phrases will appear here.</p>}
+          {loaded && <p className="empty">{t.noPhrases}</p>}
         </section>
       </main>
       <div className="actions">
         <button
-          id="get-options"
+          id="translate"
           className="primary"
           type="submit"
           form="phrase-form"
@@ -466,7 +480,7 @@ export function PhraseApp({ session, onLogOut, onExpired }: PhraseAppProps) {
           aria-busy={asking}
         >
           {asking ? <Spinner /> : <SparklesIcon />}
-          <span>{asking ? 'Thinking…' : 'Get options'}</span>
+          <span>{asking ? t.translating : t.translate}</span>
         </button>
       </div>
       <div className="toast-region" role="status" aria-live="polite">
@@ -484,6 +498,7 @@ export function PhraseApp({ session, onLogOut, onExpired }: PhraseAppProps) {
           onSaved={replacePhrase}
           onDeleted={dropPhrase}
           onUnauthorized={onExpired}
+          {...rowProps(editing)}
         />
       )}
       {settingsOpen && (
@@ -498,6 +513,7 @@ export function PhraseApp({ session, onLogOut, onExpired }: PhraseAppProps) {
           onClose={() => setSettingsOpen(false)}
           onLogOut={onLogOut}
           onUnauthorized={onExpired}
+          onLanguageChange={changeLanguage}
         />
       )}
     </div>

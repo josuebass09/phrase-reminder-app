@@ -1,8 +1,10 @@
 import { cleanup } from '@testing-library/react'
 import { afterEach } from 'vitest'
+import { setLanguage } from '../language.ts'
 
 afterEach(() => {
   cleanup()
+  setLanguage('en') // A test that switched to Spanish leaves the next one in English.
   localStorage.clear()
 })
 

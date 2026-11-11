@@ -10,7 +10,13 @@ describe('savedLabel', () => {
     ['earlier this year', new Date(2026, 2, 4), 'Saved Mar 4'],
     ['a previous year', new Date(2025, 11, 31), 'Saved Dec 31, 2025'],
   ])('labels a phrase saved %s', (_name, saved, label) => {
-    expect(savedLabel(saved.toISOString(), now)).toBe(label)
+    expect(savedLabel(saved.toISOString(), 'en', now)).toBe(label)
+  })
+
+  it('speaks Spanish when the app does', () => {
+    expect(savedLabel(new Date(2026, 10, 10, 8).toISOString(), 'es', now)).toBe('Guardada hoy')
+    expect(savedLabel(new Date(2026, 10, 9).toISOString(), 'es', now)).toBe('Guardada ayer')
+    expect(savedLabel(new Date(2026, 2, 4).toISOString(), 'es', now)).toBe('Guardada el 4 mar')
   })
 })
 

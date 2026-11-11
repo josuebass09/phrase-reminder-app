@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { api, UnauthorizedError, type ReminderSettings } from './api.ts'
 import { timeLabel } from './format.ts'
+import { useT } from './i18n.ts'
 import { CheckIcon } from './icons.tsx'
 import { Spinner } from './Spinner.tsx'
 
@@ -22,6 +23,7 @@ export interface ReminderSettingsProps {
 
 /** The daily reminder: on or paused, its time, and how many phrases. Each change saves right away. */
 export function ReminderSettingsSection({ settings, onChange, device, onTurnOnDevice, onUnauthorized }: ReminderSettingsProps) {
+  const t = useT()
   const [status, setStatus] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle')
   // The time being picked, before it's saved.
   const [draftTime, setDraftTime] = useState<string | null>(null)
@@ -62,18 +64,18 @@ export function ReminderSettingsSection({ settings, onChange, device, onTurnOnDe
   return (
     <section className="settings-section" aria-labelledby="reminders-heading">
       <div className="settings-heading">
-        <h3 id="reminders-heading">Daily reminder</h3>
+        <h3 id="reminders-heading">{t.dailyReminder}</h3>
         <span className="settings-status" role="status">
           {status === 'saving' && (
             <>
               <Spinner />
-              <span>Saving…</span>
+              <span>{t.saving}</span>
             </>
           )}
           {status === 'saved' && (
             <>
               <CheckIcon />
-              <span>Saved</span>
+              <span>{t.savedSetting}</span>
             </>
           )}
         </span>
@@ -81,13 +83,13 @@ export function ReminderSettingsSection({ settings, onChange, device, onTurnOnDe
       {!settings ? (
         <p className="loading">
           <Spinner />
-          <span>Loading your settings…</span>
+          <span>{t.loadingSettings}</span>
         </p>
       ) : (
         <>
           <div className="settings-group">
             <div className="setting-row">
-              <label htmlFor="reminders-on">Send me phrases</label>
+              <label htmlFor="reminders-on">{t.sendMePhrases}</label>
               <span className="switch">
                 <input
                   id="reminders-on"
@@ -100,7 +102,7 @@ export function ReminderSettingsSection({ settings, onChange, device, onTurnOnDe
               </span>
             </div>
             <div className="setting-row">
-              <label htmlFor="reminder-time">Time</label>
+              <label htmlFor="reminder-time">{t.time}</label>
               <input
                 id="reminder-time"
                 className="setting-input"
@@ -114,7 +116,7 @@ export function ReminderSettingsSection({ settings, onChange, device, onTurnOnDe
               />
             </div>
             <div className="setting-row">
-              <label htmlFor="phrases-per-day">Phrases each time</label>
+              <label htmlFor="phrases-per-day">{t.phrasesEachTime}</label>
               <select
                 id="phrases-per-day"
                 className="setting-input"
@@ -130,9 +132,9 @@ export function ReminderSettingsSection({ settings, onChange, device, onTurnOnDe
               </select>
             </div>
             <div className="setting-row">
-              <span>This device</span>
-              {device === 'on' && <span className="setting-value">On</span>}
-              {device === 'unsupported' && <span className="setting-value">Add to Home Screen first</span>}
+              <span>{t.thisDevice}</span>
+              {device === 'on' && <span className="setting-value">{t.on}</span>}
+              {device === 'unsupported' && <span className="setting-value">{t.addToHomeScreenFirst}</span>}
               {(device === 'off' || device === 'enabling' || device === 'checking') && (
                 <button
                   className="text-button strong"
@@ -141,21 +143,21 @@ export function ReminderSettingsSection({ settings, onChange, device, onTurnOnDe
                   aria-busy={device === 'enabling'}
                   onClick={onTurnOnDevice}
                 >
-                  {device === 'off' ? 'Turn on' : <Spinner />}
+                  {device === 'off' ? t.turnOn : <Spinner />}
                 </button>
               )}
             </div>
           </div>
           <p className="settings-note">
             {settings.remindersOn
-              ? `Every day around ${timeLabel(time || settings.reminderTime)}, ${settings.timeZone.replace(/_/g, ' ')} time, with ${count} ${count === 1 ? 'phrase' : 'phrases'} saved at least 14 days ago.`
-              : 'Paused. No reminders go out until you turn this back on.'}
+              ? t.reminderNote(timeLabel(time || settings.reminderTime), settings.timeZone.replace(/_/g, ' '), count)
+              : t.reminderPausedNote}
           </p>
         </>
       )}
       {status === 'error' && (
         <p className="form-error" role="alert">
-          Couldn't save. Try again.
+          {t.couldntSave}
         </p>
       )}
     </section>

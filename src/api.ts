@@ -1,3 +1,5 @@
+import { getLanguage, type Language } from './language.ts'
+
 export interface Phrase {
   id: number
   text: string
@@ -39,6 +41,8 @@ export interface ReminderSettings {
   /** IANA time zone, taken from the device. */
   timeZone: string
   phrasesPerDay: number
+  /** The app's language, which the reminders use too. Null until the app saves the device's. */
+  language?: Language | null
 }
 
 interface LoginResponse {
@@ -121,7 +125,8 @@ export class ApiError extends Error {
 }
 
 async function request<T>(path: string, options: { method?: string; body?: unknown } = {}): Promise<T> {
-  const headers: Record<string, string> = {}
+  // The backend writes its messages for people, such as today's limit, in this language.
+  const headers: Record<string, string> = { 'Accept-Language': getLanguage() }
   const token = readSession()?.token
   if (token) headers.Authorization = `Bearer ${token}`
   if (options.body !== undefined) headers['Content-Type'] = 'application/json'

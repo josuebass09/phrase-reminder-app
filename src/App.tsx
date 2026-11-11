@@ -47,7 +47,7 @@ export default function App({ invite: initialInvite = null }: AppProps) {
   }, [session, expire])
 
   if (!session) {
-    return <Login invite={invite} notice={expired ? 'Your session ended. Log in again.' : ''} onLoggedIn={logIn} />
+    return <Login invite={invite} expired={expired} onLoggedIn={logIn} />
   }
   return <PhraseApp session={session} onLogOut={logOut} onExpired={expire} />
 }

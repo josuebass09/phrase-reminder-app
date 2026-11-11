@@ -1,6 +1,7 @@
 import { useState, type FormEvent } from 'react'
 import { api, ApiError, lastEmail, UnauthorizedError, type Session } from './api.ts'
 import { Brand } from './Brand.tsx'
+import { useT, type Messages } from './i18n.ts'
 import { inviteCodeFrom } from './invite.ts'
 import { Spinner } from './Spinner.tsx'
 import { ThemeToggle } from './ThemeToggle.tsx'
@@ -10,22 +11,23 @@ const MIN_PASSWORD_LENGTH = 12 // Matches the backend.
 export interface LoginProps {
   /** An invite code from the link this page was opened with. It opens the sign-up form, filled in. */
   invite: string | null
-  /** Shown above the login form, such as why the last session ended. */
-  notice: string
+  /** The last session ended on its own, which the login form says. */
+  expired: boolean
   onLoggedIn: (session: Session) => void
 }
 
 type Mode = 'login' | 'signup'
 
-function messageFor(err: unknown): string {
-  if (err instanceof UnauthorizedError) return 'Wrong email or password.'
-  // The backend explains sign-up refusals, such as a used invite or a taken email.
+function messageFor(err: unknown, t: Messages): string {
+  if (err instanceof UnauthorizedError) return t.wrongLogin
+  // The backend explains sign-up refusals, such as a used invite or a taken email, in the app's language.
   if (err instanceof ApiError) return err.message.endsWith('.') ? err.message : `${err.message}.`
-  return "Couldn't reach the server. Try again."
+  return t.cantReachServer
 }
 
 /** Logging in, and creating an account with an invite from the admin. */
-export function Login({ invite, notice, onLoggedIn }: LoginProps) {
+export function Login({ invite, expired, onLoggedIn }: LoginProps) {
+  const t = useT()
   const [mode, setMode] = useState<Mode>(invite ? 'signup' : 'login')
   // When logging in, the last email is filled in, since sessions end every 12 hours.
   // An invite is for someone new, so its form starts empty.
@@ -53,7 +55,7 @@ export function Login({ invite, notice, onLoggedIn }: LoginProps) {
         : await api.login(email.trim(), password)
       onLoggedIn(session)
     } catch (err) {
-      setError(messageFor(err))
+      setError(messageFor(err, t))
       setBusy(false)
     }
   }
@@ -68,20 +70,20 @@ export function Login({ invite, notice, onLoggedIn }: LoginProps) {
       </div>
       <main className="login-body">
         <form className="login-form" onSubmit={submit}>
-          {signingUp && <h2 className="login-title">Create account</h2>}
+          {signingUp && <h2 className="login-title">{t.createAccount}</h2>}
           {signingUp && invite && !error && (
             <p className="login-notice" role="status">
-              You were invited. Choose the email and password you'll log in with.
+              {t.invited}
             </p>
           )}
-          {!signingUp && notice && !error && (
+          {!signingUp && expired && !error && (
             <p className="login-notice" role="status">
-              {notice}
+              {t.sessionEnded}
             </p>
           )}
           <div className="field">
             <label htmlFor="email">
-              <span>Email</span>
+              <span>{t.email}</span>
             </label>
             <input
               id="email"
@@ -99,7 +101,7 @@ export function Login({ invite, notice, onLoggedIn }: LoginProps) {
           </div>
           <div className="field">
             <label htmlFor="password">
-              <span>Password</span>
+              <span>{t.password}</span>
             </label>
             <input
               id="password"
@@ -117,11 +119,11 @@ export function Login({ invite, notice, onLoggedIn }: LoginProps) {
           {signingUp && (
             <>
               <p id="password-hint" className="login-hint">
-                At least {MIN_PASSWORD_LENGTH} characters.
+                {t.passwordHint(MIN_PASSWORD_LENGTH)}
               </p>
               <div className="field">
                 <label htmlFor="code">
-                  <span>Invite code</span>
+                  <span>{t.inviteCode}</span>
                 </label>
                 <input
                   id="code"
@@ -145,15 +147,15 @@ export function Login({ invite, notice, onLoggedIn }: LoginProps) {
           )}
           <button className="primary" type="submit" disabled={busy} aria-busy={busy}>
             {busy && <Spinner />}
-            <span>{busy ? (signingUp ? 'Creating account…' : 'Logging in…') : signingUp ? 'Create account' : 'Log in'}</span>
+            <span>{busy ? (signingUp ? t.creatingAccount : t.loggingIn) : signingUp ? t.createAccount : t.logIn}</span>
           </button>
           {signingUp ? (
             <button className="text-button login-switch" type="button" onClick={() => switchTo('login')}>
-              I already have an account
+              {t.haveAccount}
             </button>
           ) : (
             <button className="text-button login-switch" type="button" onClick={() => switchTo('signup')}>
-              I have an invite
+              {t.haveInvite}
             </button>
           )}
         </form>

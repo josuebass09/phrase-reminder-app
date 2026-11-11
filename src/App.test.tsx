@@ -37,6 +37,7 @@ function fakeBackend(
     translationLimitReached = false,
     suggestionsFail = 0,
     suggestionLimitReached = false,
+    language = 'en',
     hold,
   }: {
     admin?: boolean
@@ -46,11 +47,13 @@ function fakeBackend(
     /** How many suggestion requests fail before one works. */
     suggestionsFail?: number
     suggestionLimitReached?: boolean
+    /** The account's language; null for one that hasn't saved any. */
+    language?: 'en' | 'es' | null
     hold?: ReturnType<typeof holdBack>
   } = {},
 ) {
   const phrases = [...seed] // Newest first, like the backend returns them.
-  const settings = { remindersOn: true, reminderTime: '12:00', timeZone: deviceTimeZone(), phrasesPerDay: 3 }
+  const settings = { remindersOn: true, reminderTime: '12:00', timeZone: deviceTimeZone(), phrasesPerDay: 3, language }
   const savedTranslations: Record<number, string> = {}
   let translationsUsed = 0
   let suggestionsUsed = 0
@@ -236,8 +239,8 @@ describe('the app', () => {
     startLoggedIn()
     await screen.findByText('It slipt my mind.')
 
-    await user.type(screen.getByLabelText('New phrase'), '¿Puedes revisarlo?')
-    await user.click(screen.getByRole('button', { name: 'Get options' }))
+    await user.type(screen.getByLabelText('Translate phrase'), '¿Puedes revisarlo?')
+    await user.click(screen.getByRole('button', { name: 'Translate' }))
     const formal = await screen.findByRole('article', { name: 'Formal' })
     expect(within(formal).getByText('Could you please take a look at it?')).toBeTruthy()
     expect(within(formal).getByText('¿Podría revisarlo, por favor?')).toBeTruthy()
@@ -245,7 +248,7 @@ describe('the app', () => {
 
     const recent = document.getElementById('phrases')!
     await waitFor(() => expect(recent.querySelector('.row-text')?.textContent).toBe('Could you please take a look at it?'))
-    expect(screen.getByLabelText('New phrase')).toHaveProperty('value', '')
+    expect(screen.getByLabelText('Translate phrase')).toHaveProperty('value', '')
     expect(screen.queryByRole('article')).toBeNull()
     expect(screen.getByText('Phrase saved')).toBeTruthy()
     expect(phrases.map((phrase) => phrase.text)).toEqual(['Could you please take a look at it?', 'It slipt my mind.'])
@@ -257,8 +260,8 @@ describe('the app', () => {
     startLoggedIn()
     await screen.findByText('It slipt my mind.')
 
-    await user.type(screen.getByLabelText('New phrase'), "I'll keep you posted.")
-    await user.click(screen.getByRole('button', { name: 'Get options' }))
+    await user.type(screen.getByLabelText('Translate phrase'), "I'll keep you posted.")
+    await user.click(screen.getByRole('button', { name: 'Translate' }))
     expect(await screen.findByText("You've used today's 20 suggestions. More tomorrow.")).toBeTruthy()
     expect(screen.queryByRole('button', { name: 'Try again' })).toBeNull()
     await user.click(screen.getByRole('button', { name: 'Save it as I wrote it' }))
@@ -275,7 +278,8 @@ describe('the app', () => {
     startLoggedIn()
     expect(await screen.findAllByText('It slipt my mind.')).toHaveLength(2)
 
-    await user.click(screen.getAllByRole('button', { name: 'Edit phrase' })[0])
+    await user.click(screen.getAllByRole('button', { name: 'Open phrase' })[0])
+    await user.click(within(screen.getByRole('dialog')).getByRole('button', { name: 'Edit phrase' }))
     const editor = screen.getByRole('dialog')
     await user.clear(within(editor).getByRole('textbox'))
     await user.type(within(editor).getByRole('textbox'), 'It slipped my mind.')
@@ -292,7 +296,8 @@ describe('the app', () => {
     startLoggedIn()
     await screen.findAllByText('It slipt my mind.')
 
-    await user.click(screen.getAllByRole('button', { name: 'Edit phrase' })[0])
+    await user.click(screen.getAllByRole('button', { name: 'Open phrase' })[0])
+    await user.click(within(screen.getByRole('dialog')).getByRole('button', { name: 'Edit phrase' }))
     await user.click(screen.getByRole('button', { name: 'Delete phrase' }))
 
     expect(screen.getByRole('button', { name: 'Tap again to delete' })).toBeTruthy()
@@ -511,7 +516,8 @@ describe('the app', () => {
     await user.click(screen.getByRole('button', { name: 'Translate to Spanish' }))
     await screen.findByText('Se me olvidó.')
 
-    await user.click(screen.getByRole('button', { name: 'Edit phrase' }))
+    await user.click(screen.getByRole('button', { name: 'Open phrase' }))
+    await user.click(within(screen.getByRole('dialog')).getByRole('button', { name: 'Edit phrase' }))
     const editor = screen.getByRole('dialog')
     await user.clear(within(editor).getByRole('textbox'))
     await user.type(within(editor).getByRole('textbox'), 'It slipped my mind.')
@@ -591,9 +597,9 @@ describe('the app', () => {
     startLoggedIn()
     await screen.findByText('It slipt my mind.')
 
-    await user.type(screen.getByLabelText('New phrase'), 'Hola')
-    await user.click(screen.getByRole('button', { name: 'Get options' }))
-    expect(screen.getByRole('button', { name: 'Thinking…' }).querySelector('.spinner')).toBeTruthy()
+    await user.type(screen.getByLabelText('Translate phrase'), 'Hola')
+    await user.click(screen.getByRole('button', { name: 'Translate' }))
+    expect(screen.getByRole('button', { name: 'Translating…' }).querySelector('.spinner')).toBeTruthy()
     expect(within(document.getElementById('options')!).getByRole('status').textContent).toContain('Finding the best ways')
     thinking.release()
     const informal = await screen.findByRole('article', { name: 'Informal' })
@@ -611,7 +617,7 @@ describe('the app', () => {
     expect(within(informal).getByText('Saving…')).toBeTruthy()
     saving.release()
     await waitFor(() => expect(screen.queryByRole('article')).toBeNull())
-    expect(screen.getByRole('button', { name: 'Get options' })).toBeTruthy()
+    expect(screen.getByRole('button', { name: 'Translate' })).toBeTruthy()
   })
 
   it('shows a spinner in the translate button while the translation loads', async () => {
@@ -638,7 +644,8 @@ describe('the app', () => {
     startLoggedIn()
     await screen.findByText('It slipt my mind.')
 
-    await user.click(screen.getByRole('button', { name: 'Edit phrase' }))
+    await user.click(screen.getByRole('button', { name: 'Open phrase' }))
+    await user.click(within(screen.getByRole('dialog')).getByRole('button', { name: 'Edit phrase' }))
     await user.click(screen.getByRole('button', { name: 'Delete phrase' }))
     await user.click(screen.getByRole('button', { name: 'Tap again to delete' }))
 
@@ -784,7 +791,7 @@ describe('the app', () => {
 })
 
 describe('suggestions', () => {
-  const phraseBox = () => screen.getByLabelText('New phrase')
+  const phraseBox = () => screen.getByLabelText('Translate phrase')
 
   async function start(options: Parameters<typeof fakeBackend>[2] = {}) {
     const phrases = fakeBackend([typo], [], options)
@@ -800,23 +807,21 @@ describe('suggestions', () => {
       .mock.calls.filter(([url]) => String(url).endsWith('/api/suggestions'))
       .map(([, init]) => JSON.parse(String(init?.body)))
 
-  it('sends the context with the phrase, and keeps it for the next phrase', async () => {
+  it('sends the context with the phrase, and clears both after saving', async () => {
     const { user } = await start()
 
     await user.type(screen.getByLabelText('Context'), 'Slack message to my manager')
     await user.type(phraseBox(), 'Voy tarde')
-    await user.click(screen.getByRole('button', { name: 'Get options' }))
+    await user.click(screen.getByRole('button', { name: 'Translate' }))
     await user.click(within(await screen.findByRole('article', { name: 'Informal' })).getByRole('button', { name: 'Save informal' }))
     await screen.findByText('Phrase saved')
-    await user.type(phraseBox(), 'Ya casi')
-    await user.click(screen.getByRole('button', { name: 'Get options' }))
-    await screen.findByText('Formal Ya casi')
 
-    expect(screen.getByLabelText('Context')).toHaveProperty('value', 'Slack message to my manager')
-    expect(sentBodies()).toEqual([
-      { text: 'Voy tarde', context: 'Slack message to my manager' },
-      { text: 'Ya casi', context: 'Slack message to my manager' },
-    ])
+    expect(phraseBox()).toHaveProperty('value', '')
+    expect(screen.getByLabelText('Context')).toHaveProperty('value', '')
+    await user.type(phraseBox(), 'Ya casi')
+    await user.click(screen.getByRole('button', { name: 'Translate' }))
+    await screen.findByText('Formal Ya casi')
+    expect(sentBodies()).toEqual([{ text: 'Voy tarde', context: 'Slack message to my manager' }, { text: 'Ya casi' }])
   })
 
   it('asks for options from Enter in the context box', async () => {
@@ -832,7 +837,7 @@ describe('suggestions', () => {
   it('opens the Spanish of a saved option without asking for a translation', async () => {
     const { user } = await start()
     await user.type(phraseBox(), '¿Puedes revisarlo?')
-    await user.click(screen.getByRole('button', { name: 'Get options' }))
+    await user.click(screen.getByRole('button', { name: 'Translate' }))
     await user.click(within(await screen.findByRole('article', { name: 'Informal' })).getByRole('button', { name: 'Save informal' }))
     const row = (await within(document.getElementById('phrases')!).findByText('Can you take a look?')).closest('li')!
     vi.mocked(fetch).mockClear()
@@ -848,7 +853,7 @@ describe('suggestions', () => {
     const { user } = await start({ suggestionsFail: 1 })
 
     await user.type(phraseBox(), 'Hola')
-    await user.click(screen.getByRole('button', { name: 'Get options' }))
+    await user.click(screen.getByRole('button', { name: 'Translate' }))
     expect(await screen.findByText("Couldn't get an answer right now. Try again.")).toBeTruthy()
     await user.click(screen.getByRole('button', { name: 'Try again' }))
 
@@ -860,7 +865,7 @@ describe('suggestions', () => {
     const { user, phrases } = await start()
 
     await user.type(phraseBox(), 'Hola')
-    await user.click(screen.getByRole('button', { name: 'Get options' }))
+    await user.click(screen.getByRole('button', { name: 'Translate' }))
     await screen.findByText('Formal Hola')
     await user.click(screen.getByRole('button', { name: 'Close options' }))
 
@@ -876,7 +881,7 @@ describe('suggestions', () => {
     startLoggedIn()
     await screen.findByText('It slipt my mind.')
     await user.type(phraseBox(), '¿Puedes revisarlo?')
-    await user.click(screen.getByRole('button', { name: 'Get options' }))
+    await user.click(screen.getByRole('button', { name: 'Translate' }))
     const formal = await screen.findByRole('article', { name: 'Formal' })
     const slow = within(formal).getByRole('button', { name: 'Listen at 0.5x' })
 
@@ -887,5 +892,89 @@ describe('suggestions', () => {
     synth.cancel.mockClear()
     await user.click(screen.getByRole('button', { name: 'Close options' }))
     expect(synth.cancel).toHaveBeenCalled()
+  })
+})
+
+describe('reading a phrase', () => {
+  it('opens it to read and hear, and edits it only after the pencil', async () => {
+    fakeBackend([typo])
+    const { spoken } = fakeSpeech()
+    const user = userEvent.setup()
+    startLoggedIn()
+    await screen.findByText('It slipt my mind.')
+
+    await user.click(screen.getByRole('button', { name: 'Open phrase' }))
+    const sheet = screen.getByRole('dialog')
+    expect(within(sheet).getByRole('heading', { name: 'Phrase' })).toBeTruthy()
+    expect(within(sheet).getByText('It slipt my mind.')).toBeTruthy()
+    expect(within(sheet).queryByRole('textbox')).toBeNull()
+    expect(within(sheet).queryByRole('button', { name: 'Delete phrase' })).toBeNull()
+
+    await user.click(within(sheet).getByRole('button', { name: 'Listen at 0.5x' }))
+    expect(spoken.map((utterance) => [utterance.text, utterance.rate])).toEqual([['It slipt my mind.', 0.5]])
+    await user.click(within(sheet).getByRole('button', { name: 'Translate to Spanish' }))
+    expect(await within(sheet).findByText('Se me olvidó.')).toBeTruthy()
+
+    await user.click(within(sheet).getByRole('button', { name: 'Edit phrase' }))
+    const box = within(sheet).getByRole('textbox')
+    expect(document.activeElement).toBe(box)
+    await user.type(box, ' Oops')
+    await user.click(within(sheet).getByRole('button', { name: 'Cancel' }))
+
+    expect(within(sheet).queryByRole('textbox')).toBeNull()
+    expect(within(sheet).getByText('It slipt my mind.')).toBeTruthy()
+    await user.click(within(sheet).getByRole('button', { name: 'Close' }))
+    expect(screen.queryByRole('dialog')).toBeNull()
+  })
+})
+
+describe('language', () => {
+  const requests = (path: string) =>
+    vi
+      .mocked(fetch)
+      .mock.calls.filter(([url]) => new URL(String(url), 'http://app.test').pathname === path)
+      .map(([, init]) => ({ method: init?.method ?? 'GET', headers: init?.headers as Record<string, string>, body: init?.body }))
+
+  it('switches the app to Spanish from Settings, and saves it to the account', async () => {
+    const phrases = fakeBackend([typo])
+    const user = userEvent.setup()
+    startLoggedIn()
+    await screen.findByText('It slipt my mind.')
+
+    await user.click(screen.getByRole('button', { name: 'Settings' }))
+    const english = screen.getByRole('button', { name: 'English' })
+    expect(english.getAttribute('aria-pressed')).toBe('true')
+    await user.click(screen.getByRole('button', { name: 'Español' }))
+
+    expect(await screen.findByRole('heading', { name: 'Ajustes' })).toBeTruthy()
+    expect(screen.getByRole('button', { name: 'Español' }).getAttribute('aria-pressed')).toBe('true')
+    expect(document.documentElement.lang).toBe('es')
+    await waitFor(() => expect(phrases.settings.language).toBe('es'))
+    await user.click(screen.getByRole('button', { name: 'Listo' }))
+    expect(screen.getByLabelText('Traducir frase')).toBeTruthy()
+    expect(screen.getByLabelText('Contexto')).toBeTruthy()
+    expect(screen.getByText('Recientes')).toBeTruthy()
+
+    await user.type(screen.getByLabelText('Traducir frase'), 'Hola')
+    await user.click(screen.getByRole('button', { name: 'Traducir' }))
+    await screen.findByText('Formal Hola')
+    expect(requests('/api/suggestions')[0].headers['Accept-Language']).toBe('es')
+  })
+
+  it("uses the account's language when the app opens", async () => {
+    fakeBackend([typo], [], { language: 'es' })
+    startLoggedIn()
+
+    expect(await screen.findByLabelText('Traducir frase')).toBeTruthy()
+    expect(screen.getByRole('button', { name: 'Traducir' })).toBeTruthy()
+  })
+
+  it("gives an account without a language this device's", async () => {
+    const phrases = fakeBackend([typo], [], { language: null })
+    startLoggedIn()
+    await screen.findByText('It slipt my mind.')
+
+    await waitFor(() => expect(phrases.settings.language).toBe('en'))
+    expect(requests('/api/settings').some(({ method, body }) => method === 'PATCH' && String(body).includes('"language":"en"'))).toBe(true)
   })
 })

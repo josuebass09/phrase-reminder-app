@@ -1,3 +1,6 @@
+import { dateLocale, messagesFor } from './i18n.ts'
+import type { Language } from './language.ts'
+
 export type Platform = 'ios' | 'android'
 
 /** Android gets the Material look; iPhone and computers get the iOS look. */
@@ -8,15 +11,17 @@ export function platformOf(userAgent: string): Platform {
 // Keep in sync with the .tone-* classes in styles.css.
 export const TONE_COUNT = 6
 
-export function savedLabel(iso: string, now = new Date()): string {
+/** When a phrase was saved, such as "Saved today" or "Saved Mar 4", in the app's language. */
+export function savedLabel(iso: string, language: Language = 'en', now = new Date()): string {
+  const t = messagesFor(language)
   const saved = new Date(iso)
   const startOfDay = (date: Date) => new Date(date.getFullYear(), date.getMonth(), date.getDate()).getTime()
   const days = Math.round((startOfDay(now) - startOfDay(saved)) / 86_400_000)
-  if (days <= 0) return 'Saved today'
-  if (days === 1) return 'Saved yesterday'
+  if (days <= 0) return t.savedToday
+  if (days === 1) return t.savedYesterday
   const options: Intl.DateTimeFormatOptions = { month: 'short', day: 'numeric' }
   if (saved.getFullYear() !== now.getFullYear()) options.year = 'numeric'
-  return `Saved ${new Intl.DateTimeFormat('en-US', options).format(saved)}`
+  return t.savedOn(new Intl.DateTimeFormat(dateLocale(language), options).format(saved))
 }
 
 /** A 24-hour HH:MM time as this device shows times, such as 8:30 AM or 08:30. */

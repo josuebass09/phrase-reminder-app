@@ -1895,3 +1895,154 @@ body {
 @media (prefers-reduced-motion: reduce) {
   .option-card { animation: none; }
 }
+
+/* Reading a phrase: big text, its Spanish, and the speed and translate buttons. The pencil edits it. */
+.sheet-icon-button {
+  justify-self: end;
+  display: grid;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--accent);
+  touch-action: manipulation;
+}
+
+.sheet-icon-button .icon { width: 22px; height: 22px; }
+.sheet-icon-button:active { opacity: 0.6; }
+
+.sheet-icon-button:focus-visible {
+  outline: 2px solid var(--focus);
+  outline-offset: -4px;
+  border-radius: 10px;
+}
+
+.reader {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 20px 16px 16px;
+}
+
+.reader-text {
+  margin: 0;
+  font-size: 24px;
+  line-height: 30px;
+  font-weight: 600;
+  overflow-wrap: anywhere;
+  user-select: text;
+  -webkit-user-select: text;
+}
+
+.reader-spanish {
+  margin: 0;
+  padding: 8px 12px;
+  border-radius: 12px;
+  background: var(--chip);
+  color: var(--text);
+  font-size: 17px;
+  line-height: 22px;
+  overflow-wrap: anywhere;
+  animation: bubble-in 0.15s ease-out;
+}
+
+.reader-meta {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-top: 4px;
+}
+
+.reader-tools {
+  display: flex;
+  margin-right: -3px;
+}
+
+[data-platform="android"] .sheet-icon-button { color: var(--text); }
+[data-platform="android"] .sheet-icon-button .icon { width: 24px; height: 24px; }
+
+[data-platform="android"] .sheet-icon-button:active {
+  border-radius: 50%;
+  box-shadow: inset 0 0 0 100vmax color-mix(in srgb, currentColor 12%, transparent);
+}
+
+[data-platform="android"] .reader { padding: 20px 24px 16px; }
+
+[data-platform="android"] .reader-text {
+  font-size: 22px;
+  line-height: 28px;
+  font-weight: 400;
+}
+
+[data-platform="android"] .reader-spanish {
+  border-radius: 8px;
+  font-size: 16px;
+  line-height: 24px;
+}
+
+/* Language: a segmented control on iOS, Material segmented buttons on Android. */
+.segmented {
+  display: inline-flex;
+  flex: none;
+  padding: 2px;
+  border-radius: 9px;
+  background: var(--chip);
+}
+
+.segment {
+  min-width: 76px;
+  min-height: 30px;
+  padding: 0 10px;
+  border: 0;
+  border-radius: 7px;
+  background: none;
+  color: var(--text);
+  font-family: inherit;
+  font-size: 14px;
+  font-weight: 500;
+  touch-action: manipulation;
+  transition: background-color 0.15s ease, color 0.15s ease;
+}
+
+.segment[aria-pressed="true"] {
+  background: var(--card);
+  color: var(--accent);
+  font-weight: 600;
+  box-shadow: 0 3px 8px rgba(0, 0, 0, 0.12), 0 3px 1px rgba(0, 0, 0, 0.04);
+}
+
+.segment:focus-visible {
+  outline: 2px solid var(--focus);
+  outline-offset: 1px;
+}
+
+[data-platform="android"] .segmented {
+  padding: 0;
+  border: 1px solid var(--outline);
+  border-radius: 20px;
+  background: none;
+  overflow: hidden;
+}
+
+[data-platform="android"] .segment {
+  min-height: 40px;
+  padding: 0 14px;
+  border-radius: 0;
+  font-weight: 500;
+}
+
+[data-platform="android"] .segment + .segment { border-left: 1px solid var(--outline); }
+
+[data-platform="android"] .segment[aria-pressed="true"] {
+  background: color-mix(in srgb, var(--accent) 22%, var(--bg));
+  color: var(--text);
+  box-shadow: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .reader-spanish { animation: none; }
+  .segment { transition: none; }
+}

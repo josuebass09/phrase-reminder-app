@@ -1,4 +1,5 @@
 import type { Suggestions } from './api.ts'
+import { useT } from './i18n.ts'
 import { CloseIcon, RetryIcon, SparklesIcon } from './icons.tsx'
 import { OptionCard, type OptionStyle } from './OptionCard.tsx'
 import type { Speaking } from './PhraseRow.tsx'
@@ -42,6 +43,7 @@ export function SuggestionPanel({
   onSpeak,
   speakingOf,
 }: SuggestionPanelProps) {
+  const t = useT()
   const waiting = suggestion.state === 'waiting'
 
   return (
@@ -49,10 +51,10 @@ export function SuggestionPanel({
       <div className="group-head">
         <h2 id="options-heading">
           <SparklesIcon />
-          <span>Ways to say it</span>
+          <span>{t.waysToSayIt}</span>
         </h2>
         {!waiting && (
-          <button className="options-close" type="button" aria-label="Close options" onClick={onDismiss}>
+          <button className="options-close" type="button" aria-label={t.closeOptions} onClick={onDismiss}>
             <CloseIcon />
           </button>
         )}
@@ -60,7 +62,7 @@ export function SuggestionPanel({
       {suggestion.state === 'waiting' && (
         <p className="options-status" role="status">
           <Spinner />
-          <span>Finding the best ways to say it…</span>
+          <span>{t.findingWays}</span>
         </p>
       )}
       {suggestion.state === 'failed' && (
@@ -69,7 +71,7 @@ export function SuggestionPanel({
           {suggestion.canRetry && (
             <button className="options-retry" type="button" onClick={onRetry}>
               <RetryIcon />
-              <span>Try again</span>
+              <span>{t.tryAgain}</span>
             </button>
           )}
         </div>
@@ -98,7 +100,7 @@ export function SuggestionPanel({
           onClick={onSaveTyped}
         >
           {savingAs === 'typed' && <Spinner />}
-          <span>Save it as I wrote it</span>
+          <span>{t.saveAsWritten}</span>
         </button>
       )}
     </section>

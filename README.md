@@ -1,6 +1,6 @@
 # Phrase Reminder App
 
-The app for [phrase-reminder](https://github.com/josuebass09/phrase-reminder): save English phrases from your phone or computer, see today's reminder, fix or delete phrases, and turn on the daily push notification. It installs on iPhone and Android from the browser and looks native on each.
+The app for [phrase-reminder](https://github.com/josuebass09/phrase-reminder): translate and save English phrases from your phone or computer, see today's reminder, read, fix or delete phrases, and turn on the daily push notification. It installs on iPhone and Android from the browser and looks native on each.
 
 It's a React app built with Vite. It talks to the backend's API with a bearer token, because the two live on different Railway domains and browsers don't share cookies between them.
 
@@ -35,11 +35,19 @@ The 文A button next to the speed buttons shows the phrase in Spanish, in a spee
 
 Each user may ask for 30 new translations a day (the admin has no limit); reopening a saved one doesn't count. Past the limit, the app says so and the count starts over at the user's midnight. Settings shows how many they've used today.
 
-## Ways to say it
+## Translate a new phrase
 
-Type a new phrase in Spanish or English, and optionally a context underneath, such as "Slack message to my manager about a late deploy". Get options shows a formal way to say it in English (for work) and an informal one (for friends), above Today and Recent, each with its Spanish and the 1x and 0.5x buttons. Save the one you like and it goes to the top of Recent, with that Spanish as its translation, so 文A opens it without using a translation. The context stays for the next phrase.
+Type it under **Translate phrase**, in Spanish or English, and optionally a **Context** underneath, such as "Slack message to my manager about a late deploy". **Translate** shows a formal way to say it in English (for work) and an informal one (for friends), above Today and Recent, each with its Spanish and the 1x and 0.5x buttons. Save the one you like and it goes to the top of Recent, with that Spanish as its translation, so 文A opens it without using a translation; both boxes then clear for the next phrase.
 
-"Save it as I wrote it" saves the text as typed, such as when the AI is down or today's suggestions are used up. Each user may get 20 suggestions a day (the admin has no limit), and Settings shows how many they've used. The backend asks a free AI on Groq; see the backend's README.
+"Save it as I wrote it" saves the text as typed, such as when the AI is down or today's suggestions are used up. Each user may get 20 a day (the admin has no limit), and Settings shows how many they've used. The backend asks a free AI on Groq; see the backend's README.
+
+## Read a phrase
+
+Tapping a phrase opens it in a sheet to read: larger, with when it was saved, the 1x and 0.5x buttons, and 文A for its Spanish. The pencil at the top right turns the sheet into the editor, to fix or delete the phrase; Cancel goes back to reading.
+
+## Language
+
+The app speaks English or Spanish. It starts in the device's language, and **Language** under Account in Settings switches it. The choice is saved on the device, so the login screen uses it too, and in the account, so every device and the daily reminder's notification follow it. The backend's messages, such as today's limit, come in the same language.
 
 ## Design
 

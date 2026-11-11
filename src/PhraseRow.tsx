@@ -1,5 +1,6 @@
 import type { Phrase } from './api.ts'
 import { savedLabel, TONE_COUNT } from './format.ts'
+import { useLanguage, useT } from './i18n.ts'
 import { CloseIcon, MessageIcon, MoreIcon, TranslateIcon } from './icons.tsx'
 import { Spinner } from './Spinner.tsx'
 
@@ -26,6 +27,8 @@ export interface PhraseRowProps {
 }
 
 export function PhraseRow({ phrase, onEdit, onSpeak, speaking = null, onTranslate, translation }: PhraseRowProps) {
+  const t = useT()
+  const language = useLanguage()
   const translationShown = Boolean(translation?.open && translation.text)
 
   return (
@@ -40,17 +43,19 @@ export function PhraseRow({ phrase, onEdit, onSpeak, speaking = null, onTranslat
             <button
               className="bubble-close"
               type="button"
-              aria-label="Close translation"
+              aria-label={t.closeTranslation}
               onClick={() => onTranslate?.(phrase)}
             >
               <CloseIcon />
             </button>
           </div>
         )}
-        <span className="row-text">{phrase.text}</span>
+        <span className="row-text" lang="en">
+          {phrase.text}
+        </span>
         <div className="row-meta">
           <time className="when" dateTime={phrase.createdAt}>
-            {savedLabel(phrase.createdAt)}
+            {savedLabel(phrase.createdAt, language)}
           </time>
           {(onSpeak || onTranslate) && (
             // Sits above the edit button's full-row tap area, so these don't open the editor.
@@ -60,7 +65,7 @@ export function PhraseRow({ phrase, onEdit, onSpeak, speaking = null, onTranslat
                   <button
                     className="row-tool"
                     type="button"
-                    aria-label="Listen at 1x"
+                    aria-label={t.listen}
                     aria-pressed={speaking === 'normal'}
                     onClick={() => onSpeak(phrase, false)}
                   >
@@ -69,7 +74,7 @@ export function PhraseRow({ phrase, onEdit, onSpeak, speaking = null, onTranslat
                   <button
                     className="row-tool slow"
                     type="button"
-                    aria-label="Listen at 0.5x"
+                    aria-label={t.listenSlowly}
                     aria-pressed={speaking === 'slow'}
                     onClick={() => onSpeak(phrase, true)}
                   >
@@ -81,7 +86,7 @@ export function PhraseRow({ phrase, onEdit, onSpeak, speaking = null, onTranslat
                 <button
                   className="row-tool translate"
                   type="button"
-                  aria-label="Translate to Spanish"
+                  aria-label={t.translateToSpanish}
                   aria-pressed={translationShown}
                   aria-busy={translation?.loading ?? false}
                   onClick={() => onTranslate(phrase)}
@@ -95,8 +100,8 @@ export function PhraseRow({ phrase, onEdit, onSpeak, speaking = null, onTranslat
           )}
         </div>
       </div>
-      {/* The button covers the whole row (see .row-edit in styles.css), so a tap anywhere opens the editor. */}
-      <button className="row-edit" type="button" aria-label="Edit phrase" onClick={() => onEdit(phrase)}>
+      {/* The button covers the whole row (see .row-edit in styles.css), so a tap anywhere opens the phrase. */}
+      <button className="row-edit" type="button" aria-label={t.openPhrase} onClick={() => onEdit(phrase)}>
         <MoreIcon />
       </button>
     </li>
