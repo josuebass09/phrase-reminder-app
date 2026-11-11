@@ -39,7 +39,7 @@ Each user may ask for 30 new translations a day (the admin has no limit); reopen
 
 ## Say a phrase and get a score
 
-The microphone button, after 文A, records you saying the phrase: tap it, say the phrase, and tap it again. It also stops on its own after 10 seconds. While it records it turns red, and nothing is read aloud, so the microphone only hears you. The backend scores it from 1 to 10, and the result shows under the phrase:
+The microphone button, after 文A in the list and in the phrase's sheet, records you saying the phrase: tap it, say the phrase, and tap it again. It also stops on its own after 10 seconds. While it records it turns red, and nothing is read aloud, so the microphone only hears you. The backend scores it from 1 to 10, and the result shows under the phrase:
 
 - **1 to 6**, red, with a shake: poor pronunciation
 - **7**, amber, with a nudge: almost there
@@ -58,7 +58,7 @@ Type it under **Translate phrase**, in Spanish or English, and optionally a **Co
 
 ## Read a phrase
 
-Tapping a phrase opens it in a sheet to read: larger, with when it was saved, the 1x and 0.5x buttons, and 文A for its Spanish. The pencil at the top right turns the sheet into the editor, to fix or delete the phrase; Cancel goes back to reading.
+Tapping a phrase opens it in a sheet to read: larger, with when it was saved and its last score, the 1x and 0.5x buttons, 文A for its Spanish, and the microphone. The pencil at the top right turns the sheet into the editor, to fix or delete the phrase; Cancel goes back to reading.
 
 ## Language
 

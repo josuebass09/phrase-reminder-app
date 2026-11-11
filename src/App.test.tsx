@@ -431,6 +431,27 @@ describe('the app', () => {
     expect(within(row).getByText('Last score: 8 of 10, good pronunciation')).toBeTruthy()
   })
 
+  it('scores the phrase from its sheet too, and the score shows there and in the list', async () => {
+    fakeBackend([typo])
+    fakeMicrophone()
+    const user = userEvent.setup()
+    startLoggedIn()
+    await screen.findByText('It slipt my mind.')
+    await user.click(screen.getByRole('button', { name: 'Open phrase' }))
+    const sheet = screen.getByRole('dialog')
+    const mic = within(sheet).getByRole('button', { name: 'Say it and get a score' })
+
+    await user.click(mic)
+    await waitFor(() => expect(mic.getAttribute('aria-pressed')).toBe('true'))
+    await user.click(mic)
+
+    const bubble = await within(sheet).findByRole('status')
+    expect(within(bubble).getByText('Good pronunciation')).toBeTruthy()
+    expect(within(sheet).getByText('Last score: 9 of 10, good pronunciation')).toBeTruthy()
+    const row = document.querySelector<HTMLElement>('#phrases .row')!
+    expect(within(row).getByText('Last score: 9 of 10, good pronunciation')).toBeTruthy()
+  })
+
   it("shows a phrase's last score, with no microphone where the browser can't record", async () => {
     fakeBackend([{ ...typo, lastScore: 10 }])
     startLoggedIn()

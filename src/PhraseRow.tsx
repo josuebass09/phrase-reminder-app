@@ -1,8 +1,8 @@
-import { Fragment } from 'react'
-import type { Phrase, Pronunciation } from './api.ts'
-import { savedLabel, scoreBand, TONE_COUNT } from './format.ts'
+import type { Phrase } from './api.ts'
+import { savedLabel, TONE_COUNT } from './format.ts'
 import { useLanguage, useT } from './i18n.ts'
-import { CloseIcon, MessageIcon, MicIcon, MoreIcon, StopIcon, TranslateIcon } from './icons.tsx'
+import { CloseIcon, MessageIcon, MoreIcon, TranslateIcon } from './icons.tsx'
+import { MicButton, ScoreBadge, ScoreBubble, type Attempt } from './Score.tsx'
 import { Spinner } from './Spinner.tsx'
 
 /** Which speed is reading the phrase, if any. */
@@ -15,13 +15,6 @@ export interface Translation {
   /** Whether the bubble is showing. */
   open: boolean
 }
-
-/** Saying the phrase aloud: recording it, waiting for the score, or the score that came back. */
-export type Attempt =
-  | { state: 'recording' }
-  | { state: 'scoring' }
-  /** The id tells one try from the next, even with the same result. */
-  | { state: 'scored'; result: Pronunciation; id: number }
 
 export interface PhraseRowProps {
   phrase: Phrase
@@ -39,65 +32,6 @@ export interface PhraseRowProps {
   attempt?: Attempt
 }
 
-/** The phrase's last score, next to its date: the number on the score's color, read out with its meaning. */
-function ScoreBadge({ score }: { score: number }) {
-  const t = useT()
-  const band = scoreBand(score)
-  return (
-    <span className={`score-badge score-${band}`}>
-      <span aria-hidden="true">{score}</span>
-      <span className="visually-hidden">{t.lastScore(score, t.scoreBands[band])}</span>
-    </span>
-  )
-}
-
-interface ScoreBubbleProps {
-  result: Pronunciation
-  onClose: () => void
-  onListenSlowly?: () => void
-  slowPlaying: boolean
-}
-
-/** The score that just came back: its number in a ring, what it means, the words to practice, and a tip. */
-function ScoreBubble({ result, onClose, onListenSlowly, slowPlaying }: ScoreBubbleProps) {
-  const t = useT()
-  const band = scoreBand(result.score)
-  const missed = result.words.some((word) => !word.ok)
-  return (
-    <div className={`score-bubble score-${band}`} role="status">
-      <span className="score-ring" aria-hidden="true">
-        {result.score}
-      </span>
-      <div className="score-body">
-        <p className="score-label">
-          <span className="visually-hidden">{t.scoreOutOf(result.score)}: </span>
-          {t.scoreBands[band]}
-        </p>
-        {missed && (
-          <p className="score-words" lang="en">
-            {result.words.map((word, i) => (
-              <Fragment key={i}>
-                {i > 0 && ' '}
-                {word.ok ? word.text : <mark>{word.text}</mark>}
-              </Fragment>
-            ))}
-            <span className="visually-hidden"> {t.practiceWords}</span>
-          </p>
-        )}
-        <p className="score-tip">{result.tip}</p>
-        {onListenSlowly && (
-          <button className="score-listen" type="button" aria-pressed={slowPlaying} onClick={onListenSlowly}>
-            {t.hearItSlowly}
-          </button>
-        )}
-      </div>
-      <button className="bubble-close" type="button" aria-label={t.closeScore} onClick={onClose}>
-        <CloseIcon />
-      </button>
-    </div>
-  )
-}
-
 export function PhraseRow({
   phrase,
   onEdit,
@@ -112,8 +46,6 @@ export function PhraseRow({
   const t = useT()
   const language = useLanguage()
   const translationShown = Boolean(translation?.open && translation.text)
-  const recording = attempt?.state === 'recording'
-  const scoring = attempt?.state === 'scoring'
   const score = phrase.lastScore ?? null // Missing from a backend from before scores.
 
   return (
@@ -184,27 +116,13 @@ export function PhraseRow({
                   </span>
                 </button>
               )}
-              {onPronounce && (
-                // Pressed while recording, like the speed buttons while playing: tapping it again stops and scores.
-                <button
-                  className="row-tool mic"
-                  type="button"
-                  aria-label={t.sayIt}
-                  aria-pressed={recording}
-                  aria-busy={scoring}
-                  onClick={() => onPronounce(phrase)}
-                >
-                  <span className="tool-chip">{scoring ? <Spinner /> : recording ? <StopIcon /> : <MicIcon />}</span>
-                </button>
-              )}
+              {onPronounce && <MicButton attempt={attempt} onClick={() => onPronounce(phrase)} />}
             </div>
           )}
         </div>
         {attempt?.state === 'scored' && (
           <ScoreBubble
-            // A new key for each try, so each score plays its animation, even the same score twice.
-            key={attempt.id}
-            result={attempt.result}
+            attempt={attempt}
             onClose={() => onCloseScore?.(phrase)}
             onListenSlowly={onSpeak && (() => onSpeak(phrase, true))}
             slowPlaying={speaking === 'slow'}

@@ -7,8 +7,9 @@ import { messagesFor, useT } from './i18n.ts'
 import { BellIcon, CheckIcon, ContextIcon, HistoryIcon, PenIcon, SparklesIcon, SunIcon, UserIcon } from './icons.tsx'
 import { getLanguage, isLanguage, setLanguage, type Language } from './language.ts'
 import type { OptionStyle } from './OptionCard.tsx'
-import { PhraseRow, type Attempt, type Speaking, type Translation } from './PhraseRow.tsx'
+import { PhraseRow, type Speaking, type Translation } from './PhraseRow.tsx'
 import { recordingSupported, startRecording, type Recorder } from './recorder.ts'
+import type { Attempt } from './Score.tsx'
 import { Settings } from './Settings.tsx'
 import { Spinner } from './Spinner.tsx'
 import { SuggestionPanel, type Suggestion } from './SuggestionPanel.tsx'
@@ -395,6 +396,7 @@ export function PhraseApp({ session, onLogOut, onExpired }: PhraseAppProps) {
       const scored = (list: Phrase[]) => list.map((item) => (item.id === phrase.id ? { ...item, lastScore: result.score } : item))
       setRecent(scored)
       setToday(scored)
+      setEditing((open) => (open?.id === phrase.id ? { ...open, lastScore: result.score } : open))
     } catch (err) {
       setAttempt(phrase.id, null)
       if (err instanceof NotFoundError) dropPhrase(phrase.id, true)

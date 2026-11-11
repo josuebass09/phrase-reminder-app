@@ -4,6 +4,7 @@ import { savedLabel } from './format.ts'
 import { useLanguage, useT } from './i18n.ts'
 import { PenIcon, TranslateIcon, TrashIcon } from './icons.tsx'
 import type { Speaking, Translation } from './PhraseRow.tsx'
+import { MicButton, ScoreBadge, ScoreBubble, type Attempt } from './Score.tsx'
 import { Spinner } from './Spinner.tsx'
 
 const MAX_PHRASE_LENGTH = 500 // Matches the backend.
@@ -21,6 +22,11 @@ export interface EditorProps {
   /** Shows or hides the Spanish translation, fetching it the first time. */
   onTranslate: (phrase: Phrase) => void
   translation?: Translation
+  /** Starts recording the user saying the phrase, or stops it to get the score. Without it, there's no microphone. */
+  onPronounce?: (phrase: Phrase) => void
+  /** Closes the score's bubble. */
+  onCloseScore?: (phrase: Phrase) => void
+  attempt?: Attempt
 }
 
 /**
@@ -37,6 +43,9 @@ export function Editor({
   speaking = null,
   onTranslate,
   translation,
+  onPronounce,
+  onCloseScore,
+  attempt,
 }: EditorProps) {
   const t = useT()
   const language = useLanguage()
@@ -194,9 +203,12 @@ export function Editor({
               </p>
             )}
             <div className="reader-meta">
-              <time className="when" dateTime={phrase.createdAt}>
-                {savedLabel(phrase.createdAt, language)}
-              </time>
+              <span className="row-info">
+                <time className="when" dateTime={phrase.createdAt}>
+                  {savedLabel(phrase.createdAt, language)}
+                </time>
+                {phrase.lastScore != null && <ScoreBadge score={phrase.lastScore} />}
+              </span>
               <div className="reader-tools">
                 {onSpeak && (
                   <>
@@ -230,8 +242,17 @@ export function Editor({
                 >
                   <span className="tool-chip">{translation?.loading ? <Spinner /> : <TranslateIcon />}</span>
                 </button>
+                {onPronounce && <MicButton attempt={attempt} onClick={() => onPronounce(phrase)} />}
               </div>
             </div>
+            {attempt?.state === 'scored' && (
+              <ScoreBubble
+                attempt={attempt}
+                onClose={() => onCloseScore?.(phrase)}
+                onListenSlowly={onSpeak && (() => onSpeak(phrase, true))}
+                slowPlaying={speaking === 'slow'}
+              />
+            )}
           </div>
         </div>
       )}
