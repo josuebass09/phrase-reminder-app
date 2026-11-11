@@ -448,6 +448,16 @@ export function PhraseApp({ session, onLogOut, onExpired }: PhraseAppProps) {
       ? t.reminderPaused
       : t.reminderAt(pillLabel)
 
+  /** Ends every session of the account, then shows the login screen like logging out does. */
+  async function logOutEverywhere() {
+    try {
+      await api.logOutEverywhere()
+      onLogOut()
+    } catch (err) {
+      fail(err, t.couldntLogOutEverywhere)
+    }
+  }
+
   /** Switches the app's language, and saves it to the account so reminders use it too. */
   function changeLanguage(next: Language) {
     setLanguage(next)
@@ -595,7 +605,7 @@ export function PhraseApp({ session, onLogOut, onExpired }: PhraseAppProps) {
       {settingsOpen && (
         <Settings
           email={session.email}
-          expiresAt={session.expiresAt}
+          expiresAt={session.refreshToken ? null : session.expiresAt}
           isAdmin={isAdmin}
           settings={settings}
           onSettingsChange={setSettings}
@@ -603,6 +613,7 @@ export function PhraseApp({ session, onLogOut, onExpired }: PhraseAppProps) {
           onTurnOnDevice={turnOnDevice}
           onClose={() => setSettingsOpen(false)}
           onLogOut={onLogOut}
+          onLogOutEverywhere={logOutEverywhere}
           onUnauthorized={onExpired}
           onLanguageChange={changeLanguage}
         />

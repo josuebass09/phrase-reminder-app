@@ -41,6 +41,8 @@ function fakeBackend(
     suggestionLimitReached = false,
     language = 'en',
     hold,
+    renewal,
+    refuseFirstToken = false,
   }: {
     admin?: boolean
     translationFails?: boolean
@@ -56,6 +58,10 @@ function fakeBackend(
     /** The account's language; null for one that hasn't saved any. */
     language?: 'en' | 'es' | null
     hold?: ReturnType<typeof holdBack>
+    /** Logins come with a refresh token, like the backend's long sessions, and renewing it works, finds the session over, or can't connect. */
+    renewal?: 'works' | 'over' | 'offline'
+    /** The first access token is refused before its time, as after the backend's secret changed. */
+    refuseFirstToken?: boolean
   } = {},
 ) {
   const phrases = [...seed] // Newest first, like the backend returns them.
@@ -65,6 +71,9 @@ function fakeBackend(
   let suggestionsUsed = 0
   let failuresLeft = suggestionsFail
   let nextId = Math.max(0, ...phrases.map((phrase) => phrase.id)) + 1
+  let token = TOKEN
+  let refreshToken = 'refresh-1'
+  let renewals = 0
   const json = (status: number, body?: unknown) =>
     new Response(body === undefined ? null : JSON.stringify(body), { status })
 
@@ -78,18 +87,34 @@ function fakeBackend(
       const body = typeof init.body === 'string' ? JSON.parse(init.body) : undefined
       if (hold && path === hold.path) await hold.released
 
+      const tokens = () =>
+        renewal
+          ? { token, expiresAt: '', expiresIn: 3600, refreshToken, user: { id: 1, email: EMAIL } }
+          : { token, expiresAt: '', expiresIn: TWELVE_HOURS / 1000, user: { id: 1, email: EMAIL } }
       if (path === '/api/login') {
         return body.email === EMAIL && body.password === PASSWORD
-          ? json(200, { token: TOKEN, expiresAt: '', expiresIn: TWELVE_HOURS / 1000, user: { id: 1, email: EMAIL } })
+          ? json(200, tokens())
           : json(401, { error: 'Wrong email or password' })
       }
+      if (path === '/api/session/refresh') {
+        if (renewal === 'offline') throw new TypeError('Failed to fetch')
+        if (renewal !== 'works' || body.refreshToken !== refreshToken) return json(401, { error: 'Not logged in' })
+        renewals += 1
+        token = `token-${renewals + 1}`
+        refreshToken = `refresh-${renewals + 1}`
+        return json(200, tokens())
+      }
+      if (path === '/api/logout') return json(204)
       if (path === '/api/signup') {
         if (body.code !== INVITE_CODE) return json(403, { error: 'Wrong invite code' })
         const user = { id: 2, email: body.email }
         return json(201, { token: TOKEN, expiresAt: '', expiresIn: TWELVE_HOURS / 1000, user })
       }
       if (path === '/api/config') return json(200, { vapidPublicKey: 'key' })
-      if (headers.Authorization !== `Bearer ${TOKEN}`) return json(401, { error: 'Not logged in' })
+      if (headers.Authorization !== `Bearer ${token}` || (refuseFirstToken && token === TOKEN)) {
+        return json(401, { error: 'Not logged in' })
+      }
+      if (path === '/api/sessions' && method === 'DELETE') return json(204)
 
       if (path === '/api/me') return json(200, { id: 1, email: EMAIL, isAdmin: admin })
       if (path === '/api/usage') {
@@ -171,12 +196,15 @@ function fakeBackend(
 
 const typo: Phrase = { id: 1, text: 'It slipt my mind.', createdAt: '2026-11-01T12:00:00.000Z' }
 
-function saveSession(token: string, expiresIn = TWELVE_HOURS) {
+function saveSession(token: string, expiresIn = TWELVE_HOURS, refreshToken?: string) {
   localStorage.setItem(
     'phrase-reminder-session',
-    JSON.stringify({ token, expiresAt: Date.now() + expiresIn, email: EMAIL }),
+    JSON.stringify({ token, expiresAt: Date.now() + expiresIn, email: EMAIL, refreshToken }),
   )
 }
+
+/** The paths the app has asked the backend for, in order. */
+const calledPaths = () => vi.mocked(fetch).mock.calls.map(([url]) => new URL(String(url), 'http://app.test').pathname)
 
 function startLoggedIn() {
   saveSession(TOKEN)
@@ -1148,5 +1176,93 @@ describe('language', () => {
 
     await waitFor(() => expect(phrases.settings.language).toBe('en'))
     expect(requests('/api/settings').some(({ method, body }) => method === 'PATCH' && String(body).includes('"language":"en"'))).toBe(true)
+  })
+})
+
+describe('long sessions', () => {
+  it('renew a session whose token ran out, once for all the requests waiting, and stay logged in', async () => {
+    fakeBackend([typo], [], { renewal: 'works' })
+    saveSession(TOKEN, -1000, 'refresh-1')
+    render(<App />)
+
+    expect(await screen.findByText('It slipt my mind.')).toBeTruthy()
+    expect(readSession()).toMatchObject({ token: 'token-2', refreshToken: 'refresh-2' })
+    expect(calledPaths().filter((path) => path === '/api/session/refresh')).toHaveLength(1)
+  })
+
+  it('renew and try again when the backend refuses the token before its time', async () => {
+    fakeBackend([typo], [], { renewal: 'works', refuseFirstToken: true })
+    saveSession(TOKEN, TWELVE_HOURS, 'refresh-1')
+    render(<App />)
+
+    expect(await screen.findByText('It slipt my mind.')).toBeTruthy()
+    expect(readSession()?.token).toBe('token-2')
+  })
+
+  it('show the login screen once the session is over', async () => {
+    fakeBackend([typo], [], { renewal: 'over' })
+    saveSession(TOKEN, -1000, 'refresh-1')
+    render(<App />)
+
+    expect(await screen.findByText('Your session ended. Log in again.')).toBeTruthy()
+    expect(readSession()).toBeNull()
+  })
+
+  it('stay logged in when renewing fails for the connection', async () => {
+    fakeBackend([typo], [], { renewal: 'offline' })
+    saveSession(TOKEN, -1000, 'refresh-1')
+    render(<App />)
+
+    expect(await screen.findByText("Couldn't load your phrases.")).toBeTruthy()
+    expect(readSession()?.refreshToken).toBe('refresh-1')
+    expect(screen.queryByLabelText('Password')).toBeNull()
+  })
+
+  it('start on logging in, and Settings says the device stays logged in', async () => {
+    fakeBackend([typo], [], { renewal: 'works' })
+    const user = userEvent.setup()
+    render(<App />)
+    await user.type(screen.getByLabelText('Email'), EMAIL)
+    await user.type(screen.getByLabelText('Password'), PASSWORD)
+    await user.click(screen.getByRole('button', { name: 'Log in' }))
+    await screen.findByText('It slipt my mind.')
+
+    await user.click(screen.getByRole('button', { name: 'Settings' }))
+
+    expect(readSession()?.refreshToken).toBe('refresh-1')
+    expect(within(screen.getByRole('dialog')).getByText('You stay logged in on this device until you log out.')).toBeTruthy()
+  })
+
+  it('end on the backend too when logging out', async () => {
+    fakeBackend([typo], [], { renewal: 'works' })
+    saveSession(TOKEN, TWELVE_HOURS, 'refresh-1')
+    const user = userEvent.setup()
+    render(<App />)
+    await screen.findByText('It slipt my mind.')
+
+    await user.click(screen.getByRole('button', { name: 'Settings' }))
+    await user.click(within(screen.getByRole('dialog')).getByRole('button', { name: 'Log out' }))
+
+    expect(await screen.findByLabelText('Password')).toBeTruthy()
+    expect(readSession()).toBeNull()
+    await waitFor(() => expect(calledPaths()).toContain('/api/logout'))
+    const [, init] = vi.mocked(fetch).mock.calls.find(([url]) => String(url).endsWith('/api/logout')) ?? []
+    expect(JSON.parse(String(init?.body))).toEqual({ refreshToken: 'refresh-1' })
+  })
+
+  it('all end from Settings, on every device', async () => {
+    fakeBackend([typo], [], { renewal: 'works' })
+    saveSession(TOKEN, TWELVE_HOURS, 'refresh-1')
+    const user = userEvent.setup()
+    render(<App />)
+    await screen.findByText('It slipt my mind.')
+
+    await user.click(screen.getByRole('button', { name: 'Settings' }))
+    await user.click(within(screen.getByRole('dialog')).getByRole('button', { name: 'Log out of all devices' }))
+
+    expect(await screen.findByLabelText('Password')).toBeTruthy()
+    expect(readSession()).toBeNull()
+    expect(calledPaths()).toContain('/api/sessions')
+    expect(screen.queryByText('Your session ended. Log in again.')).toBeNull()
   })
 })

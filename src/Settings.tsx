@@ -9,7 +9,8 @@ import { ReminderSettingsSection, type DeviceReminders } from './ReminderSetting
 
 export interface SettingsProps {
   email: string
-  expiresAt: number
+  /** When the login ends, for one from before long sessions; null for one that renews itself. */
+  expiresAt: number | null
   /** The admin can invite people. */
   isAdmin: boolean
   /** Null while loading. */
@@ -19,6 +20,8 @@ export interface SettingsProps {
   onTurnOnDevice: () => void
   onClose: () => void
   onLogOut: () => void
+  /** Logs the account out of every device, this one included. */
+  onLogOutEverywhere: () => void
   onUnauthorized: () => void
   /** Switches the app's language, and saves it to the account. */
   onLanguageChange: (language: Language) => void
@@ -38,6 +41,7 @@ export function Settings({
   onTurnOnDevice,
   onClose,
   onLogOut,
+  onLogOutEverywhere,
   onUnauthorized,
   onLanguageChange,
 }: SettingsProps) {
@@ -55,7 +59,7 @@ export function Settings({
     if (event.target === dialog.current) onClose()
   }
 
-  const until = new Date(expiresAt).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })
+  const until = expiresAt === null ? null : new Date(expiresAt).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })
 
   return (
     <dialog
@@ -89,7 +93,7 @@ export function Settings({
             </div>
             <div className="account-info">
               <p className="account-email">{email}</p>
-              <p className="account-note">{t.loggedInUntil(until)}</p>
+              <p className="account-note">{until === null ? t.staysLoggedIn : t.loggedInUntil(until)}</p>
             </div>
             <div className="settings-group">
               <div className="setting-row">
@@ -114,6 +118,10 @@ export function Settings({
             <button className="sheet-action" type="button" onClick={onLogOut}>
               <LogOutIcon />
               <span>{t.logOut}</span>
+            </button>
+            <button className="sheet-action" type="button" onClick={onLogOutEverywhere}>
+              <LogOutIcon />
+              <span>{t.logOutEverywhere}</span>
             </button>
           </section>
         </div>

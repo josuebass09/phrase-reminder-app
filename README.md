@@ -10,7 +10,7 @@ Each person logs in with an email and password and sees only their own phrases.
 
 New people join with an invite link from the admin, who is the first user. In Settings (the person icon), the admin taps **Invite someone**, then **Share** or **Copy**. Each link creates one account and expires after 7 days. Opening it shows the sign-up form with the code filled in; the person picks an email and a password of at least 12 characters. The code also works typed or pasted after tapping **I have an invite** on the login screen. The app removes the code from the address as soon as it opens, so it doesn't stay in the browser history or become the installed app's start page.
 
-A login lasts 12 hours. After that, the app shows the login screen again with the last email already filled in. The person icon at the top opens Settings, which shows who is logged in and until when, and has **Log out**.
+A login stays open while the app is used: the app renews its tokens on its own, and only 60 days without opening it, or logging out, show the login screen again, with the last email already filled in. Renewing needs a connection, so being offline never logs anyone out. Settings shows who is logged in, and has **Log out** for this device and **Log out of all devices**, such as for a lost phone. A login from before long sessions still ends after its 12 hours.
 
 ## Settings
 
@@ -104,7 +104,7 @@ Railway deploys from this repository. `railway.json` sets the build and start co
 
 ## Turn on reminders on each device
 
-Each device subscribes separately and gets the reminders of whoever is logged in on it. Only devices that did this get reminders, and they keep getting them after the 12-hour login ends:
+Each device subscribes separately and gets the reminders of whoever is logged in on it. Only devices that did this get reminders, and they keep getting them after the person logs out:
 
 - **iPhone or iPad (iOS 16.4 or later):** open the app's URL in Safari, use **Add to Home Screen**, open the app from that icon, then tap **Turn on**. Apple doesn't offer push in a regular Safari tab.
 - **Android:** open the URL in Chrome and tap **Turn on**. Add it to the Home Screen for the full-screen app.

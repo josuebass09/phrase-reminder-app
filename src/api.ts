@@ -37,12 +37,17 @@ export interface Usage {
   limit: number | null
 }
 
-/** A logged-in user's access token. It lasts 12 hours; after that, the user logs in again. */
+/**
+ * A logged-in user's tokens. The access token lasts an hour, and the refresh token
+ * gets a new pair, so the user stays logged in until 60 days pass without opening the app.
+ */
 export interface Session {
   token: string
-  /** Milliseconds since the epoch, by this device's clock. */
+  /** When the access token runs out: milliseconds since the epoch, by this device's clock. */
   expiresAt: number
   email: string
+  /** Missing from a login before long sessions, which ends when its token does. */
+  refreshToken?: string
 }
 
 /** When and how each user's daily reminder goes out. */
@@ -60,6 +65,7 @@ export interface ReminderSettings {
 interface LoginResponse {
   token: string
   expiresIn: number
+  refreshToken?: string
   user: { id: number; email: string }
 }
 
@@ -96,7 +102,8 @@ export function readSession(): Session | null {
     const valid =
       typeof session?.token === 'string' &&
       typeof session.expiresAt === 'number' &&
-      typeof session.email === 'string'
+      typeof session.email === 'string' &&
+      (session.refreshToken === undefined || typeof session.refreshToken === 'string')
     return valid ? session : null
   } catch {
     return null
@@ -136,23 +143,84 @@ export class ApiError extends Error {
   }
 }
 
-/** A JSON body, or a recording sent as it is. */
-async function request<T>(path: string, options: { method?: string; body?: unknown; audio?: Blob } = {}): Promise<T> {
+interface RequestOptions {
+  method?: string
+  /** Sent as JSON. */
+  body?: unknown
+  /** A recording, sent as it is. */
+  audio?: Blob
+}
+
+function send(path: string, options: RequestOptions, session: Session | null): Promise<Response> {
   // The backend writes its messages for people, such as today's limit, in this language.
   const headers: Record<string, string> = { 'Accept-Language': getLanguage() }
-  const token = readSession()?.token
-  if (token) headers.Authorization = `Bearer ${token}`
+  if (session) headers.Authorization = `Bearer ${session.token}`
   if (options.audio) headers['Content-Type'] = options.audio.type
   else if (options.body !== undefined) headers['Content-Type'] = 'application/json'
-
-  const response = await fetch(`${API_URL}${path}`, {
+  return fetch(`${API_URL}${path}`, {
     method: options.method ?? 'GET',
     headers,
     body: options.audio ?? (options.body === undefined ? undefined : JSON.stringify(options.body)),
   })
+}
+
+/** Renewed this long before it runs out, so a request doesn't fail on the way. */
+const RENEW_EARLY_MS = 60_000
+
+// The requests that log in or out, which never renew a session.
+const SESSION_PATHS = new Set(['/api/login', '/api/signup', '/api/session/refresh', '/api/logout'])
+
+let renewing: Promise<Session | null> | null = null
+
+/**
+ * Swaps the refresh token for a new pair, once at a time for everything waiting.
+ * Null means the session is over. A failed connection throws instead, and the
+ * session stays, so being offline never logs anyone out.
+ */
+function renew(used: Session): Promise<Session | null> {
+  renewing ??= (async () => {
+    try {
+      // The app's other windows share this storage, and one may have renewed it already.
+      const latest = readSession()
+      if (latest?.refreshToken !== used.refreshToken) return latest
+      const response = await send('/api/session/refresh', { method: 'POST', body: { refreshToken: used.refreshToken } }, null)
+      if (response.status === 401) {
+        // Or it may have renewed it at the same moment, which spent this token.
+        const now = readSession()
+        return now?.refreshToken !== used.refreshToken ? now : null
+      }
+      if (!response.ok) throw new ApiError(response.status, 'Something went wrong. Try again.')
+      const renewed = (await response.json()) as LoginResponse
+      // Logging out while this was on its way wins.
+      return readSession() ? saveSession(renewed) : null
+    } finally {
+      renewing = null
+    }
+  })()
+  return renewing
+}
+
+function endedSession(): never {
+  clearSession()
+  throw new UnauthorizedError()
+}
+
+async function request<T>(path: string, options: RequestOptions = {}): Promise<T> {
+  const renewable = !SESSION_PATHS.has(path)
+  let session = renewable ? readSession() : null
+  if (session?.refreshToken && session.expiresAt - Date.now() < RENEW_EARLY_MS) {
+    session = (await renew(session)) ?? endedSession()
+  }
+
+  let response = await send(path, options, session)
+  // Refused before its time, such as after the backend's secret changed: renew once and try again.
+  if (response.status === 401 && session?.refreshToken) {
+    const renewed = await renew(session)
+    if (renewed) response = await send(path, options, renewed)
+  }
   if (response.status === 401) {
-    clearSession()
-    throw new UnauthorizedError()
+    if (renewable) endedSession()
+    throw new UnauthorizedError() // A wrong email or password.
   }
   if (response.status === 404) throw new NotFoundError()
   if (!response.ok) {
@@ -162,9 +230,9 @@ async function request<T>(path: string, options: { method?: string; body?: unkno
   return (response.status === 204 ? undefined : await response.json()) as T
 }
 
-function saveSession({ token, expiresIn, user }: LoginResponse): Session {
+function saveSession({ token, expiresIn, refreshToken, user }: LoginResponse): Session {
   // Counted from now rather than taken from the server's clock, in case this device's clock is off.
-  const session: Session = { token, expiresAt: Date.now() + expiresIn * 1000, email: user.email }
+  const session: Session = { token, expiresAt: Date.now() + expiresIn * 1000, email: user.email, refreshToken }
   store(SESSION_KEY, JSON.stringify(session))
   store(EMAIL_KEY, user.email)
   store(OLD_TOKEN_KEY, null)
@@ -178,6 +246,17 @@ export const api = {
   /** Creates an account with an invite and logs it in. Throws ApiError with the reason if refused. */
   signup: async (email: string, password: string, code: string) =>
     saveSession(await request<LoginResponse>('/api/signup', { method: 'POST', body: { email, password, code } })),
+  /** Forgets this device's session, and ends it on the backend too, quietly: it's forgotten either way. */
+  logOut: async () => {
+    const refreshToken = readSession()?.refreshToken
+    clearSession()
+    if (refreshToken) await request<void>('/api/logout', { method: 'POST', body: { refreshToken } }).catch(() => {})
+  },
+  /** Ends every session of this account, this device's included. */
+  logOutEverywhere: async () => {
+    await request<void>('/api/sessions', { method: 'DELETE' })
+    clearSession()
+  },
   config: () => request<{ vapidPublicKey: string }>('/api/config'),
   me: () => request<{ id: number; email: string; isAdmin: boolean }>('/api/me'),
   settings: () => request<ReminderSettings>('/api/settings'),

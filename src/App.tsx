@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react'
-import { clearSession, readSession, type Session } from './api.ts'
+import { api, clearSession, readSession, type Session } from './api.ts'
 import { Login } from './Login.tsx'
 import { PhraseApp } from './PhraseApp.tsx'
 
@@ -11,7 +11,8 @@ interface AuthState {
 
 function initialState(): AuthState {
   const saved = readSession()
-  if (saved && saved.expiresAt > Date.now()) return { session: saved, expired: false }
+  // One that can be renewed stays logged in; its first request renews it if needed.
+  if (saved && (saved.refreshToken || saved.expiresAt > Date.now())) return { session: saved, expired: false }
   return { session: null, expired: saved !== null }
 }
 
@@ -30,7 +31,7 @@ export default function App({ invite: initialInvite = null }: AppProps) {
     setAuth({ session: next, expired: false })
   }, [])
   const logOut = useCallback(() => {
-    clearSession()
+    void api.logOut()
     setAuth({ session: null, expired: false })
   }, [])
   const expire = useCallback(() => {
@@ -38,10 +39,10 @@ export default function App({ invite: initialInvite = null }: AppProps) {
     setAuth({ session: null, expired: true })
   }, [])
 
-  // Tokens last 12 hours. A suspended app fires this late, on return, and any
-  // request it makes first gets a 401, which also ends the session.
+  // A login from before long sessions ends with its token. A suspended app fires this
+  // late, on return, and any request it makes first gets a 401, which also ends it.
   useEffect(() => {
-    if (!session) return
+    if (!session || session.refreshToken) return
     const timer = setTimeout(expire, Math.max(0, session.expiresAt - Date.now()))
     return () => clearTimeout(timer)
   }, [session, expire])
