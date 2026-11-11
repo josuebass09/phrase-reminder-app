@@ -23,6 +23,12 @@
   --shadow: rgba(43, 42, 38, 0.12);
   --switch-on: #4E7262;
   --switch-off: #DCD8CD;
+  /* Pronunciation scores, each at least 5:1 against --on-score. */
+  --score-low: #A8443A;
+  --score-close: #946200;
+  --score-good: #3D7A50;
+  --score-perfect: #6F4C9B;
+  --on-score: #FFFDF8;
   --font: -apple-system, BlinkMacSystemFont, "SF Pro Text", system-ui, sans-serif;
 }
 
@@ -48,6 +54,11 @@
   --shadow: rgba(0, 0, 0, 0.4);
   --switch-on: #6E9A82;
   --switch-off: #3A3F36;
+  --score-low: #F2B1A8;
+  --score-close: #E8C277;
+  --score-good: #9CCFA9;
+  --score-perfect: #CDB6EC;
+  --on-score: #171A16;
 }
 
 [data-platform="android"] {
@@ -626,6 +637,188 @@ body {
   color: var(--secondary);
   font-size: 13px;
   line-height: 18px;
+}
+
+/* Read by screen readers, but not shown. */
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+/* Pronunciation scores: 1 to 6 low (red), 7 close (amber), 8 and 9 good (green), 10 perfect (purple).
+   The number always shows too, so the color is never the only cue. */
+.score-low { --score: var(--score-low); }
+.score-close { --score: var(--score-close); }
+.score-good { --score: var(--score-good); }
+.score-perfect { --score: var(--score-perfect); }
+
+/* The date, and the last score next to it. */
+.row-info {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+}
+
+.score-badge {
+  flex: none;
+  box-sizing: border-box;
+  min-width: 20px;
+  height: 18px;
+  padding: 0 5px;
+  border-radius: 9px;
+  background: var(--score);
+  color: var(--on-score);
+  font-size: 12px;
+  line-height: 18px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  text-align: center;
+}
+
+/* While recording, the microphone's chip turns red and pulses; tapping it again stops. */
+.row-tool.mic[aria-pressed="true"] .tool-chip {
+  background: var(--score-low);
+  color: var(--on-score);
+}
+
+/* The score that just came back, under the phrase. Like the translation bubble, it sits
+   above the row's edit tap area, so tapping it doesn't open the editor. */
+.score-bubble {
+  position: relative;
+  z-index: 1;
+  cursor: default;
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  margin: 8px 0 2px;
+  padding: 10px 34px 10px 10px; /* Room on the right for the close button. */
+  border: 1px solid color-mix(in srgb, var(--score) 40%, transparent);
+  border-radius: 12px;
+  background: color-mix(in srgb, var(--score) 12%, var(--card));
+  color: var(--text);
+  font-size: 15px;
+  line-height: 20px;
+  overflow-wrap: anywhere;
+  animation: bubble-in 0.15s ease-out;
+}
+
+.score-bubble .bubble-close { background: color-mix(in srgb, var(--text) 10%, transparent); }
+
+.score-ring {
+  flex: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  background: var(--score);
+  color: var(--on-score);
+  font-size: 20px;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+}
+
+.score-body {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.score-body p { margin: 0; }
+
+.score-label { font-weight: 700; }
+
+/* The words to practice: underlined in the score's color, so they stand out without color too. */
+.score-words mark {
+  background: none;
+  color: inherit;
+  font-weight: 600;
+  text-decoration: underline wavy var(--score);
+  text-decoration-thickness: 2px;
+  text-underline-offset: 3px;
+}
+
+.score-tip { color: var(--secondary); }
+
+.score-listen {
+  align-self: flex-start;
+  margin-top: 2px;
+  padding: 4px 10px;
+  border: 0;
+  border-radius: 8px;
+  background: var(--chip);
+  color: var(--accent);
+  font: inherit;
+  font-size: 13px;
+  line-height: 16px;
+  font-weight: 700;
+  cursor: pointer;
+  touch-action: manipulation;
+}
+
+.score-listen[aria-pressed="true"] {
+  background: var(--accent);
+  color: var(--card);
+  animation: speaking 1.2s ease-in-out infinite;
+}
+
+.score-listen:active { opacity: 0.6; }
+
+.score-listen:focus-visible {
+  outline: 2px solid var(--focus);
+  outline-offset: 2px;
+}
+
+/* Each score arrives its own way: a shake for low, a nudge for almost, a pop with a
+   ripple for good, and a pop with a glow that pulses twice for perfect. */
+.score-low .score-ring { animation: score-shake 0.45s ease-in-out; }
+.score-close .score-ring { animation: score-nudge 0.6s ease-out; }
+.score-good .score-ring { animation: score-pop 0.45s cubic-bezier(0.3, 1.6, 0.5, 1), score-ripple 0.9s ease-out; }
+.score-perfect .score-ring { animation: score-pop 0.5s cubic-bezier(0.3, 1.6, 0.5, 1), score-glow 1.2s ease-out 2; }
+
+@keyframes score-shake {
+  20% { transform: translateX(-5px); }
+  40% { transform: translateX(5px); }
+  60% { transform: translateX(-3px); }
+  80% { transform: translateX(3px); }
+}
+
+@keyframes score-nudge {
+  from { transform: scale(0.85); }
+  60% { transform: scale(1.06); }
+}
+
+@keyframes score-pop {
+  from { transform: scale(0.4); opacity: 0; }
+  70% { transform: scale(1.12); opacity: 1; }
+}
+
+@keyframes score-ripple {
+  from { box-shadow: 0 0 0 0 color-mix(in srgb, var(--score) 50%, transparent); }
+  to { box-shadow: 0 0 0 14px color-mix(in srgb, var(--score) 0%, transparent); }
+}
+
+@keyframes score-glow {
+  from {
+    box-shadow:
+      0 0 0 0 color-mix(in srgb, var(--score) 70%, transparent),
+      0 0 0 0 color-mix(in srgb, var(--score) 40%, transparent);
+  }
+  to {
+    box-shadow:
+      0 0 0 10px color-mix(in srgb, var(--score) 0%, transparent),
+      0 0 24px 16px color-mix(in srgb, var(--score) 0%, transparent);
+  }
 }
 
 /* Save button */
@@ -1547,7 +1740,10 @@ body {
   .row,
   .row-tool[aria-pressed="true"] .tool-chip,
   .row-tool[aria-busy="true"] .tool-chip,
-  .translation-bubble { animation: none; }
+  .translation-bubble,
+  .score-bubble,
+  .score-bubble .score-ring,
+  .score-listen[aria-pressed="true"] { animation: none; }
   .theme-changing,
   .theme-changing * { transition: none !important; }
   .primary:not(:disabled):active { transform: none; }

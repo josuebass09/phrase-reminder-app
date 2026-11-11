@@ -3,9 +3,9 @@ import { api, type Usage } from './api.ts'
 import { useT } from './i18n.ts'
 import { Spinner } from './Spinner.tsx'
 
-type Counts = { translations: Usage; suggestions: Usage }
+type Counts = { translations: Usage; suggestions: Usage; pronunciations?: Usage }
 
-/** What the user has used today of each daily limit: the Translate button, and new Spanish translations. */
+/** What the user has used today of each daily limit: the Translate button, new Spanish translations, and pronunciation scores. */
 export function DailyUsage() {
   const t = useT()
   const [counts, setCounts] = useState<Counts | 'failed' | null>(null)
@@ -23,9 +23,9 @@ export function DailyUsage() {
 
   function valueOf(kind: keyof Counts) {
     if (counts === null) return <Spinner />
-    if (counts === 'failed') return '—'
-    const { used, limit } = counts[kind]
-    return limit === null ? t.usedNoLimit(used) : t.usedOf(used, limit)
+    const usage = counts === 'failed' ? undefined : counts[kind]
+    if (!usage) return '—' // Also from a backend from before pronunciation scores.
+    return usage.limit === null ? t.usedNoLimit(usage.used) : t.usedOf(usage.used, usage.limit)
   }
 
   return (
@@ -44,6 +44,12 @@ export function DailyUsage() {
           <span>{t.usageSpanish}</span>
           <span className="setting-value" aria-busy={counts === null}>
             {valueOf('translations')}
+          </span>
+        </div>
+        <div className="setting-row">
+          <span>{t.usagePronunciation}</span>
+          <span className="setting-value" aria-busy={counts === null}>
+            {valueOf('pronunciations')}
           </span>
         </div>
       </div>

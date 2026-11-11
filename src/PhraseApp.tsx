@@ -7,7 +7,8 @@ import { messagesFor, useT } from './i18n.ts'
 import { BellIcon, CheckIcon, ContextIcon, HistoryIcon, PenIcon, SparklesIcon, SunIcon, UserIcon } from './icons.tsx'
 import { getLanguage, isLanguage, setLanguage, type Language } from './language.ts'
 import type { OptionStyle } from './OptionCard.tsx'
-import { PhraseRow, type Speaking, type Translation } from './PhraseRow.tsx'
+import { PhraseRow, type Attempt, type Speaking, type Translation } from './PhraseRow.tsx'
+import { recordingSupported, startRecording, type Recorder } from './recorder.ts'
 import { Settings } from './Settings.tsx'
 import { Spinner } from './Spinner.tsx'
 import { SuggestionPanel, type Suggestion } from './SuggestionPanel.tsx'
@@ -59,6 +60,13 @@ export function PhraseApp({ session, onLogOut, onExpired }: PhraseAppProps) {
   const [playing, setPlaying] = useState<{ key: string; slow: boolean } | null>(null)
   // By phrase id. A translation stays here after its bubble closes, so reopening it needs no request.
   const [translations, setTranslations] = useState<Record<number, Translation>>({})
+  const [canRecord] = useState(recordingSupported)
+  // By phrase id: saying it aloud, from the recording to the last score's bubble.
+  const [attempts, setAttempts] = useState<Record<number, Attempt>>({})
+  // The recording in progress. Only one phrase records at a time.
+  const recorderRef = useRef<{ id: number; recorder: Recorder } | null>(null)
+  // Counts the scores that came back, to tell each try from the next.
+  const tries = useRef(0)
   const [reminders, setReminders] = useState<Reminders>(pushSupported ? 'checking' : 'off')
   const [vapidKey, setVapidKey] = useState<string | null>(null)
 
@@ -171,18 +179,21 @@ export function PhraseApp({ session, onLogOut, onExpired }: PhraseAppProps) {
     }
   }, [])
 
-  // Leaving the app, or logging out, stops a phrase being read. A suspended app
-  // may never report the end, which would leave its button showing Stop.
+  // Leaving the app, or logging out, stops a phrase being read, and drops a recording
+  // in progress. A suspended app may never report the end, which would leave its
+  // button showing Stop, or keep the microphone on.
   useEffect(() => {
     const onHidden = () => {
       if (document.visibilityState !== 'hidden') return
       stopSpeaking()
       setPlaying(null)
+      recorderRef.current?.recorder.cancel()
     }
     document.addEventListener('visibilitychange', onHidden)
     return () => {
       document.removeEventListener('visibilitychange', onHidden)
       stopSpeaking()
+      recorderRef.current?.recorder.cancel()
     }
   }, [])
 
@@ -336,12 +347,71 @@ export function PhraseApp({ session, onLogOut, onExpired }: PhraseAppProps) {
     }
   }
 
+  const setAttempt = (id: number, next: Attempt | null) =>
+    setAttempts((all) => {
+      const { [id]: _dropped, ...rest } = all
+      return next ? { ...rest, [id]: next } : rest
+    })
+
+  /**
+   * Records the user saying the phrase, or stops the recording and gets its score.
+   * Nothing is read aloud meanwhile, so the microphone doesn't hear the device's own voice.
+   */
+  async function togglePronounce(phrase: Phrase) {
+    const current = recorderRef.current
+    if (current?.id === phrase.id) {
+      current.recorder.stop()
+      return
+    }
+    const state = attempts[phrase.id]?.state
+    if (state === 'recording' || state === 'scoring') return // Asking for the microphone, or waiting for the score.
+    current?.recorder.cancel()
+    stopSpeaking()
+    setPlaying(null)
+    setAttempt(phrase.id, { state: 'recording' })
+
+    let recording: Blob | null
+    try {
+      const recorder = await startRecording()
+      recorderRef.current = { id: phrase.id, recorder }
+      recording = await recorder.done
+    } catch (err) {
+      setAttempt(phrase.id, null)
+      showToast((err as { name?: string } | null)?.name === 'NotAllowedError' ? t.micBlocked : t.couldntRecord, true)
+      return
+    } finally {
+      if (recorderRef.current?.id === phrase.id) recorderRef.current = null
+    }
+    if (!recording) {
+      setAttempt(phrase.id, null) // Cancelled.
+      return
+    }
+
+    setAttempt(phrase.id, { state: 'scoring' })
+    try {
+      const result = await api.pronounce(phrase.id, recording)
+      tries.current += 1
+      setAttempt(phrase.id, { state: 'scored', result, id: tries.current })
+      const scored = (list: Phrase[]) => list.map((item) => (item.id === phrase.id ? { ...item, lastScore: result.score } : item))
+      setRecent(scored)
+      setToday(scored)
+    } catch (err) {
+      setAttempt(phrase.id, null)
+      if (err instanceof NotFoundError) dropPhrase(phrase.id, true)
+      else if (err instanceof ApiError) showToast(err.message, true) // Today's limit, or nobody was heard.
+      else fail(err, t.couldntScore)
+    }
+  }
+
   const rowProps = (phrase: Phrase) => ({
     ...(canSpeak
       ? { onSpeak: (spoken: Phrase, slow: boolean) => toggleSpeech(phraseKey(spoken), spoken.text, slow), speaking: speakingOf(phraseKey(phrase)) }
       : {}),
     onTranslate: toggleTranslation,
     translation: translations[phrase.id],
+    ...(canRecord
+      ? { onPronounce: togglePronounce, onCloseScore: (closed: Phrase) => setAttempt(closed.id, null), attempt: attempts[phrase.id] }
+      : {}),
   })
 
   // A phrase can be in both Today and Recent, so changes apply to both lists.
@@ -350,6 +420,7 @@ export function PhraseApp({ session, onLogOut, onExpired }: PhraseAppProps) {
     setRecent(swap)
     setToday(swap)
     setTranslation(updated.id, null) // The text may have changed, so the old translation may be wrong.
+    setAttempt(updated.id, null) // And the score was for the old text; the backend drops it too.
     setEditing(null)
     showToast(t.phraseUpdated)
   }
@@ -359,6 +430,8 @@ export function PhraseApp({ session, onLogOut, onExpired }: PhraseAppProps) {
     setRecent(without)
     setToday(without)
     setTranslation(id, null)
+    if (recorderRef.current?.id === id) recorderRef.current.recorder.cancel()
+    setAttempt(id, null)
     setEditing(null)
     showToast(alreadyGone ? t.alreadyDeleted : t.phraseDeleted, alreadyGone)
   }

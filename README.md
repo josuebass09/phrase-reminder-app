@@ -37,6 +37,19 @@ The 文A button next to the speed buttons shows the phrase in Spanish, in a spee
 
 Each user may ask for 30 new translations a day (the admin has no limit); reopening a saved one doesn't count. Past the limit, the app says so and the count starts over at the user's midnight. Settings shows how many they've used today.
 
+## Say a phrase and get a score
+
+The microphone button, after 文A, records you saying the phrase: tap it, say the phrase, and tap it again. It also stops on its own after 10 seconds. While it records it turns red, and nothing is read aloud, so the microphone only hears you. The backend scores it from 1 to 10, and the result shows under the phrase:
+
+- **1 to 6**, red, with a shake: poor pronunciation
+- **7**, amber, with a nudge: almost there
+- **8 or 9**, green, with a pop: good pronunciation
+- **10**, purple, with a pop and a glow: perfect pronunciation
+
+The words it didn't hear are underlined, with a tip on the sounds to fix and **Hear it at 0.5x**. The X closes it. The last score stays next to the phrase's date, and editing the phrase drops it. The number always shows with its color, and with reduced motion on, nothing moves.
+
+The first time, the phone asks to use the microphone. The recording goes to the backend and on to Groq to be heard, and isn't kept. Each user may get 20 scores a day (the admin has no limit), and Settings shows how many they've used. Browsers that can't record show no microphone. The backend's README explains the score: it says how clearly the phrase came through more than how native it sounded.
+
 ## Translate a new phrase
 
 Type it under **Translate phrase**, in Spanish or English, and optionally a **Context** underneath, such as "Slack message to my manager about a late deploy". **Translate** shows a formal way to say it in English (for work) and an informal one (for friends), above Today and Recent, in English only, each with the 1x and 0.5x buttons. Save the one you like and it goes to the top of Recent, where 文A translates it like any other phrase; both boxes then clear for the next phrase.

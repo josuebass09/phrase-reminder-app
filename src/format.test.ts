@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { platformOf, savedLabel } from './format.ts'
+import { platformOf, savedLabel, scoreBand } from './format.ts'
 
 describe('savedLabel', () => {
   const now = new Date(2026, 10, 10, 9, 0)
@@ -25,5 +25,13 @@ describe('platformOf', () => {
     expect(platformOf('Mozilla/5.0 (Linux; Android 14; Pixel 8)')).toBe('android')
     expect(platformOf('Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X)')).toBe('ios')
     expect(platformOf('Mozilla/5.0 (Macintosh; Intel Mac OS X 15_0)')).toBe('ios')
+  })
+})
+
+describe('scoreBand', () => {
+  it('reads 1 to 6 as low, 7 as close, 8 and 9 as good, and 10 as perfect', () => {
+    expect([1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map(scoreBand)).toEqual([
+      'low', 'low', 'low', 'low', 'low', 'low', 'close', 'good', 'good', 'perfect',
+    ])
   })
 })

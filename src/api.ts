@@ -4,6 +4,20 @@ export interface Phrase {
   id: number
   text: string
   createdAt: string
+  /** The score, from 1 to 10, of the last time the user said it aloud, or null if never. */
+  lastScore?: number | null
+}
+
+/** How the user said a phrase aloud, scored by the backend. */
+export interface Pronunciation {
+  /** From 1 to 10. */
+  score: number
+  /** The phrase's words, in order, each marked as heard or not. */
+  words: { text: string; ok: boolean }[]
+  /** What the speech recognizer heard. */
+  heard: string
+  /** One short tip, in the app's language. */
+  tip: string
 }
 
 /** One way to say a new phrase in English, from the AI. */
@@ -122,17 +136,19 @@ export class ApiError extends Error {
   }
 }
 
-async function request<T>(path: string, options: { method?: string; body?: unknown } = {}): Promise<T> {
+/** A JSON body, or a recording sent as it is. */
+async function request<T>(path: string, options: { method?: string; body?: unknown; audio?: Blob } = {}): Promise<T> {
   // The backend writes its messages for people, such as today's limit, in this language.
   const headers: Record<string, string> = { 'Accept-Language': getLanguage() }
   const token = readSession()?.token
   if (token) headers.Authorization = `Bearer ${token}`
-  if (options.body !== undefined) headers['Content-Type'] = 'application/json'
+  if (options.audio) headers['Content-Type'] = options.audio.type
+  else if (options.body !== undefined) headers['Content-Type'] = 'application/json'
 
   const response = await fetch(`${API_URL}${path}`, {
     method: options.method ?? 'GET',
     headers,
-    body: options.body === undefined ? undefined : JSON.stringify(options.body),
+    body: options.audio ?? (options.body === undefined ? undefined : JSON.stringify(options.body)),
   })
   if (response.status === 401) {
     clearSession()
@@ -165,8 +181,8 @@ export const api = {
   config: () => request<{ vapidPublicKey: string }>('/api/config'),
   me: () => request<{ id: number; email: string; isAdmin: boolean }>('/api/me'),
   settings: () => request<ReminderSettings>('/api/settings'),
-  /** Today's new translations and suggestions, each with its daily limit. */
-  usage: () => request<{ translations: Usage; suggestions: Usage }>('/api/usage'),
+  /** Today's new translations, suggestions and pronunciation scores, each with its daily limit. */
+  usage: () => request<{ translations: Usage; suggestions: Usage; pronunciations?: Usage }>('/api/usage'),
   /** Saves only the settings given, and returns them all. */
   updateSettings: (changes: Partial<ReminderSettings>) =>
     request<ReminderSettings>('/api/settings', { method: 'PATCH', body: changes }),
@@ -184,6 +200,9 @@ export const api = {
   /** A formal and an informal way to say the text in English, fitted to the context if there is one. Nothing is saved. */
   suggest: (text: string, context?: string) =>
     request<Suggestions>('/api/suggestions', { method: 'POST', body: context ? { text, context } : { text } }),
+  /** Scores a recording of the user saying the phrase. The backend saves the score, not the recording. */
+  pronounce: (id: number, recording: Blob) =>
+    request<Pronunciation>(`/api/phrases/${id}/pronunciation`, { method: 'POST', audio: recording }),
   subscribe: (subscription: PushSubscription) =>
     request<void>('/api/push/subscribe', { method: 'POST', body: subscription.toJSON() }),
 }

@@ -2,7 +2,7 @@ import { act, fireEvent, render, screen, waitFor, within } from '@testing-librar
 import userEvent from '@testing-library/user-event'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import App from './App.tsx'
-import { readSession, type Phrase } from './api.ts'
+import { readSession, type Phrase, type Pronunciation } from './api.ts'
 import { fakeSpeech } from './test/fake-speech.ts'
 import { deviceTimeZone } from './format.ts'
 
@@ -35,6 +35,8 @@ function fakeBackend(
     translationFails = false,
     settingsFail = false,
     translationLimitReached = false,
+    pronunciation,
+    pronunciationError,
     suggestionsFail = 0,
     suggestionLimitReached = false,
     language = 'en',
@@ -44,6 +46,10 @@ function fakeBackend(
     translationFails?: boolean
     settingsFail?: boolean
     translationLimitReached?: boolean
+    /** What scoring a recording gives; every word heard and a 9 by default. */
+    pronunciation?: Pronunciation
+    /** The backend's refusal to score one, such as nobody being heard. */
+    pronunciationError?: { status: number; error: string }
     /** How many suggestion requests fail before one works. */
     suggestionsFail?: number
     suggestionLimitReached?: boolean
@@ -68,7 +74,8 @@ function fakeBackend(
       const method = init.method ?? 'GET'
       const path = new URL(input, 'http://app.test').pathname
       const headers = (init.headers ?? {}) as Record<string, string>
-      const body = init.body ? JSON.parse(String(init.body)) : undefined
+      // A recording is sent as it is; everything else is JSON.
+      const body = typeof init.body === 'string' ? JSON.parse(init.body) : undefined
       if (hold && path === hold.path) await hold.released
 
       if (path === '/api/login') {
@@ -89,6 +96,7 @@ function fakeBackend(
         return json(200, {
           translations: { used: translationsUsed, limit: admin ? null : 30 },
           suggestions: { used: suggestionsUsed, limit: admin ? null : 20 },
+          pronunciations: { used: 0, limit: admin ? null : 20 },
         })
       }
       if (path === '/api/suggestions') {
@@ -128,6 +136,22 @@ function fakeBackend(
         translationsUsed += 1
         return json(200, { translation: SPANISH[phrase.text] ?? `(es) ${phrase.text}` })
       }
+      const pronouncedId = Number(path.match(/^\/api\/phrases\/(\d+)\/pronunciation$/)?.[1])
+      if (pronouncedId) {
+        const index = phrases.findIndex((candidate) => candidate.id === pronouncedId)
+        const phrase = phrases[index]
+        if (!phrase) return json(404, { error: 'Phrase not found' })
+        if (!(init.body instanceof Blob) || !headers['Content-Type'].startsWith('audio/')) return json(400, {})
+        if (pronunciationError) return json(pronunciationError.status, { error: pronunciationError.error })
+        const result = pronunciation ?? {
+          score: 9,
+          words: phrase.text.split(' ').map((text) => ({ text, ok: true })),
+          heard: phrase.text,
+          tip: 'Very good! Every word was understood.',
+        }
+        phrases[index] = { ...phrase, lastScore: result.score } // A copy: tests share their seed phrases.
+        return json(200, result)
+      }
       const id = Number(path.match(/^\/api\/phrases\/(\d+)$/)?.[1])
       const index = phrases.findIndex((phrase) => phrase.id === id)
       if (index < 0) return json(404, { error: 'Phrase not found' })
@@ -159,7 +183,41 @@ function startLoggedIn() {
   render(<App />)
 }
 
-afterEach(() => vi.unstubAllGlobals())
+/** A microphone and MediaRecorder for jsdom, which has neither. Each recording is "fake audio". */
+function fakeMicrophone({ blocked = false } = {}) {
+  const stopTrack = vi.fn()
+  const getUserMedia = vi.fn(async () => {
+    if (blocked) throw new DOMException('Permission denied', 'NotAllowedError')
+    return { getTracks: () => [{ stop: stopTrack }] }
+  })
+  Object.defineProperty(navigator, 'mediaDevices', { value: { getUserMedia }, configurable: true })
+  class FakeMediaRecorder {
+    static isTypeSupported = (type: string) => type === 'audio/webm;codecs=opus'
+    state = 'inactive'
+    mimeType: string
+    ondataavailable: ((event: { data: Blob }) => void) | null = null
+    onstop: (() => void) | null = null
+    onerror: (() => void) | null = null
+    constructor(_stream: unknown, options?: { mimeType?: string }) {
+      this.mimeType = options?.mimeType ?? ''
+    }
+    start() {
+      this.state = 'recording'
+    }
+    stop() {
+      this.state = 'inactive'
+      this.ondataavailable?.({ data: new Blob(['fake audio'], { type: this.mimeType }) })
+      this.onstop?.()
+    }
+  }
+  vi.stubGlobal('MediaRecorder', FakeMediaRecorder)
+  return { getUserMedia, stopTrack }
+}
+
+afterEach(() => {
+  vi.unstubAllGlobals()
+  Reflect.deleteProperty(navigator, 'mediaDevices')
+})
 
 describe('the app', () => {
   it('logs in with the email and password and then shows the phrases', async () => {
@@ -302,6 +360,90 @@ describe('the app', () => {
     await waitFor(() => expect(recent.querySelector('.row-text')?.textContent).toBe("I'll keep you posted."))
     expect(screen.queryByRole('alert')).toBeNull()
     expect(phrases.map((phrase) => phrase.text)).toEqual(["I'll keep you posted.", 'It slipt my mind.'])
+  })
+
+  it('scores the phrase said aloud, shows how it went, and keeps the score on the phrase', async () => {
+    const result: Pronunciation = {
+      score: 8,
+      words: [
+        { text: 'It', ok: true },
+        { text: 'slipt', ok: false },
+        { text: 'my', ok: true },
+        { text: 'mind.', ok: true },
+      ],
+      heard: 'It slept my mind.',
+      tip: 'Say "slipt" with a short "i", as in "sit".',
+    }
+    fakeBackend([typo], [], { pronunciation: result })
+    const microphone = fakeMicrophone()
+    const user = userEvent.setup()
+    startLoggedIn()
+    await screen.findByText('It slipt my mind.')
+    const row = document.querySelector<HTMLElement>('#phrases .row')!
+    const mic = within(row).getByRole('button', { name: 'Say it and get a score' })
+
+    await user.click(mic)
+    await waitFor(() => expect(mic.getAttribute('aria-pressed')).toBe('true'))
+    await user.click(mic)
+
+    const bubble = await within(row).findByRole('status')
+    expect(bubble.classList).toContain('score-good')
+    expect(within(bubble).getByText('Good pronunciation')).toBeTruthy()
+    expect(bubble.querySelector('mark')?.textContent).toBe('slipt')
+    expect(within(bubble).getByText(result.tip)).toBeTruthy()
+    expect(within(row).getByText('Last score: 8 of 10, good pronunciation')).toBeTruthy()
+    expect(mic.getAttribute('aria-pressed')).toBe('false')
+    expect(microphone.stopTrack).toHaveBeenCalled() // The microphone is off again.
+    const sent = vi.mocked(fetch).mock.calls.find(([url]) => String(url).endsWith('/pronunciation'))
+    expect(sent?.[1]?.body).toBeInstanceOf(Blob)
+    expect(sent?.[1]?.headers).toMatchObject({ 'Content-Type': 'audio/webm;codecs=opus' })
+
+    await user.click(within(bubble).getByRole('button', { name: 'Close score' }))
+    expect(within(row).queryByRole('status')).toBeNull()
+    expect(within(row).getByText('Last score: 8 of 10, good pronunciation')).toBeTruthy()
+  })
+
+  it("shows a phrase's last score, with no microphone where the browser can't record", async () => {
+    fakeBackend([{ ...typo, lastScore: 10 }])
+    startLoggedIn()
+    await screen.findByText('It slipt my mind.')
+
+    const badge = screen.getByText('Last score: 10 of 10, perfect pronunciation').parentElement!
+    expect(badge.classList).toContain('score-perfect')
+    expect(badge.textContent).toContain('10')
+    expect(screen.queryByRole('button', { name: 'Say it and get a score' })).toBeNull()
+  })
+
+  it('says when the microphone is blocked', async () => {
+    fakeBackend([typo])
+    fakeMicrophone({ blocked: true })
+    const user = userEvent.setup()
+    startLoggedIn()
+    await screen.findByText('It slipt my mind.')
+    const mic = screen.getByRole('button', { name: 'Say it and get a score' })
+
+    await user.click(mic)
+
+    expect(await screen.findByText('The microphone is blocked. Allow it in your settings.')).toBeTruthy()
+    expect(mic.getAttribute('aria-pressed')).toBe('false')
+  })
+
+  it("shows the backend's reason when it can't score, and keeps no score", async () => {
+    const reason = "Couldn't hear you. Get closer to the microphone and try again."
+    fakeBackend([typo], [], { pronunciationError: { status: 422, error: reason } })
+    fakeMicrophone()
+    const user = userEvent.setup()
+    startLoggedIn()
+    await screen.findByText('It slipt my mind.')
+    const mic = screen.getByRole('button', { name: 'Say it and get a score' })
+
+    await user.click(mic)
+    await waitFor(() => expect(mic.getAttribute('aria-pressed')).toBe('true'))
+    await user.click(mic)
+
+    expect(await screen.findByText(reason)).toBeTruthy()
+    expect(screen.queryByText(/^Last score/)).toBeNull()
+    expect(mic.getAttribute('aria-busy')).toBe('false')
   })
 
   it('fixes a phrase in both Today and Recent', async () => {
@@ -807,7 +949,7 @@ describe('the app', () => {
 
     const sheet = screen.getByRole('dialog')
     expect(await within(sheet).findByText('1 of 30')).toBeTruthy()
-    expect(within(sheet).getByText('0 of 20')).toBeTruthy()
+    expect(within(sheet).getAllByText('0 of 20')).toHaveLength(2) // Suggestions and pronunciation scores.
   })
 
   it('shows the admin no limit', async () => {
@@ -818,7 +960,7 @@ describe('the app', () => {
 
     await user.click(screen.getByRole('button', { name: 'Settings' }))
 
-    expect(await within(screen.getByRole('dialog')).findAllByText('0 · no limit')).toHaveLength(2)
+    expect(await within(screen.getByRole('dialog')).findAllByText('0 · no limit')).toHaveLength(3)
   })
 })
 

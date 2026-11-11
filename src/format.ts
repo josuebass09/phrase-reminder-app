@@ -38,3 +38,13 @@ export function deviceTimeZone(): string | null {
     return null
   }
 }
+
+/** How a pronunciation score reads: 1 to 6 needs practice, 7 is almost there, 8 and 9 are good, and 10 is perfect. */
+export type ScoreBand = 'low' | 'close' | 'good' | 'perfect'
+
+export function scoreBand(score: number): ScoreBand {
+  if (score >= 10) return 'perfect'
+  if (score >= 8) return 'good'
+  if (score >= 7) return 'close'
+  return 'low'
+}
