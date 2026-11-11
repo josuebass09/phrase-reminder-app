@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { getTheme, startTheme, subscribeTheme, toggleTheme } from './theme.ts'
+import { getTheme, getThemeChoice, setThemeChoice, startTheme, subscribeTheme } from './theme.ts'
 
 /** A stand-in for the device's dark mode setting, which jsdom doesn't have. */
 function deviceDarkMode(dark: boolean) {
@@ -35,6 +35,7 @@ describe('theme', () => {
     startTheme()
 
     expect(getTheme()).toBe('dark')
+    expect(getThemeChoice()).toBe('system')
     expect(document.documentElement.dataset.theme).toBe('dark')
   })
 
@@ -44,18 +45,18 @@ describe('theme', () => {
     expect(document.documentElement.dataset.theme).toBe('light')
   })
 
-  it('toggles, colors the status bar, and remembers the choice over the device setting', () => {
+  it('uses a chosen theme, colors the status bar, and remembers it over the device setting', () => {
     deviceDarkMode(false)
     startTheme()
     const changed = vi.fn()
     const unsubscribe = subscribeTheme(changed)
 
-    toggleTheme()
+    setThemeChoice('dark')
 
     expect(document.documentElement.dataset.theme).toBe('dark')
     expect([...document.querySelectorAll('meta[name="theme-color"]')].map((meta) => meta.getAttribute('content'))).toEqual([
-      '#2E463B',
-      '#2E463B',
+      '#0E111C',
+      '#0E111C',
     ])
     expect(changed).toHaveBeenCalledTimes(1)
     expect(localStorage.getItem('phrase-reminder-theme')).toBe('dark')
@@ -63,17 +64,29 @@ describe('theme', () => {
 
     startTheme() // As on the next launch.
     expect(getTheme()).toBe('dark')
+    expect(getThemeChoice()).toBe('dark')
   })
 
-  it('follows changes to the device setting until a choice is made', () => {
+  it("follows the device's setting while that is the choice, and not after another one", () => {
     const device = deviceDarkMode(false)
     startTheme()
 
     device.change(true)
     expect(getTheme()).toBe('dark')
 
-    toggleTheme() // Now light, by choice.
+    setThemeChoice('light')
     device.change(true)
     expect(getTheme()).toBe('light')
+  })
+
+  it("goes back to the device's setting, and forgets the saved one", () => {
+    deviceDarkMode(true)
+    startTheme()
+    setThemeChoice('light')
+
+    setThemeChoice('system')
+
+    expect(getTheme()).toBe('dark')
+    expect(localStorage.getItem('phrase-reminder-theme')).toBeNull()
   })
 })

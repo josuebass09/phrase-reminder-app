@@ -1,16 +1,6 @@
 import { dateLocale, messagesFor } from './i18n.ts'
 import type { Language } from './language.ts'
 
-export type Platform = 'ios' | 'android'
-
-/** Android gets the Material look; iPhone and computers get the iOS look. */
-export function platformOf(userAgent: string): Platform {
-  return /android/i.test(userAgent) ? 'android' : 'ios'
-}
-
-// Keep in sync with the .tone-* classes in styles.css.
-export const TONE_COUNT = 6
-
 /** When a phrase was saved, such as "Saved today" or "Saved Mar 4", in the app's language. */
 export function savedLabel(iso: string, language: Language = 'en', now = new Date()): string {
   const t = messagesFor(language)
@@ -22,6 +12,11 @@ export function savedLabel(iso: string, language: Language = 'en', now = new Dat
   const options: Intl.DateTimeFormatOptions = { month: 'short', day: 'numeric' }
   if (saved.getFullYear() !== now.getFullYear()) options.year = 'numeric'
   return t.savedOn(new Intl.DateTimeFormat(dateLocale(language), options).format(saved))
+}
+
+/** Today's date for the Today tab's title, such as "Tuesday, November 10" or "martes, 10 de noviembre". */
+export function todayLabel(language: Language = 'en', now = new Date()): string {
+  return new Intl.DateTimeFormat(dateLocale(language), { weekday: 'long', month: 'long', day: 'numeric' }).format(now)
 }
 
 /** A 24-hour HH:MM time as this device shows times, such as 8:30 AM or 08:30. */

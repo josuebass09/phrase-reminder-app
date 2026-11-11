@@ -4,7 +4,6 @@ import { Brand } from './Brand.tsx'
 import { useT, type Messages } from './i18n.ts'
 import { inviteCodeFrom } from './invite.ts'
 import { Spinner } from './Spinner.tsx'
-import { ThemeToggle } from './ThemeToggle.tsx'
 
 const MIN_PASSWORD_LENGTH = 12 // Matches the backend.
 
@@ -29,7 +28,7 @@ function messageFor(err: unknown, t: Messages): string {
 export function Login({ invite, expired, onLoggedIn }: LoginProps) {
   const t = useT()
   const [mode, setMode] = useState<Mode>(invite ? 'signup' : 'login')
-  // When logging in, the last email is filled in, since sessions end every 12 hours.
+  // When logging in, the last email is filled in, for someone logging back in.
   // An invite is for someone new, so its form starts empty.
   const [email, setEmail] = useState(() => (invite ? '' : lastEmail()))
   const [password, setPassword] = useState('')
@@ -62,13 +61,11 @@ export function Login({ invite, expired, onLoggedIn }: LoginProps) {
 
   return (
     <div className="app login">
-      <div className="top">
-        <header className="bar">
-          <Brand />
-          <ThemeToggle />
-        </header>
-      </div>
       <main className="login-body">
+        <div className="login-brand">
+          <Brand />
+          <p className="login-tagline">{t.tagline}</p>
+        </div>
         <form className="login-form" onSubmit={submit}>
           {signingUp && <h2 className="login-title">{t.createAccount}</h2>}
           {signingUp && invite && !error && (

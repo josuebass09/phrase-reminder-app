@@ -1,84 +1,66 @@
-/* "Salvia y papel": muted sage on warm paper, chosen to be easy on the eyes.
-   No pure white or black, and no saturated colors; text keeps WCAG AA contrast. */
+/* "Azul noche": cobalt on blue-tinted greys, one design for iPhone, Android and computers.
+   Every color is a token below, light first, then dark (set by src/theme.ts). Text keeps
+   WCAG AA contrast on its background in both themes. */
 :root {
   color-scheme: light;
-  --header: #4E7262;
-  --bg: #F6F4EE;
-  --card: #FFFDF8;
-  --field: #FFFDF8;
-  --text: #2B2A26;
-  --secondary: #6B675E;
-  --sep: #E7E2D6;
-  --outline: #8C877B;
-  --accent: #4E7262;
-  --focus: #4E7262;
-  --chip: #EDEAE0;
-  --disabled-bg: #ECE8DE;
-  --disabled-text: #6B675E;
-  --error-text: #A8443A;
-  --save: #E9A178;
-  --on-save: #3A1E0E;
-  --success: #4E7262;
-  --error: #A8443A;
-  --shadow: rgba(43, 42, 38, 0.12);
-  --switch-on: #4E7262;
-  --switch-off: #DCD8CD;
+  --bg: #F4F5F8; /* Keep in sync with STATUS_BAR in src/theme.ts. */
+  --surface: #FFFFFF;
+  --field: #F4F5F8;
+  --chip: #EDEFF5;
+  --text: #151A2D;
+  --muted: #5A6077;
+  --border: #E1E4EE;
+  --primary: #2F4BB8;
+  --primary-pressed: #263E9A;
+  --soft: #E6EAF9;
+  --on-primary: #FFFFFF;
+  --danger: #B23A2E;
+  --danger-soft: #F8E7E5;
+  --focus: #2F4BB8;
+  --backdrop: rgba(14, 17, 28, 0.42);
+  --shadow: 0 1px 2px rgba(21, 26, 45, 0.06);
+  --shadow-raised: 0 10px 28px rgba(21, 26, 45, 0.16), 0 2px 6px rgba(21, 26, 45, 0.08);
+  --fab-shadow: 0 8px 20px rgba(47, 75, 184, 0.32);
   /* Pronunciation scores, each at least 5:1 against --on-score. */
-  --score-low: #A8443A;
-  --score-close: #946200;
-  --score-good: #3D7A50;
-  --score-perfect: #6F4C9B;
-  --on-score: #FFFDF8;
-  --font: -apple-system, BlinkMacSystemFont, "SF Pro Text", system-ui, sans-serif;
+  --score-low: #B23A2E;
+  --score-close: #9A6400;
+  --score-good: #2F7A4B;
+  --score-perfect: #6B46A8;
+  --on-score: #FFFFFF;
+
+  --font: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", Roboto, "Helvetica Neue", system-ui, sans-serif;
+  --gutter: 16px;
+  --tabbar-height: 58px;
+  --radius-card: 16px;
+  --radius-control: 12px;
 }
 
-/* Set by src/theme.ts, from the toggle or the device's setting. */
 :root[data-theme="dark"] {
   color-scheme: dark;
-  --header: #2E463B;
-  --bg: #171A16;
-  --card: #21251F;
-  --field: #171A16;
-  --text: #ECE8DE;
-  --secondary: #B4AE9F;
-  --sep: #2F342C;
-  --outline: #8C877B;
-  --accent: #A8C9B4;
-  --focus: #A8C9B4;
-  --chip: #2C3229;
-  --disabled-bg: #2A2E27;
-  --disabled-text: #B4AE9F;
-  --error-text: #F2B1A8;
-  --success: #3F6252;
-  --error: #8E3B33;
-  --shadow: rgba(0, 0, 0, 0.4);
-  --switch-on: #6E9A82;
-  --switch-off: #3A3F36;
-  --score-low: #F2B1A8;
-  --score-close: #E8C277;
-  --score-good: #9CCFA9;
-  --score-perfect: #CDB6EC;
-  --on-score: #171A16;
+  --bg: #0E111C;
+  --surface: #161A29;
+  --field: #0E111C;
+  --chip: #1F2437;
+  --text: #E8EAF3;
+  --muted: #9EA4BD;
+  --border: #262B40;
+  --primary: #91A6FF;
+  --primary-pressed: #A9B9FF;
+  --soft: #1E2547;
+  --on-primary: #0E1430;
+  --danger: #F2A99E;
+  --danger-soft: #3A1F1E;
+  --focus: #91A6FF;
+  --backdrop: rgba(0, 0, 0, 0.6);
+  --shadow: 0 1px 2px rgba(0, 0, 0, 0.3);
+  --shadow-raised: 0 10px 28px rgba(0, 0, 0, 0.5), 0 2px 6px rgba(0, 0, 0, 0.3);
+  --fab-shadow: 0 8px 20px rgba(0, 0, 0, 0.45);
+  --score-low: #F2A99E;
+  --score-close: #EBC27A;
+  --score-good: #93D3A9;
+  --score-perfect: #C9B3F0;
+  --on-score: #121316;
 }
-
-[data-platform="android"] {
-  --font: Roboto, "Noto Sans", system-ui, sans-serif;
-}
-
-/* Phrase tile colors, muted to match. Keep the count in sync with TONE_COUNT in src/format.ts. */
-.tone-0 { --tint: #F4E3D7; --ink: #A0644A; }
-.tone-1 { --tint: #E1EBDF; --ink: #4E7262; }
-.tone-2 { --tint: #E3E8EE; --ink: #55708C; }
-.tone-3 { --tint: #F3EAD3; --ink: #8F7436; }
-.tone-4 { --tint: #EAE3EA; --ink: #7B6181; }
-.tone-5 { --tint: #F2E1DE; --ink: #9C5B55; }
-
-[data-theme="dark"] .tone-0 { --tint: #3A2A22; --ink: #E8B49A; }
-[data-theme="dark"] .tone-1 { --tint: #26332B; --ink: #A8C9B4; }
-[data-theme="dark"] .tone-2 { --tint: #262E36; --ink: #A9BCD1; }
-[data-theme="dark"] .tone-3 { --tint: #362F1F; --ink: #D9C08A; }
-[data-theme="dark"] .tone-4 { --tint: #302832; --ink: #C7B3CB; }
-[data-theme="dark"] .tone-5 { --tint: #36262A; --ink: #DDA7A2; }
 
 /* While the theme changes, colors fade over instead of jumping. */
 .theme-changing,
@@ -87,6 +69,9 @@
 }
 
 /* Base */
+*,
+*::before,
+*::after { box-sizing: border-box; }
 * { -webkit-tap-highlight-color: transparent; }
 [hidden] { display: none !important; }
 
@@ -105,538 +90,24 @@ html, body {
 body {
   color: var(--text);
   font-family: var(--font);
+  font-size: 16px;
+  line-height: 1.4;
 }
 
-.app {
-  position: relative;
-  display: flex;
-  flex-direction: column;
-  height: 100vh;
-  height: 100dvh;
-  max-width: 560px;
-  margin: 0 auto;
-  overflow: hidden;
+button, input, select, textarea { font: inherit; color: inherit; }
+button { cursor: pointer; touch-action: manipulation; }
+button:disabled { cursor: default; }
+p, h1, h2, h3 { margin: 0; }
+
+:focus-visible {
+  outline: 2px solid var(--focus);
+  outline-offset: 2px;
 }
 
 .icon {
   flex: none;
-  width: 16px;
-  height: 16px;
-}
-
-/* Header */
-.top {
-  display: flex;
-  flex-direction: column;
-  gap: 16px;
-  padding: calc(env(safe-area-inset-top) + 16px) 16px 16px;
-  background: var(--header);
-  border-radius: 0 0 24px 24px;
-}
-
-.bar {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-}
-
-.brand {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  min-width: 0;
-  color: #FFFFFF;
-}
-
-.brand h1 {
-  margin: 0;
-  font-size: 34px;
-  line-height: 41px;
-  font-weight: 700;
-}
-
-.brand-mark {
-  flex: none;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 40px;
-  height: 40px;
-  border-radius: 11px;
-  background: rgba(255, 255, 255, 0.16);
-}
-
-.brand-mark .icon {
-  width: 22px;
-  height: 22px;
-  stroke-width: 1.75;
-}
-
-.pill {
-  position: relative;
-  flex: none;
-  display: flex;
-  align-items: center;
-  gap: 5px;
-  padding: 6px 10px;
-  border: 0;
-  border-radius: 999px;
-  background: rgba(255, 255, 255, 0.16);
-  color: #FFFFFF;
-  font-family: inherit;
-  font-size: 13px;
-  line-height: 18px;
-  font-weight: 600;
-  touch-action: manipulation;
-}
-
-/* Extends the tap area to 44px without changing how the pill looks. */
-.pill::after {
-  content: "";
-  position: absolute;
-  inset: -7px 0;
-}
-
-.pill:active { opacity: 0.82; }
-
-.pill:focus-visible {
-  outline: 2px solid #FFFFFF;
-  outline-offset: 2px;
-}
-
-.pill-off {
-  background: var(--save);
-  color: var(--on-save);
-}
-
-.bar-actions {
-  flex: none;
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-
-/* iOS large titles stand alone, as in Apple's apps, which also leaves room for the header buttons. */
-[data-platform="ios"] .brand-mark { display: none; }
-
-/* Narrow phones, such as the first iPhone SE (320px): a smaller title keeps the buttons from covering it. */
-@media (max-width: 359px) {
-  .brand h1 {
-    font-size: 28px;
-    line-height: 34px;
-  }
-
-  .bar-actions { gap: 4px; }
-}
-
-/* Under 340px, the reminders button shows only its bell; its label still says what it does. */
-@media (max-width: 339px) {
-  .pill span { display: none; }
-  .pill { padding: 6px 8px; }
-}
-
-.bar-button {
-  position: relative;
-  flex: none;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 32px;
-  height: 32px;
-  padding: 0;
-  border: 0;
-  border-radius: 999px;
-  background: rgba(255, 255, 255, 0.16);
-  color: #FFFFFF;
-  touch-action: manipulation;
-}
-
-/* A 44px tap area around the 32px circle. */
-.bar-button::after {
-  content: "";
-  position: absolute;
-  inset: -6px;
-}
-
-.bar-button .icon {
   width: 18px;
   height: 18px;
-}
-
-.bar-button:active { opacity: 0.82; }
-
-.bar-button:focus-visible {
-  outline: 2px solid #FFFFFF;
-  outline-offset: 2px;
-}
-
-/* Input */
-.field {
-  position: relative;
-  padding-top: 24px;
-}
-
-.field label {
-  position: absolute;
-  top: 0;
-  left: 16px;
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  color: #FFFFFF;
-  font-size: 13px;
-  line-height: 18px;
-  font-weight: 500;
-}
-
-.field label .icon {
-  width: 14px;
-  height: 14px;
-}
-
-.field textarea,
-.field input {
-  display: block;
-  width: 100%;
-  box-sizing: border-box;
-  border: 0;
-  border-radius: 12px;
-  outline: none;
-  background: var(--field);
-  color: var(--text);
-  font-family: inherit;
-  font-size: 17px;
-  line-height: 22px;
-}
-
-.field textarea {
-  height: 88px;
-  padding: 12px 16px;
-  resize: none;
-}
-
-.field input {
-  height: 50px;
-  padding: 0 16px;
-}
-
-.field textarea::placeholder {
-  color: currentColor;
-  opacity: 0.72;
-}
-
-.field textarea:focus,
-.field input:focus {
-  box-shadow: 0 0 0 2px #FFB4A8;
-}
-
-.hint {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  margin: 6px 0 0;
-  padding: 0 16px;
-  color: #FFFFFF;
-  font-size: 13px;
-  line-height: 18px;
-}
-
-.hint .icon {
-  width: 14px;
-  height: 14px;
-}
-
-/* Today and Recent */
-.content {
-  flex: 1;
-  min-height: 0;
-  display: flex;
-  flex-direction: column;
-  gap: 20px;
-  padding: 20px 16px 12px;
-  overflow-y: auto;
-  scrollbar-width: none;
-}
-
-.content::-webkit-scrollbar { display: none; }
-
-.group {
-  flex: none;
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-}
-
-.group h2 {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  margin: 0;
-  color: var(--accent);
-  font-size: 20px;
-  line-height: 25px;
-  font-weight: 600;
-}
-
-.group h2 .icon {
-  width: 20px;
-  height: 20px;
-}
-
-.phrases {
-  margin: 0;
-  padding: 0;
-  list-style: none;
-  background: var(--card);
-  border-radius: 12px;
-  overflow: hidden;
-}
-
-.phrases:empty { display: none; }
-.phrases:not(:empty) + .empty { display: none; }
-
-.empty {
-  margin: 0;
-  color: var(--secondary);
-  font-size: 15px;
-  line-height: 20px;
-}
-
-.row {
-  position: relative;
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  padding-left: 16px;
-}
-
-.row:has(.row-edit:active) { background: var(--sep); }
-
-.tile {
-  flex: none;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 36px;
-  height: 36px;
-  border-radius: 10px;
-  background: var(--tint);
-  color: var(--ink);
-}
-
-.tile .icon {
-  width: 19px;
-  height: 19px;
-}
-
-.row-body {
-  flex: 1;
-  min-width: 0;
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-  padding: 11px 0;
-}
-
-.row:not(:last-child) .row-body,
-.row:not(:last-child) .row-edit {
-  border-bottom: 0.5px solid var(--sep);
-}
-
-/* The date, with the listen and translate buttons on the right. */
-.row-meta {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 8px;
-}
-
-/* Above the edit button's full-row tap area (.row-edit::after), so tapping these doesn't open the editor. */
-.row-tools {
-  position: relative;
-  z-index: 1;
-  flex: none;
-  display: flex;
-  margin: -6px -3px -6px 0;
-}
-
-/* Each button is taller than its chip, for an easy tap. The chip shows a speed, like a video player's, or the translate icon. */
-.row-tool {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  min-height: 36px;
-  padding: 0 3px;
-  border: 0;
-  background: none;
-  font-family: inherit;
-  cursor: pointer;
-  touch-action: manipulation;
-}
-
-.tool-chip {
-  box-sizing: border-box;
-  min-width: 34px;
-  padding: 4px 7px;
-  border-radius: 8px;
-  background: var(--chip);
-  color: var(--accent);
-  font-size: 13px;
-  line-height: 16px;
-  font-weight: 700;
-  font-variant-numeric: tabular-nums;
-  text-align: center;
-}
-
-.tool-chip .icon {
-  display: block;
-  width: 16px;
-  height: 16px;
-  margin: 0 auto;
-}
-
-/* The playing speed fills in and pulses; tapping it again stops. The translate chip fills in while its bubble shows. */
-.row-tool[aria-pressed="true"] .tool-chip {
-  background: var(--accent);
-  color: var(--card);
-}
-
-.row-tool:not(.translate)[aria-pressed="true"] .tool-chip,
-.row-tool[aria-busy="true"] .tool-chip { animation: speaking 1.2s ease-in-out infinite; }
-
-/* The Spanish translation, in a speech bubble whose tail points at the original.
-   It sits above the row's edit tap area, so tapping its text doesn't open the editor. */
-.translation-bubble {
-  position: relative;
-  z-index: 1;
-  cursor: default;
-  align-self: flex-start;
-  max-width: 100%;
-  box-sizing: border-box;
-  margin: 0 0 8px;
-  padding: 6px 30px 6px 10px; /* Room on the right for the close button. */
-  border-radius: 12px;
-  background: var(--accent);
-  color: var(--card);
-  font-size: 15px;
-  line-height: 20px;
-  overflow-wrap: anywhere;
-  animation: bubble-in 0.15s ease-out;
-}
-
-.translation-bubble::after {
-  content: "";
-  position: absolute;
-  left: 14px;
-  bottom: -6px;
-  border: 6px solid transparent;
-  border-top-color: var(--accent);
-  border-bottom: 0;
-}
-
-.translation-bubble p { margin: 0; }
-
-/* The X in the bubble's top-right corner. */
-.bubble-close {
-  position: absolute;
-  top: 4px;
-  right: 4px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 22px;
-  height: 22px;
-  padding: 0;
-  border: 0;
-  border-radius: 50%;
-  background: rgba(255, 255, 255, 0.18);
-  color: inherit;
-  cursor: pointer;
-  touch-action: manipulation;
-}
-
-/* A 38px tap area around the 22px circle. */
-.bubble-close::after {
-  content: "";
-  position: absolute;
-  inset: -8px;
-}
-
-.bubble-close .icon {
-  width: 14px;
-  height: 14px;
-  stroke-width: 2.5;
-}
-
-.bubble-close:active { opacity: 0.7; }
-
-.bubble-close:focus-visible {
-  outline: 2px solid currentColor;
-  outline-offset: 1px;
-}
-
-@keyframes bubble-in {
-  from { opacity: 0; transform: translateY(4px); }
-}
-
-.row-tool:active .tool-chip { opacity: 0.6; }
-
-.row-tool:focus-visible {
-  outline: 2px solid var(--focus);
-  outline-offset: -4px;
-  border-radius: 10px;
-}
-
-@keyframes speaking {
-  50% { opacity: 0.7; }
-}
-
-/* The edit button stretches over the whole row, so a tap anywhere on it opens the editor. */
-.row-edit {
-  flex: none;
-  align-self: stretch;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 48px;
-  margin-left: -12px;
-  padding: 0;
-  border: 0;
-  background: none;
-  color: var(--secondary);
-  font: inherit;
-  cursor: pointer;
-}
-
-.row-edit::after {
-  content: "";
-  position: absolute;
-  inset: 0;
-}
-
-.row-edit .icon {
-  width: 20px;
-  height: 20px;
-}
-
-.row-edit:focus-visible { outline: none; }
-
-.row-edit:focus-visible::after {
-  outline: 2px solid var(--focus);
-  outline-offset: -2px;
-}
-
-.row-text {
-  overflow-wrap: anywhere;
-  font-size: 17px;
-  line-height: 22px;
-}
-
-.when {
-  color: var(--secondary);
-  font-size: 13px;
-  line-height: 18px;
 }
 
 /* Read by screen readers, but not shown. */
@@ -652,6 +123,890 @@ body {
   border: 0;
 }
 
+/* A ring that turns, in the color of the text around it. */
+.spinner {
+  --size: 18px;
+  flex: none;
+  display: inline-block;
+  width: var(--size);
+  height: var(--size);
+}
+
+.spinner svg {
+  display: block;
+  width: 100%;
+  height: 100%;
+  animation: spinner-turn 0.9s linear infinite;
+}
+
+.spinner circle {
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2.6;
+  stroke-linecap: round;
+  stroke-dasharray: 40 60;
+}
+
+@keyframes spinner-turn {
+  to { transform: rotate(360deg); }
+}
+
+/* The app: the tabs' pages, each scrolling on its own, over the tab bar. */
+.app {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+  height: 100dvh;
+  max-width: 640px;
+  margin: 0 auto;
+  overflow: hidden;
+}
+
+.panels {
+  position: relative;
+  flex: 1;
+  min-height: 0;
+}
+
+.panel {
+  position: absolute;
+  inset: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+
+.page {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding:
+    calc(env(safe-area-inset-top, 0px) + 20px)
+    max(var(--gutter), env(safe-area-inset-right, 0px))
+    calc(var(--tabbar-height) + 96px)
+    max(var(--gutter), env(safe-area-inset-left, 0px));
+}
+
+.page-head {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 4px;
+}
+
+.page-titles { min-width: 0; }
+
+.page-head h1 {
+  font-size: 32px;
+  line-height: 1.12;
+  font-weight: 750;
+  letter-spacing: -0.02em;
+}
+
+.page-sub {
+  margin-top: 2px;
+  color: var(--muted);
+  font-size: 15px;
+}
+
+.page-sub::first-letter { text-transform: uppercase; }
+
+/* The daily reminder's time, at the top of Today. */
+.pill {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 34px;
+  padding: 0 12px;
+  border: 0;
+  border-radius: 999px;
+  background: var(--soft);
+  color: var(--primary);
+  font-size: 14px;
+  font-weight: 650;
+}
+
+.pill .icon { width: 16px; height: 16px; }
+.pill-off { background: var(--chip); color: var(--text); }
+.pill .spinner { --size: 16px; }
+.pill:active { opacity: 0.7; }
+
+.section-label {
+  margin: 8px 4px 0;
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 650;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+/* Phrase cards */
+.cards {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.card {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 14px 14px 12px 16px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-card);
+  background: var(--surface);
+  box-shadow: var(--shadow);
+}
+
+.card:has(.card-open:active) { background: var(--chip); }
+
+/* The open button stretches over the whole card, so a tap anywhere opens the phrase. */
+.card-open {
+  position: absolute;
+  inset: 0;
+  padding: 0;
+  border: 0;
+  border-radius: inherit;
+  background: none;
+}
+
+.card-open:focus-visible { outline-offset: -2px; }
+
+.card-text {
+  font-size: 18px;
+  line-height: 1.3;
+  font-weight: 620;
+  overflow-wrap: anywhere;
+}
+
+.card-spanish {
+  color: var(--muted);
+  font-size: 15px;
+  line-height: 1.35;
+  overflow-wrap: anywhere;
+}
+
+.card-foot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-top: 8px;
+}
+
+/* Above the open button, so tapping these doesn't open the phrase. */
+.card-tools {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  gap: 8px;
+}
+
+.card-meta {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  margin-left: auto;
+}
+
+.when {
+  color: var(--muted);
+  font-size: 13px;
+  white-space: nowrap;
+}
+
+/* Round buttons: play, the microphone, and the sheets' close and edit. */
+.icon-button {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 38px;
+  height: 38px;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: var(--soft);
+  color: var(--primary);
+  transition: background-color 0.15s ease, color 0.15s ease;
+}
+
+.icon-button .icon { width: 17px; height: 17px; }
+.icon-button:active { opacity: 0.7; }
+.icon-button[aria-pressed="true"] { background: var(--primary); color: var(--on-primary); }
+.icon-button.plain { background: none; color: var(--text); }
+.icon-button.plain .icon { width: 22px; height: 22px; }
+
+/* While recording, the microphone turns red and pulses; tapping it again stops. */
+.icon-button.mic[aria-pressed="true"],
+.action.mic[aria-pressed="true"] {
+  background: var(--score-low);
+  color: var(--on-score);
+  animation: recording 1.2s ease-in-out infinite;
+}
+
+@keyframes recording {
+  50% { box-shadow: 0 0 0 6px color-mix(in srgb, var(--score-low) 22%, transparent); }
+}
+
+.loading {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  padding: 32px 0;
+  color: var(--muted);
+  font-size: 15px;
+}
+
+/* Today with no reminder yet: what comes next, and what to do meanwhile. */
+.empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  margin-top: 8px;
+  padding: 28px 20px 24px;
+  border: 1px solid var(--border);
+  border-radius: 20px;
+  background: var(--surface);
+  text-align: center;
+}
+
+.empty-mark {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 52px;
+  height: 52px;
+  margin-bottom: 4px;
+  border-radius: 50%;
+  background: var(--soft);
+  color: var(--primary);
+}
+
+.empty-mark .icon { width: 24px; height: 24px; }
+
+.empty h2 {
+  max-width: 30ch;
+  font-size: 19px;
+  line-height: 1.3;
+  font-weight: 680;
+  text-wrap: balance;
+}
+
+.empty p {
+  max-width: 36ch;
+  color: var(--muted);
+  font-size: 15px;
+  text-wrap: pretty;
+}
+
+.empty-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 8px;
+  margin-top: 10px;
+}
+
+.empty-line {
+  padding: 24px 8px;
+  color: var(--muted);
+  font-size: 15px;
+  text-align: center;
+}
+
+.load-more { align-self: center; margin-top: 4px; }
+
+/* The Phrases tab's search. */
+.search {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.search .icon {
+  position: absolute;
+  left: 13px;
+  color: var(--muted);
+  pointer-events: none;
+}
+
+.search input {
+  width: 100%;
+  height: 44px;
+  padding: 0 14px 0 40px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-control);
+  background: var(--surface);
+  font-size: 16px;
+  -webkit-appearance: none;
+  appearance: none;
+}
+
+.search input::placeholder { color: var(--muted); }
+
+.search input:focus {
+  outline: none;
+  border-color: var(--primary);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--primary) 18%, transparent);
+}
+
+/* The + button, above the tab bar. */
+.fab {
+  position: absolute;
+  right: max(var(--gutter), env(safe-area-inset-right, 0px));
+  bottom: calc(var(--tabbar-height) + env(safe-area-inset-bottom, 0px) + 16px);
+  z-index: 2;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 56px;
+  height: 56px;
+  padding: 0;
+  border: 0;
+  border-radius: 18px;
+  background: var(--primary);
+  color: var(--on-primary);
+  box-shadow: var(--fab-shadow);
+  transition: transform 0.15s ease;
+}
+
+.fab .icon { width: 26px; height: 26px; stroke-width: 2.4; }
+.fab:active { transform: scale(0.94); background: var(--primary-pressed); }
+
+/* The tab bar */
+.tabbar {
+  position: relative;
+  z-index: 3;
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  min-height: calc(var(--tabbar-height) + env(safe-area-inset-bottom, 0px));
+  padding:
+    6px
+    max(8px, env(safe-area-inset-right, 0px))
+    calc(env(safe-area-inset-bottom, 0px) + 6px)
+    max(8px, env(safe-area-inset-left, 0px));
+  border-top: 1px solid var(--border);
+  background: var(--surface);
+}
+
+.tab {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 3px;
+  padding: 0;
+  border: 0;
+  border-radius: 12px;
+  background: none;
+  color: var(--muted);
+  font-size: 11.5px;
+  font-weight: 600;
+}
+
+.tab .icon { width: 23px; height: 23px; }
+.tab[aria-current="page"] { color: var(--primary); }
+.tab[aria-current="page"] .icon { stroke-width: 2.3; }
+.tab:focus-visible { outline-offset: -2px; }
+
+/* Toasts, above the tab bar */
+.toast-region {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: calc(var(--tabbar-height) + env(safe-area-inset-bottom, 0px) + 88px);
+  z-index: 4;
+  display: flex;
+  justify-content: center;
+  padding: 0 var(--gutter);
+  pointer-events: none;
+}
+
+.toast {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  max-width: 100%;
+  padding: 10px 16px;
+  border-radius: 999px;
+  background: var(--text);
+  color: var(--bg);
+  font-size: 15px;
+  font-weight: 550;
+  box-shadow: var(--shadow-raised);
+  animation: toast-in 0.2s ease-out;
+}
+
+.toast .icon { width: 16px; height: 16px; }
+.toast-error { background: var(--danger); color: var(--on-score); }
+.toast-error .icon { display: none; }
+
+@keyframes toast-in {
+  from { opacity: 0; transform: translateY(8px); }
+}
+
+/* Buttons */
+.primary {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-height: 48px;
+  padding: 0 20px;
+  border: 0;
+  border-radius: var(--radius-control);
+  background: var(--primary);
+  color: var(--on-primary);
+  font-size: 16px;
+  font-weight: 650;
+}
+
+.primary:not(:disabled):active { background: var(--primary-pressed); }
+.primary:disabled { background: var(--chip); color: var(--muted); }
+
+.secondary {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-height: 44px;
+  padding: 0 18px;
+  border: 0;
+  border-radius: var(--radius-control);
+  background: var(--soft);
+  color: var(--primary);
+  font-size: 15px;
+  font-weight: 650;
+}
+
+.secondary:not(:disabled):active { opacity: 0.75; }
+.secondary:disabled { opacity: 0.6; }
+
+.text-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  min-height: 44px;
+  padding: 0 4px;
+  border: 0;
+  background: none;
+  color: var(--primary);
+  font-size: 16px;
+}
+
+.text-button.strong { font-weight: 650; }
+.text-button:disabled { color: var(--muted); }
+.text-button:not(:disabled):active { opacity: 0.6; }
+
+.link-button {
+  align-self: flex-start;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 36px;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--primary);
+  font-size: 15px;
+  font-weight: 620;
+}
+
+.link-button .spinner { --size: 16px; }
+
+/* Forms */
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.field label {
+  color: var(--muted);
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.field input,
+.field textarea,
+.sheet-text {
+  width: 100%;
+  padding: 12px 14px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-control);
+  background: var(--field);
+  font-size: 17px;
+  line-height: 1.35;
+  -webkit-appearance: none;
+  appearance: none;
+}
+
+.field textarea { min-height: 96px; resize: none; }
+.field input::placeholder,
+.field textarea::placeholder { color: var(--muted); }
+
+.field input:focus,
+.field textarea:focus,
+.sheet-text:focus {
+  outline: none;
+  border-color: var(--primary);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--primary) 18%, transparent);
+}
+
+.form-error {
+  color: var(--danger);
+  font-size: 15px;
+}
+
+/* Sheets: from the bottom on a phone, and centered on a wider screen. */
+.sheet {
+  width: 100%;
+  max-width: 560px;
+  max-height: calc(100dvh - env(safe-area-inset-top, 0px) - 16px);
+  margin: auto auto 0;
+  padding: 0;
+  border: 0;
+  border-radius: 22px 22px 0 0;
+  background: var(--surface);
+  color: var(--text);
+  box-shadow: var(--shadow-raised);
+}
+
+.sheet[open] {
+  display: flex;
+  flex-direction: column;
+  animation: sheet-in 0.26s cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+
+.sheet::backdrop { background: var(--backdrop); }
+
+@keyframes sheet-in {
+  from { transform: translateY(24px); opacity: 0.4; }
+}
+
+@media (min-width: 640px) {
+  .sheet {
+    margin: auto;
+    border-radius: 22px;
+  }
+}
+
+.sheet-form {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  flex: 1;
+}
+
+.sheet-bar {
+  flex: none;
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+}
+
+.sheet-bar > :first-child { justify-self: start; }
+.sheet-bar > :last-child { justify-self: end; }
+
+.sheet-bar h2 {
+  font-size: 17px;
+  font-weight: 650;
+}
+
+.sheet-body {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  min-height: 0;
+  overflow-y: auto;
+  padding: 6px 20px calc(env(safe-area-inset-bottom, 0px) + 24px);
+}
+
+.sheet-text {
+  min-height: 140px;
+  resize: none;
+  font-size: 20px;
+}
+
+/* A phrase's sheet, to read */
+.reader { gap: 12px; }
+
+.reader-text {
+  font-size: 27px;
+  line-height: 1.25;
+  font-weight: 720;
+  letter-spacing: -0.01em;
+  overflow-wrap: anywhere;
+}
+
+.reader-spanish {
+  color: var(--muted);
+  font-size: 18px;
+  line-height: 1.35;
+  overflow-wrap: anywhere;
+}
+
+.reader-meta {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 6px;
+}
+
+.action {
+  flex: 1 1 0;
+  min-width: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  min-height: 48px;
+  padding: 0 8px;
+  white-space: nowrap;
+  border: 0;
+  border-radius: var(--radius-control);
+  background: var(--soft);
+  color: var(--primary);
+  font-size: 15px;
+  font-weight: 650;
+  transition: background-color 0.15s ease, color 0.15s ease;
+}
+
+.action .icon { width: 17px; height: 17px; }
+.action:active { opacity: 0.75; }
+.action[aria-pressed="true"] { background: var(--primary); color: var(--on-primary); }
+
+.delete-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-height: 48px;
+  border: 0;
+  border-radius: var(--radius-control);
+  background: var(--danger-soft);
+  color: var(--danger);
+  font-size: 16px;
+  font-weight: 620;
+}
+
+.delete-button.confirming { background: var(--danger); color: var(--on-score); }
+.delete-button:disabled { opacity: 0.6; }
+
+/* The new phrase's sheet */
+.composer .primary { width: 100%; }
+
+/* Saving the text as typed, without the AI. */
+.save-typed {
+  align-self: center;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 44px;
+  padding: 0 8px;
+  border: 0;
+  background: none;
+  color: var(--primary);
+  font-size: 16px;
+  font-weight: 620;
+}
+
+.save-typed:disabled { color: var(--muted); }
+.save-typed:not(:disabled):active { opacity: 0.6; }
+
+/* The AI's ways to say the new phrase */
+.suggestions {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding-top: 4px;
+}
+
+.group-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.group-head h2 {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 650;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+.group-head h2 .icon { width: 15px; height: 15px; }
+
+.options-close {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: var(--chip);
+  color: var(--muted);
+}
+
+.options-close .icon { width: 15px; height: 15px; }
+
+.options-status {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 0;
+  color: var(--muted);
+  font-size: 15px;
+}
+
+.options-error {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 8px;
+  padding: 12px 14px;
+  border-radius: var(--radius-control);
+  background: var(--danger-soft);
+  color: var(--danger);
+  font-size: 15px;
+}
+
+.options-retry {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: inherit;
+  font-weight: 650;
+}
+
+.options-retry .icon { width: 15px; height: 15px; }
+
+.options-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.option-card {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 14px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-card);
+  background: var(--field);
+}
+
+.option-head {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+
+.option-title {
+  color: var(--primary);
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+.option-hint {
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.option-text {
+  font-size: 18px;
+  line-height: 1.3;
+  font-weight: 620;
+  overflow-wrap: anywhere;
+}
+
+.option-actions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-top: 4px;
+}
+
+.option-tools { display: flex; gap: 6px; }
+
+/* An option's speed buttons: small chips with the speed, like a video player's. */
+.row-tool {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 36px;
+  padding: 0;
+  border: 0;
+  background: none;
+}
+
+.tool-chip {
+  min-width: 42px;
+  padding: 6px 10px;
+  border-radius: 999px;
+  background: var(--soft);
+  color: var(--primary);
+  font-size: 13px;
+  line-height: 16px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  text-align: center;
+  transition: background-color 0.15s ease, color 0.15s ease;
+}
+
+.row-tool[aria-pressed="true"] .tool-chip { background: var(--primary); color: var(--on-primary); }
+.row-tool:active .tool-chip { opacity: 0.7; }
+
+.option-save {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 38px;
+  padding: 0 16px;
+  border: 0;
+  border-radius: 999px;
+  background: var(--primary);
+  color: var(--on-primary);
+  font-size: 15px;
+  font-weight: 650;
+}
+
+.option-save .icon { width: 16px; height: 16px; }
+.option-save:disabled { background: var(--chip); color: var(--muted); }
+
 /* Pronunciation scores: 1 to 6 low (red), 7 close (amber), 8 and 9 good (green), 10 perfect (purple).
    The number always shows too, so the color is never the only cue. */
 .score-low { --score: var(--score-low); }
@@ -659,66 +1014,51 @@ body {
 .score-good { --score: var(--score-good); }
 .score-perfect { --score: var(--score-perfect); }
 
-/* The date, and the last score next to it. */
-.row-info {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  min-width: 0;
-}
-
 .score-badge {
   flex: none;
-  box-sizing: border-box;
-  min-width: 20px;
-  height: 18px;
-  padding: 0 5px;
-  border-radius: 9px;
+  min-width: 22px;
+  height: 20px;
+  padding: 0 6px;
+  border-radius: 10px;
   background: var(--score);
   color: var(--on-score);
   font-size: 12px;
-  line-height: 18px;
-  font-weight: 700;
+  line-height: 20px;
+  font-weight: 750;
   font-variant-numeric: tabular-nums;
   text-align: center;
 }
 
-/* While recording, the microphone's chip turns red and pulses; tapping it again stops. */
-.row-tool.mic[aria-pressed="true"] .tool-chip {
-  background: var(--score-low);
-  color: var(--on-score);
-}
-
-/* The score that just came back, under the phrase. Like the translation bubble, it sits
-   above the row's edit tap area, so tapping it doesn't open the editor. */
+/* The score that just came back. Like the card's tools, it sits above the open button. */
 .score-bubble {
   position: relative;
   z-index: 1;
   cursor: default;
   display: flex;
   align-items: flex-start;
-  gap: 10px;
-  margin: 8px 0 2px;
-  padding: 10px 34px 10px 10px; /* Room on the right for the close button. */
+  gap: 12px;
+  margin-top: 10px;
+  padding: 12px 40px 12px 12px; /* Room on the right for the close button. */
   border: 1px solid color-mix(in srgb, var(--score) 40%, transparent);
-  border-radius: 12px;
-  background: color-mix(in srgb, var(--score) 12%, var(--card));
-  color: var(--text);
+  border-radius: 14px;
+  background: color-mix(in srgb, var(--score) 10%, var(--surface));
   font-size: 15px;
-  line-height: 20px;
+  line-height: 1.35;
   overflow-wrap: anywhere;
   animation: bubble-in 0.15s ease-out;
 }
 
-.score-bubble .bubble-close { background: color-mix(in srgb, var(--text) 10%, transparent); }
+@keyframes bubble-in {
+  from { opacity: 0; transform: translateY(4px); }
+}
 
 .score-ring {
   flex: none;
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 44px;
-  height: 44px;
+  width: 46px;
+  height: 46px;
   border-radius: 50%;
   background: var(--score);
   color: var(--on-score);
@@ -734,50 +1074,61 @@ body {
   gap: 4px;
 }
 
-.score-body p { margin: 0; }
-
 .score-label { font-weight: 700; }
 
 /* The words to practice: underlined in the score's color, so they stand out without color too. */
 .score-words mark {
   background: none;
   color: inherit;
-  font-weight: 600;
+  font-weight: 650;
   text-decoration: underline wavy var(--score);
   text-decoration-thickness: 2px;
   text-underline-offset: 3px;
 }
 
-.score-tip { color: var(--secondary); }
+.score-tip { color: var(--muted); }
 
 .score-listen {
   align-self: flex-start;
-  margin-top: 2px;
-  padding: 4px 10px;
+  margin-top: 4px;
+  padding: 6px 12px;
   border: 0;
-  border-radius: 8px;
+  border-radius: 999px;
   background: var(--chip);
-  color: var(--accent);
-  font: inherit;
+  color: var(--primary);
   font-size: 13px;
-  line-height: 16px;
   font-weight: 700;
-  cursor: pointer;
-  touch-action: manipulation;
 }
 
-.score-listen[aria-pressed="true"] {
-  background: var(--accent);
-  color: var(--card);
-  animation: speaking 1.2s ease-in-out infinite;
+.score-listen[aria-pressed="true"] { background: var(--primary); color: var(--on-primary); }
+.score-listen:active { opacity: 0.7; }
+
+/* The X in a bubble's top-right corner. */
+.bubble-close {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: color-mix(in srgb, var(--text) 10%, transparent);
+  color: var(--text);
 }
 
-.score-listen:active { opacity: 0.6; }
-
-.score-listen:focus-visible {
-  outline: 2px solid var(--focus);
-  outline-offset: 2px;
+/* A 40px tap area around the 26px circle. */
+.bubble-close::after {
+  content: "";
+  position: absolute;
+  inset: -7px;
 }
+
+.bubble-close .icon { width: 14px; height: 14px; stroke-width: 2.5; }
+.bubble-close:active { opacity: 0.7; }
 
 /* Each score arrives its own way: a shake for low, a nudge for almost, a pop with a
    ripple for good, and a pop with a glow that pulses twice for perfect. */
@@ -821,388 +1172,47 @@ body {
   }
 }
 
-/* Save button */
-.actions {
-  padding: 12px 16px max(env(safe-area-inset-bottom), 12px);
-  background: var(--bg);
-  border-top: 0.5px solid var(--sep);
-}
-
-.primary {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 8px;
-  width: 100%;
-  height: 50px;
-  border: 0;
-  border-radius: 14px;
-  background: var(--save);
-  color: var(--on-save);
-  font-family: inherit;
-  font-size: 17px;
-  font-weight: 600;
-  touch-action: manipulation;
-  user-select: none;
-  -webkit-user-select: none;
-  transition: transform 0.12s ease, opacity 0.12s ease;
-}
-
-.primary:disabled {
-  background: var(--disabled-bg);
-  color: var(--disabled-text);
-}
-
-.primary:not(:disabled):active {
-  transform: scale(0.98);
-  opacity: 0.82;
-}
-
-.primary:focus-visible {
-  outline: 2px solid var(--focus);
-  outline-offset: 2px;
-}
-
-.primary .icon {
-  width: 20px;
-  height: 20px;
-}
-
-/* Confirmation */
-.toast-region {
-  position: absolute;
-  left: 16px;
-  right: 16px;
-  bottom: calc(max(env(safe-area-inset-bottom), 12px) + 74px);
-  display: flex;
-  justify-content: center;
-  pointer-events: none;
-}
-
-.toast {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  padding: 10px 16px;
-  border-radius: 999px;
-  background: var(--success);
-  color: #FFFFFF;
-  font-size: 15px;
-  line-height: 20px;
-  font-weight: 500;
-  box-shadow: 0 4px 16px var(--shadow);
-  animation: rise 0.2s ease-out;
-}
-
-.toast .icon {
-  width: 18px;
-  height: 18px;
-}
-
-.toast-error { background: var(--error); }
-.toast-error .icon { display: none; }
-
-@keyframes rise {
-  from { opacity: 0; transform: translateY(8px); }
-  to { opacity: 1; transform: none; }
-}
-
-/* Login */
-.login-body { padding: 24px 16px; }
-
-.login-form {
-  display: flex;
-  flex-direction: column;
-  gap: 16px;
-}
-
-.login-notice,
-.login-hint {
-  margin: 0;
-  color: var(--secondary);
-  font-size: 15px;
-  line-height: 20px;
-}
-
-/* Sits right under the password field, closer than the form's usual gap. */
-.login-hint { margin-top: -10px; }
-
-.login-title {
-  margin: 0;
-  font-size: 22px;
-  line-height: 28px;
-  font-weight: 700;
-}
-
-.login-switch { align-self: center; }
-
-.login .field label { color: var(--secondary); }
-.login .field input { background: var(--card); border: 1px solid var(--outline); }
-.login .field input:focus { box-shadow: 0 0 0 2px var(--focus); }
-
-.form-error {
-  margin: 0;
-  color: var(--error-text);
-  font-size: 15px;
-  line-height: 20px;
-}
-
-/* Edit sheet. It sits near the top so the on-screen keyboard never covers it. */
-.sheet {
-  box-sizing: border-box;
-  width: calc(100% - 24px);
-  max-width: 536px;
-  margin: max(env(safe-area-inset-top), 12px) auto auto;
-  padding: 0;
-  border: 0;
-  border-radius: 14px;
-  background: var(--card);
-  color: var(--text);
-  font-family: var(--font);
-  box-shadow: 0 8px 32px var(--shadow);
-}
-
-.sheet[open] { animation: rise 0.2s ease-out; }
-.sheet::backdrop { background: rgba(0, 0, 0, 0.4); }
-
-.sheet-form {
-  display: flex;
-  flex-direction: column;
-}
-
-.sheet-bar {
-  display: grid;
-  grid-template-columns: 1fr auto 1fr;
-  align-items: center;
-  min-height: 52px;
-  padding: 0 8px;
-  border-bottom: 0.5px solid var(--sep);
-}
-
-.sheet-bar h2 {
-  margin: 0;
-  font-size: 17px;
-  line-height: 22px;
-  font-weight: 600;
-}
-
-.text-button {
-  justify-self: start;
-  min-height: 44px;
-  padding: 0 8px;
-  border: 0;
-  background: none;
-  color: var(--accent);
-  font-family: inherit;
-  font-size: 17px;
-  touch-action: manipulation;
-}
-
-.text-button.strong {
-  justify-self: end;
-  font-weight: 600;
-}
-
-.text-button:disabled { color: var(--disabled-text); opacity: 0.6; }
-
-.text-button:focus-visible,
-.delete-button:focus-visible,
-.sheet-action:focus-visible,
-.invite-button:focus-visible {
-  outline: 2px solid var(--focus);
-  outline-offset: -2px;
-  border-radius: 8px;
-}
-
-.sheet-text {
-  display: block;
-  box-sizing: border-box;
-  width: 100%;
-  height: 132px;
-  margin: 0;
-  padding: 12px 16px;
-  border: 0;
-  outline: none;
-  resize: none;
-  background: none;
-  color: var(--text);
-  font-family: inherit;
-  font-size: 17px;
-  line-height: 22px;
-}
-
-.sheet .form-error { padding: 0 16px 12px; }
-
-.account-info {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-  padding: 16px;
-}
-
-.account-email {
-  margin: 0;
-  font-size: 17px;
-  line-height: 22px;
-  font-weight: 600;
-  overflow-wrap: anywhere;
-}
-
-.account-note {
-  margin: 0;
-  color: var(--secondary);
-  font-size: 15px;
-  line-height: 20px;
-}
-
-.delete-button,
-.sheet-action {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 8px;
-  min-height: 50px;
-  border: 0;
-  border-top: 0.5px solid var(--sep);
-  background: none;
-  color: var(--error-text);
-  font-family: inherit;
-  font-size: 17px;
-  touch-action: manipulation;
-}
-
-.delete-button .icon,
-.sheet-action .icon {
-  width: 18px;
-  height: 18px;
-}
-
-.delete-button.confirming {
-  background: var(--error);
-  color: #FFFFFF;
-  font-weight: 600;
-}
-
-.delete-button:disabled { opacity: 0.6; }
-
-.sheet-action.neutral { color: var(--accent); }
-.sheet-action:disabled { opacity: 0.6; }
-
-/* The invite link, once the admin creates one */
-.invite {
+/* Settings */
+.settings-section {
   display: flex;
   flex-direction: column;
   gap: 8px;
-  padding: 12px 16px 16px;
-  border-top: 0.5px solid var(--sep);
+  margin-top: 8px;
 }
-
-.invite-label {
-  color: var(--secondary);
-  font-size: 13px;
-  line-height: 18px;
-  font-weight: 600;
-}
-
-.invite-link {
-  box-sizing: border-box;
-  width: 100%;
-  min-height: 44px;
-  padding: 0 12px;
-  border: 1px solid var(--outline);
-  border-radius: 10px;
-  background: var(--field);
-  color: var(--text);
-  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
-  font-size: 14px;
-}
-
-.invite-link:focus { outline: 2px solid var(--focus); outline-offset: -1px; }
-
-.invite-actions {
-  display: flex;
-  gap: 8px;
-}
-
-.invite-button {
-  flex: 1;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 6px;
-  min-height: 44px;
-  border: 1px solid var(--outline);
-  border-radius: 10px;
-  background: none;
-  color: var(--accent);
-  font-family: inherit;
-  font-size: 17px;
-  font-weight: 600;
-  touch-action: manipulation;
-}
-
-.invite-button.primary-action {
-  border-color: var(--header);
-  background: var(--header);
-  color: #FFFFFF;
-}
-
-.invite-button .icon {
-  width: 18px;
-  height: 18px;
-}
-
-.invite-button:active { opacity: 0.82; }
-
-/* Settings sheet. It scrolls inside, below its fixed bar, on short screens. */
-.settings-sheet .sheet-form { max-height: calc(100dvh - max(env(safe-area-inset-top), 12px) - 12px); }
-
-.sheet-scroll {
-  flex: 1;
-  min-height: 0;
-  overflow-y: auto;
-  overscroll-behavior: contain;
-  padding-bottom: 8px;
-}
-
-.settings-section + .settings-section { border-top: 0.5px solid var(--sep); }
 
 .settings-heading {
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 8px;
-  padding: 16px 16px 6px;
+  min-height: 22px;
+  padding: 0 4px;
 }
 
-/* iOS grouped-list section header. */
 .settings-heading h3 {
-  margin: 0;
-  color: var(--secondary);
+  color: var(--muted);
   font-size: 13px;
-  line-height: 18px;
-  font-weight: 600;
+  font-weight: 650;
+  letter-spacing: 0.05em;
   text-transform: uppercase;
-  letter-spacing: 0.02em;
 }
 
 .settings-status {
   display: inline-flex;
   align-items: center;
-  gap: 6px;
-  min-height: 18px;
-  color: var(--secondary);
+  gap: 5px;
+  color: var(--muted);
   font-size: 13px;
 }
 
-.settings-status .spinner { --size: 14px; }
 .settings-status .icon { width: 14px; height: 14px; }
+.settings-status .spinner { --size: 14px; }
 
 .settings-group {
-  margin: 0 16px;
-  border-radius: 10px;
-  background: var(--bg);
   overflow: hidden;
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  background: var(--surface);
 }
 
 .setting-row {
@@ -1210,52 +1220,52 @@ body {
   align-items: center;
   justify-content: space-between;
   gap: 12px;
-  min-height: 44px;
-  padding: 0 12px;
-  font-size: 17px;
+  width: 100%;
+  min-height: 52px;
+  padding: 6px 16px;
+  font-size: 16px;
 }
 
-.setting-row + .setting-row { border-top: 0.5px solid var(--sep); }
-.setting-row > label,
-.setting-row > span:first-child { flex: 1; }
-
-.setting-value {
-  color: var(--secondary);
-  font-size: 15px;
-  text-align: right;
-}
+.setting-row + .setting-row { border-top: 1px solid var(--border); }
 
 .setting-input {
-  box-sizing: border-box;
-  min-height: 34px;
-  padding: 4px 10px;
+  min-height: 36px;
+  padding: 0 10px;
   border: 0;
-  border-radius: 8px;
+  border-radius: 9px;
   background: var(--chip);
-  color: var(--accent);
-  font-family: inherit;
-  font-size: 17px;
+  color: var(--primary);
+  font-size: 16px;
+  font-weight: 600;
 }
 
-.setting-input:disabled { opacity: 0.45; }
-.setting-input:focus-visible { outline: 2px solid var(--focus); outline-offset: 1px; }
+.setting-input:disabled { color: var(--muted); }
+.setting-value { color: var(--muted); font-size: 15px; white-space: nowrap; }
+
+.setting-button {
+  justify-content: flex-start;
+  border: 0;
+  background: none;
+  color: var(--primary);
+  font-weight: 600;
+  text-align: left;
+}
+
+.setting-button:active { background: var(--chip); }
+.setting-button.danger { color: var(--danger); }
 
 .settings-note {
-  margin: 8px 16px 0;
-  color: var(--secondary);
-  font-size: 13px;
-  line-height: 18px;
+  padding: 0 4px;
+  color: var(--muted);
+  font-size: 14px;
+  text-wrap: pretty;
 }
 
-.settings-section .loading { padding: 8px 16px; }
-.settings-section .form-error { padding: 6px 16px 0; }
-.settings-section .account-info { padding: 4px 16px 12px; }
-.setting-row .text-button { min-height: 36px; padding: 0 4px; }
-
-/* iOS switch: a 51 by 31 track with a white knob. The real checkbox sits on top, invisible, for taps and keyboards. */
+/* The on/off switch */
 .switch {
   position: relative;
   flex: none;
+  display: inline-flex;
   width: 51px;
   height: 31px;
 }
@@ -1264,20 +1274,18 @@ body {
   position: absolute;
   inset: 0;
   z-index: 1;
-  width: 100%;
-  height: 100%;
   margin: 0;
   opacity: 0;
   cursor: pointer;
 }
 
 .switch-track {
-  position: absolute;
-  inset: 0;
-  box-sizing: border-box;
+  width: 100%;
+  height: 100%;
   border-radius: 999px;
-  background: var(--switch-off);
-  transition: background-color 0.2s ease, border-color 0.2s ease;
+  background: var(--chip);
+  border: 1px solid var(--border);
+  transition: background-color 0.2s ease;
 }
 
 .switch-track::after {
@@ -1289,947 +1297,226 @@ body {
   height: 27px;
   border-radius: 50%;
   background: #FFFFFF;
-  box-shadow: 0 3px 8px rgba(0, 0, 0, 0.15), 0 1px 1px rgba(0, 0, 0, 0.16);
-  transition: transform 0.2s ease, width 0.2s ease, height 0.2s ease, top 0.2s ease, left 0.2s ease;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.25);
+  transition: transform 0.2s ease;
 }
 
-.switch input:checked + .switch-track { background: var(--switch-on); }
+.switch input:checked + .switch-track { background: var(--primary); border-color: var(--primary); }
 .switch input:checked + .switch-track::after { transform: translateX(20px); }
 .switch input:focus-visible + .switch-track { outline: 2px solid var(--focus); outline-offset: 2px; }
-.switch input:disabled + .switch-track { opacity: 0.45; }
 
-/* Spinners, drawn here rather than taken from anywhere. They take the text color around them. */
-.spinner {
-  --size: 18px;
-  position: relative;
-  display: inline-block;
-  flex: none;
-  width: var(--size);
-  height: var(--size);
-}
-
-/* iOS: eight spokes that fade one after another, like UIActivityIndicatorView. */
-.spinner-ios > span {
-  position: absolute;
-  top: 0;
-  left: calc(50% - 1px);
-  width: 2px;
-  height: 28%;
-  border-radius: 1px;
-  background: currentColor;
-  transform-origin: 1px calc(var(--size) / 2);
-  animation: spoke 0.8s linear infinite;
-}
-
-.spinner-ios > span:nth-child(1) { transform: rotate(0deg); animation-delay: -0.8s; }
-.spinner-ios > span:nth-child(2) { transform: rotate(45deg); animation-delay: -0.7s; }
-.spinner-ios > span:nth-child(3) { transform: rotate(90deg); animation-delay: -0.6s; }
-.spinner-ios > span:nth-child(4) { transform: rotate(135deg); animation-delay: -0.5s; }
-.spinner-ios > span:nth-child(5) { transform: rotate(180deg); animation-delay: -0.4s; }
-.spinner-ios > span:nth-child(6) { transform: rotate(225deg); animation-delay: -0.3s; }
-.spinner-ios > span:nth-child(7) { transform: rotate(270deg); animation-delay: -0.2s; }
-.spinner-ios > span:nth-child(8) { transform: rotate(315deg); animation-delay: -0.1s; }
-
-@keyframes spoke {
-  from { opacity: 1; }
-  to { opacity: 0.18; }
-}
-
-/* Android: Material's indeterminate circle, an arc that grows, shrinks, and turns. */
-.spinner-android svg {
-  display: block;
-  width: 100%;
-  height: 100%;
-  animation: spinner-turn 1.4s linear infinite;
-}
-
-.spinner-android circle {
-  fill: none;
-  stroke: currentColor;
-  stroke-width: 2.5;
-  stroke-linecap: round;
-  stroke-dasharray: 1 57;
-  animation: spinner-arc 1.4s ease-in-out infinite;
-}
-
-@keyframes spinner-turn {
-  to { transform: rotate(360deg); }
-}
-
-@keyframes spinner-arc {
-  0% { stroke-dasharray: 1 57; stroke-dashoffset: 0; }
-  50% { stroke-dasharray: 40 57; stroke-dashoffset: -14; }
-  100% { stroke-dasharray: 40 57; stroke-dashoffset: -55; }
-}
-
-/* Sizes inside each control, matched to the icon it replaces. */
-.pill .spinner { --size: 14px; }
-.primary .spinner { --size: 20px; }
-.tool-chip .spinner { --size: 16px; display: block; margin: 0 auto; }
-.text-button .spinner { --size: 20px; vertical-align: middle; }
-
-/* A button waiting on its own request keeps its color, so it reads as working rather than unavailable. */
-.primary[aria-busy="true"]:disabled {
-  background: var(--save);
-  color: var(--on-save);
-  opacity: 0.9;
-}
-
-.pill[aria-busy="true"] { pointer-events: none; }
-
-/* The first load of the phrases. */
-.loading {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  margin: 0;
-  padding: 12px 0;
-  color: var(--secondary);
-  font-size: 15px;
-  line-height: 20px;
-}
-
-/* New phrases slide into place. */
-.row { animation: row-in 0.24s ease-out both; }
-
-@keyframes row-in {
-  from { opacity: 0; transform: translateY(-6px); }
-}
-
-.tool-chip { transition: background-color 0.15s ease, color 0.15s ease, opacity 0.15s ease; }
-
-/* Android style */
-[data-platform="android"] .top {
-  gap: 0;
-  padding: 0;
-  background: none;
-  border-radius: 0;
-}
-
-[data-platform="android"] .bar {
-  padding: calc(env(safe-area-inset-top) + 12px) 16px 16px;
-  background: var(--header);
-}
-
-[data-platform="android"] .brand { gap: 12px; }
-
-[data-platform="android"] .brand h1 {
-  font-size: 28px;
-  line-height: 36px;
-  font-weight: 400;
-}
-
-[data-platform="android"] .brand-mark {
-  width: 24px;
-  height: 24px;
-  border-radius: 0;
-  background: none;
-}
-
-[data-platform="android"] .brand-mark .icon {
-  width: 24px;
-  height: 24px;
-}
-
-[data-platform="android"] .pill {
-  gap: 6px;
-  padding: 6px 12px;
-  border-radius: 8px;
-  font-size: 14px;
-  line-height: 20px;
-  font-weight: 500;
-}
-
-[data-platform="android"] .bar-button {
-  width: 40px;
-  height: 40px;
-  background: none;
-}
-
-[data-platform="android"] .bar-button::after { inset: -4px; }
-
-[data-platform="android"] .bar-button .icon {
-  width: 24px;
-  height: 24px;
-}
-
-[data-platform="android"] .composer { padding: 20px 16px 0; }
-
-[data-platform="android"] .field {
-  padding-top: 0;
-  border: 1px solid var(--outline);
-  border-radius: 4px;
-}
-
-[data-platform="android"] .field:focus-within {
-  border-color: var(--focus);
-  box-shadow: inset 0 0 0 1px var(--focus);
-}
-
-[data-platform="android"] .field label {
-  top: -9px;
-  left: 12px;
-  gap: 4px;
-  padding: 0 4px;
-  background: var(--bg);
-  color: var(--secondary);
-  font-size: 12px;
-  line-height: 16px;
-  font-weight: 400;
-}
-
-[data-platform="android"] .field label .icon {
-  width: 12px;
-  height: 12px;
-}
-
-[data-platform="android"] .field textarea,
-[data-platform="android"] .field input {
-  border: 0;
-  border-radius: 4px;
-  background: transparent;
-  font-size: 16px;
-  line-height: 24px;
-}
-
-[data-platform="android"] .field textarea {
-  height: 112px;
-  padding: 16px;
-}
-
-[data-platform="android"] .field textarea:focus,
-[data-platform="android"] .field input:focus {
-  box-shadow: none;
-}
-
-[data-platform="android"] .hint {
-  margin: 4px 0 0;
-  color: var(--secondary);
-  font-size: 12px;
-  line-height: 16px;
-}
-
-[data-platform="android"] .hint .icon {
-  width: 13px;
-  height: 13px;
-}
-
-/* The bottom padding keeps the last row clear of the floating Save button. */
-[data-platform="android"] .content { padding: 20px 0 112px; }
-[data-platform="android"] .group { gap: 4px; }
-
-[data-platform="android"] .group h2 {
-  padding: 0 16px;
-  font-size: 14px;
-  line-height: 20px;
-  font-weight: 500;
-}
-
-[data-platform="android"] .group h2 .icon {
-  width: 16px;
-  height: 16px;
-}
-
-[data-platform="android"] .phrases {
-  background: none;
-  border-radius: 0;
-}
-
-[data-platform="android"] .empty { padding: 0 16px; }
-
-[data-platform="android"] .row {
-  gap: 16px;
-  padding: 10px 16px;
-}
-
-[data-platform="android"] .tile {
-  width: 40px;
-  height: 40px;
-  border-radius: 50%;
-}
-
-[data-platform="android"] .tile .icon {
-  width: 20px;
-  height: 20px;
-}
-
-[data-platform="android"] .row-body { padding: 0; }
-[data-platform="android"] .row:not(:last-child) .row-body,
-[data-platform="android"] .row:not(:last-child) .row-edit { border-bottom: 0; }
-[data-platform="android"] .tool-chip {
-  padding: 6px 10px;
-  border: 1px solid var(--outline);
-  background: none;
-  font-size: 14px;
-  font-weight: 500;
-  line-height: 18px;
-}
-
-[data-platform="android"] .row-tool[aria-pressed="true"] .tool-chip { border-color: var(--accent); }
-
-/* Material's pressed state: a 12% layer of the content color, instead of iOS's dimming. */
-[data-platform="android"] :is(.pill, .text-button, .sheet-action, .delete-button, .invite-button, .bar-button, .bubble-close):active,
-[data-platform="android"] .row-tool:active .tool-chip {
-  opacity: 1;
-  box-shadow: inset 0 0 0 100vmax color-mix(in srgb, currentColor 12%, transparent);
-}
-
-[data-platform="android"] .row:has(.row-edit:active) { background: color-mix(in srgb, var(--text) 8%, transparent); }
-[data-platform="android"] .loading { padding: 12px 16px; font-size: 14px; }
-[data-platform="android"] .tool-chip .icon { width: 18px; height: 18px; }
-[data-platform="android"] .row-edit { width: 40px; margin: -10px -8px -10px -12px; }
-[data-platform="android"] .row-edit .icon { width: 24px; height: 24px; }
-
-[data-platform="android"] .row-text {
-  font-size: 16px;
-  line-height: 24px;
-}
-
-[data-platform="android"] .when {
-  font-size: 14px;
-  line-height: 20px;
-}
-
-[data-platform="android"] .actions {
-  position: absolute;
-  right: 16px;
-  bottom: max(env(safe-area-inset-bottom), 16px);
-  padding: 0;
-  background: none;
-  border: 0;
-}
-
-[data-platform="android"] .primary {
-  border-radius: 16px;
-  font-size: 16px;
-  line-height: 24px;
-  font-weight: 500;
-  transition: filter 0.12s ease;
-}
-
-[data-platform="android"] .actions .primary {
-  width: auto;
-  height: 56px;
-  padding: 0 20px 0 16px;
-}
-
-[data-platform="android"] .actions .primary:not(:disabled) {
-  box-shadow: 0 3px 8px rgba(0, 0, 0, 0.28);
-}
-
-[data-platform="android"] .primary:not(:disabled):active {
-  transform: none;
-  opacity: 1;
-  filter: brightness(0.88);
-}
-
-[data-platform="android"] .primary .icon {
-  width: 24px;
-  height: 24px;
-}
-
-[data-platform="android"] .toast-region {
-  bottom: calc(max(env(safe-area-inset-bottom), 16px) + 68px);
-  justify-content: stretch;
-}
-
-[data-platform="android"] .toast {
-  flex: 1;
-  gap: 8px;
-  min-height: 48px;
-  box-sizing: border-box;
-  padding: 14px 16px;
-  border-radius: 4px;
-  font-size: 14px;
-  font-weight: 400;
-}
-
-[data-platform="android"] .login .field label {
-  color: var(--secondary);
-}
-
-[data-platform="android"] .login .field input {
-  height: 56px;
-  padding: 0 16px;
-}
-
-[data-platform="android"] .login-title {
-  font-size: 22px;
-  line-height: 28px;
-  font-weight: 400;
-}
-
-[data-platform="android"] .login-hint {
-  margin-top: -12px;
-  padding: 0 16px;
-  font-size: 12px;
-  line-height: 16px;
-}
-
-[data-platform="android"] .sheet { border-radius: 28px; }
-
-[data-platform="android"] .sheet-bar {
-  padding: 8px 12px;
-  border-bottom: 0;
-}
-
-[data-platform="android"] .sheet-bar h2 {
-  font-size: 16px;
-  line-height: 24px;
-  font-weight: 500;
-}
-
-[data-platform="android"] .text-button {
-  min-height: 40px;
-  padding: 0 12px;
-  border-radius: 20px;
-  font-size: 14px;
-  font-weight: 500;
-  letter-spacing: 0.1px;
-}
-
-[data-platform="android"] .sheet-text {
-  padding: 8px 24px 16px;
-  font-size: 16px;
-  line-height: 24px;
-}
-
-[data-platform="android"] .sheet .form-error { padding: 0 24px 12px; }
-
-[data-platform="android"] .account-info { padding: 8px 24px 16px; }
-
-[data-platform="android"] .invite {
-  padding: 8px 24px 16px;
-  border-top: 0;
-}
-
-[data-platform="android"] .invite-link { border-radius: 4px; }
-
-[data-platform="android"] .invite-button {
-  min-height: 40px;
-  border-radius: 20px;
-  font-size: 14px;
-  font-weight: 500;
-  letter-spacing: 0.1px;
-}
-
-[data-platform="android"] .account-email {
-  font-size: 16px;
-  line-height: 24px;
-  font-weight: 500;
-}
-
-[data-platform="android"] .account-note {
-  font-size: 14px;
-  line-height: 20px;
-}
-
-[data-platform="android"] .delete-button,
-[data-platform="android"] .sheet-action {
-  min-height: 40px;
-  margin: 0 16px 16px;
-  border: 0;
-  border-radius: 20px;
-  font-size: 14px;
-  font-weight: 500;
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .toast,
-  .sheet[open],
-  .row,
-  .row-tool[aria-pressed="true"] .tool-chip,
-  .row-tool[aria-busy="true"] .tool-chip,
-  .translation-bubble,
-  .score-bubble,
-  .score-bubble .score-ring,
-  .score-listen[aria-pressed="true"] { animation: none; }
-  .theme-changing,
-  .theme-changing * { transition: none !important; }
-  .primary:not(:disabled):active { transform: none; }
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .spinner-ios > span { animation-duration: 1.6s; }
-  .spinner-android svg,
-  .spinner-android circle { animation-duration: 2.8s; }
-}
-
-/* Android phones under 390px wide get Material's small top app bar title, so it fits beside the actions. */
-@media (max-width: 389px) {
-  [data-platform="android"] .brand h1 {
-    font-size: 22px;
-    line-height: 28px;
-  }
-}
-
-@media (max-width: 339px) {
-  [data-platform="android"] .brand-mark { display: none; }
-}
-
-/* Android settings: Material lists (56px rows, no separators), section titles in the accent color,
-   outlined inputs, and Material's switch, whose knob grows when it turns on. */
-[data-platform="android"] .settings-heading { padding: 16px 24px 4px; }
-
-[data-platform="android"] .settings-heading h3 {
-  color: var(--accent);
-  font-size: 14px;
-  line-height: 20px;
-  font-weight: 500;
-  text-transform: none;
-  letter-spacing: 0.1px;
-}
-
-[data-platform="android"] .settings-section + .settings-section { border-top: 0; }
-[data-platform="android"] .settings-group { margin: 0; border-radius: 0; background: none; }
-
-[data-platform="android"] .setting-row {
-  min-height: 56px;
-  padding: 0 24px;
-  font-size: 16px;
-}
-
-[data-platform="android"] .setting-row + .setting-row { border-top: 0; }
-
-[data-platform="android"] .setting-input {
-  min-height: 40px;
-  border: 1px solid var(--outline);
-  border-radius: 4px;
-  background: none;
-  color: var(--text);
-  font-size: 16px;
-}
-
-[data-platform="android"] .settings-note,
-[data-platform="android"] .settings-section .form-error { margin: 4px 24px 0; padding: 0; font-size: 14px; line-height: 20px; }
-[data-platform="android"] .settings-section .account-info { padding: 4px 24px 12px; }
-[data-platform="android"] .settings-section .loading { padding: 8px 24px; }
-
-[data-platform="android"] .switch { width: 52px; height: 32px; }
-[data-platform="android"] .switch-track { border: 2px solid var(--outline); }
-
-[data-platform="android"] .switch-track::after {
-  top: 6px;
-  left: 6px;
-  width: 16px;
-  height: 16px;
-  background: var(--outline);
-  box-shadow: none;
-}
-
-[data-platform="android"] .switch input:checked + .switch-track { border-color: var(--switch-on); }
-
-[data-platform="android"] .switch input:checked + .switch-track::after {
-  top: 2px;
-  left: 2px;
-  width: 24px;
-  height: 24px;
-  background: var(--card);
-}
-
-
-/* The context, under the new phrase: who it's for, where, or what it's about. */
-.composer .field + .field { margin-top: 10px; }
-.composer .field textarea { height: 72px; }
-.context-field input { height: 44px; }
-
-.context-field input::placeholder {
-  color: currentColor;
-  opacity: 0.72;
-}
-
-[data-platform="android"] .composer .field + .field { margin-top: 12px; }
-[data-platform="android"] .composer .field textarea { height: 88px; }
-[data-platform="android"] .context-field input { height: 52px; padding: 0 16px; }
-
-/* Ways to say the new phrase, above Today and Recent. */
-.group-head {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 8px;
-}
-
-.options-close {
-  display: grid;
-  place-items: center;
-  width: 30px;
-  height: 30px;
-  padding: 0;
-  border: 0;
-  border-radius: 50%;
-  background: var(--chip);
-  color: var(--secondary);
-  touch-action: manipulation;
-}
-
-.options-close .icon { width: 16px; height: 16px; }
-.options-close:active { opacity: 0.7; }
-
-.options-status {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  margin: 0;
-  padding: 14px 16px;
-  border-radius: 14px;
-  background: var(--card);
-  color: var(--secondary);
-  font-size: 15px;
-  line-height: 20px;
-}
-
-.options-error {
-  display: flex;
-  flex-direction: column;
-  align-items: flex-start;
-  gap: 4px;
-  padding: 12px 16px;
-  border-radius: 14px;
-  background: var(--card);
-  color: var(--error-text);
-  font-size: 15px;
-  line-height: 20px;
-}
-
-.options-error p { margin: 0; }
-
-.options-retry {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  min-height: 32px;
-  padding: 0;
-  border: 0;
-  background: none;
-  color: var(--accent);
-  font-family: inherit;
-  font-size: 15px;
-  font-weight: 600;
-  touch-action: manipulation;
-}
-
-.options-list {
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-}
-
-.option-card {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-  padding: 12px 14px 8px;
-  border-radius: 14px;
-  background: var(--card);
-  animation: row-in 0.24s ease-out both;
-}
-
-.option-card + .option-card { animation-delay: 0.06s; }
-
-.option-head {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 4px 8px;
-}
-
-.option-title {
-  padding: 2px 8px;
-  border-radius: 6px;
-  background: var(--tint);
-  color: var(--ink);
-  font-size: 12px;
-  line-height: 16px;
-  font-weight: 700;
-  letter-spacing: 0.02em;
-  text-transform: uppercase;
-}
-
-.option-hint {
-  color: var(--secondary);
-  font-size: 13px;
-  line-height: 18px;
-}
-
-.option-text {
-  margin: 4px 0 0;
-  font-size: 17px;
-  line-height: 22px;
-  overflow-wrap: anywhere;
-}
-
-.option-actions {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 8px;
-  margin-top: 4px;
-}
-
-.option-tools {
-  display: flex;
-  margin-left: -3px;
-}
-
-.option-save {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  min-height: 36px;
-  margin-left: auto;
-  padding: 0 14px;
-  border: 0;
-  border-radius: 999px;
-  background: var(--save);
-  color: var(--on-save);
-  font-family: inherit;
-  font-size: 15px;
-  font-weight: 600;
-  touch-action: manipulation;
-  transition: background-color 0.15s ease, color 0.15s ease, transform 0.12s ease;
-}
-
-.option-save .icon { width: 18px; height: 18px; }
-.option-save .spinner { --size: 16px; }
-.option-save:not(:disabled):active { transform: scale(0.97); opacity: 0.82; }
-
-.option-save:disabled {
-  background: var(--chip);
-  color: var(--accent);
-}
-
-.save-typed {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: 8px;
-  align-self: center;
-  min-height: 40px;
-  padding: 0 12px;
-  border: 0;
-  background: none;
-  color: var(--accent);
-  font-family: inherit;
-  font-size: 15px;
-  font-weight: 600;
-  touch-action: manipulation;
-}
-
-.save-typed .spinner { --size: 16px; }
-.save-typed:disabled { opacity: 0.5; }
-.save-typed:not(:disabled):active { opacity: 0.7; }
-
-:is(.options-close, .options-retry, .option-save, .save-typed):focus-visible {
-  outline: 2px solid var(--focus);
-  outline-offset: 2px;
-}
-
-[data-platform="android"] .suggestions { padding: 0 16px; }
-[data-platform="android"] .suggestions h2 { padding: 0; }
-
-[data-platform="android"] .options-close {
-  width: 40px;
-  height: 40px;
-  margin: -8px -8px -8px 0;
-  background: none;
-}
-
-[data-platform="android"] .options-close .icon { width: 20px; height: 20px; }
-
-[data-platform="android"] :is(.options-close, .options-retry, .save-typed, .option-save:not(:disabled)):active {
-  opacity: 1;
-  transform: none;
-  box-shadow: inset 0 0 0 100vmax color-mix(in srgb, currentColor 12%, transparent);
-}
-
-[data-platform="android"] :is(.options-status, .options-error) {
-  border-radius: 12px;
-  font-size: 14px;
-}
-
-[data-platform="android"] .option-card {
-  padding: 16px 16px 8px;
-  border-radius: 12px;
-}
-
-[data-platform="android"] .option-title {
-  border-radius: 8px;
-  letter-spacing: 0.04em;
-}
-
-[data-platform="android"] .option-text {
-  font-size: 16px;
-  line-height: 24px;
-}
-
-
-[data-platform="android"] .option-save {
-  min-height: 40px;
-  padding: 0 16px 0 12px;
-  border-radius: 20px;
-  font-size: 14px;
-  font-weight: 500;
-  letter-spacing: 0.01em;
-}
-
-[data-platform="android"] .save-typed {
-  border-radius: 20px;
-  font-size: 14px;
-  font-weight: 500;
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .option-card { animation: none; }
-}
-
-/* Reading a phrase: big text, its Spanish, and the speed and translate buttons. The pencil edits it. */
-.sheet-icon-button {
-  justify-self: end;
-  display: grid;
-  place-items: center;
-  width: 44px;
-  height: 44px;
-  padding: 0;
-  border: 0;
-  background: none;
-  color: var(--accent);
-  touch-action: manipulation;
-}
-
-.sheet-icon-button .icon { width: 22px; height: 22px; }
-.sheet-icon-button:active { opacity: 0.6; }
-
-.sheet-icon-button:focus-visible {
-  outline: 2px solid var(--focus);
-  outline-offset: -4px;
-  border-radius: 10px;
-}
-
-.reader {
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-  padding: 20px 16px 16px;
-}
-
-.reader-text {
-  margin: 0;
-  font-size: 24px;
-  line-height: 30px;
-  font-weight: 600;
-  overflow-wrap: anywhere;
-  user-select: text;
-  -webkit-user-select: text;
-}
-
-.reader-spanish {
-  margin: 0;
-  padding: 8px 12px;
-  border-radius: 12px;
-  background: var(--chip);
-  color: var(--text);
-  font-size: 17px;
-  line-height: 22px;
-  overflow-wrap: anywhere;
-  animation: bubble-in 0.15s ease-out;
-}
-
-.reader-meta {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 8px;
-  margin-top: 4px;
-}
-
-.reader-tools {
-  display: flex;
-  margin-right: -3px;
-}
-
-[data-platform="android"] .sheet-icon-button { color: var(--text); }
-[data-platform="android"] .sheet-icon-button .icon { width: 24px; height: 24px; }
-
-[data-platform="android"] .sheet-icon-button:active {
-  border-radius: 50%;
-  box-shadow: inset 0 0 0 100vmax color-mix(in srgb, currentColor 12%, transparent);
-}
-
-[data-platform="android"] .reader { padding: 20px 24px 16px; }
-
-[data-platform="android"] .reader-text {
-  font-size: 22px;
-  line-height: 28px;
-  font-weight: 400;
-}
-
-[data-platform="android"] .reader-spanish {
-  border-radius: 8px;
-  font-size: 16px;
-  line-height: 24px;
-}
-
-/* Language: a segmented control on iOS, Material segmented buttons on Android. */
+/* A row of choices, such as the theme and the language */
 .segmented {
   display: inline-flex;
-  flex: none;
-  padding: 2px;
-  border-radius: 9px;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 2px;
+  padding: 3px;
+  border-radius: 10px;
   background: var(--chip);
 }
 
 .segment {
-  min-width: 76px;
-  min-height: 30px;
-  padding: 0 10px;
+  min-height: 32px;
+  padding: 0 12px;
   border: 0;
-  border-radius: 7px;
+  border-radius: 8px;
   background: none;
-  color: var(--text);
-  font-family: inherit;
+  color: var(--muted);
   font-size: 14px;
-  font-weight: 500;
-  touch-action: manipulation;
-  transition: background-color 0.15s ease, color 0.15s ease;
+  font-weight: 600;
 }
 
 .segment[aria-pressed="true"] {
-  background: var(--card);
-  color: var(--accent);
-  font-weight: 600;
-  box-shadow: 0 3px 8px rgba(0, 0, 0, 0.12), 0 3px 1px rgba(0, 0, 0, 0.04);
-}
-
-.segment:focus-visible {
-  outline: 2px solid var(--focus);
-  outline-offset: 1px;
-}
-
-[data-platform="android"] .segmented {
-  padding: 0;
-  border: 1px solid var(--outline);
-  border-radius: 20px;
-  background: none;
-  overflow: hidden;
-}
-
-[data-platform="android"] .segment {
-  min-height: 40px;
-  padding: 0 14px;
-  border-radius: 0;
-  font-weight: 500;
-}
-
-[data-platform="android"] .segment + .segment { border-left: 1px solid var(--outline); }
-
-[data-platform="android"] .segment[aria-pressed="true"] {
-  background: color-mix(in srgb, var(--accent) 22%, var(--bg));
+  background: var(--surface);
   color: var(--text);
-  box-shadow: none;
+  box-shadow: var(--shadow);
 }
+
+.account-info {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 14px 16px;
+}
+
+.account-email {
+  font-size: 16px;
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+
+.account-note {
+  color: var(--muted);
+  font-size: 14px;
+}
+
+/* Invites, for the admin */
+.invite {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 14px 16px;
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  background: var(--surface);
+}
+
+.invite-label {
+  color: var(--muted);
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.invite-link {
+  width: 100%;
+  padding: 10px 12px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--field);
+  font: 14px ui-monospace, "SF Mono", Menlo, monospace;
+}
+
+.invite-actions {
+  display: flex;
+  gap: 8px;
+}
+
+.invite-button {
+  flex: 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  min-height: 44px;
+  border: 0;
+  border-radius: var(--radius-control);
+  background: var(--soft);
+  color: var(--primary);
+  font-size: 15px;
+  font-weight: 650;
+}
+
+.invite-button.primary-action { background: var(--primary); color: var(--on-primary); }
+
+.sheet-action {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  width: 100%;
+  min-height: 48px;
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  background: var(--surface);
+  color: var(--primary);
+  font-size: 16px;
+  font-weight: 620;
+}
+
+.sheet-action:disabled { opacity: 0.6; }
+
+/* Logging in */
+.login { overflow-y: auto; }
+
+.login-body {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+  width: 100%;
+  max-width: 420px;
+  margin: 0 auto;
+  padding:
+    calc(env(safe-area-inset-top, 0px) + 48px)
+    max(var(--gutter), env(safe-area-inset-right, 0px))
+    calc(env(safe-area-inset-bottom, 0px) + 32px)
+    max(var(--gutter), env(safe-area-inset-left, 0px));
+}
+
+.login-brand {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  text-align: center;
+}
+
+.brand {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 14px;
+}
+
+.brand-mark {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 60px;
+  height: 60px;
+  border-radius: 18px;
+  background: var(--primary);
+  color: var(--on-primary);
+  box-shadow: var(--fab-shadow);
+}
+
+.brand-mark .icon { width: 30px; height: 30px; stroke-width: 1.9; }
+
+.brand h1 {
+  font-size: 30px;
+  line-height: 1.1;
+  font-weight: 750;
+  letter-spacing: -0.02em;
+}
+
+.login-tagline {
+  color: var(--muted);
+  font-size: 16px;
+}
+
+.login-form {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  padding: 20px;
+  border: 1px solid var(--border);
+  border-radius: 20px;
+  background: var(--surface);
+  box-shadow: var(--shadow);
+}
+
+.login-form .primary { width: 100%; margin-top: 4px; }
+
+.login-title {
+  font-size: 20px;
+  font-weight: 700;
+}
+
+.login-notice {
+  padding: 10px 12px;
+  border-radius: 10px;
+  background: var(--soft);
+  color: var(--primary);
+  font-size: 15px;
+}
+
+.login-hint {
+  margin-top: -6px;
+  color: var(--muted);
+  font-size: 14px;
+}
+
+.login-switch { align-self: center; }
 
 @media (prefers-reduced-motion: reduce) {
-  .reader-spanish { animation: none; }
-  .segment { transition: none; }
+  .sheet[open],
+  .toast,
+  .score-bubble,
+  .score-bubble .score-ring,
+  .icon-button.mic[aria-pressed="true"],
+  .action.mic[aria-pressed="true"] { animation: none; }
+  .spinner svg { animation-duration: 2.4s; }
+  .theme-changing,
+  .theme-changing * { transition: none !important; }
+  .fab:active { transform: none; }
 }

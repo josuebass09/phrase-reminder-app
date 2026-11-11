@@ -2,7 +2,7 @@ import type { Suggestions } from './api.ts'
 import { useT } from './i18n.ts'
 import { CloseIcon, RetryIcon, SparklesIcon } from './icons.tsx'
 import { OptionCard, type OptionStyle } from './OptionCard.tsx'
-import type { Speaking } from './PhraseRow.tsx'
+import type { Speaking } from './PhraseCard.tsx'
 import { Spinner } from './Spinner.tsx'
 
 const STYLES: OptionStyle[] = ['formal', 'informal']
@@ -29,7 +29,7 @@ export interface SuggestionPanelProps {
 }
 
 /**
- * Shows above Today and Recent while the user picks how to say the new phrase.
+ * Shows under the new phrase while the user picks how to say it.
  * The text as typed can still be saved, such as when the AI is down or today's limit is used up.
  */
 export function SuggestionPanel({

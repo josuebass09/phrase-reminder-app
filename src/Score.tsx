@@ -12,21 +12,30 @@ export type Attempt =
   /** The id tells one try from the next, even with the same result. */
   | { state: 'scored'; result: Pronunciation; id: number }
 
-/** The microphone button: pressed while recording, like the speed buttons while playing; tapping it again stops and scores. */
-export function MicButton({ attempt, onClick }: { attempt?: Attempt; onClick: () => void }) {
+/**
+ * The microphone button: pressed while recording, like the play buttons while playing;
+ * tapping it again stops and scores. Round on a card, or with its name in the phrase's sheet.
+ */
+export function MicButton({ attempt, onClick, labeled = false }: { attempt?: Attempt; onClick: () => void; labeled?: boolean }) {
   const t = useT()
   const recording = attempt?.state === 'recording'
   const scoring = attempt?.state === 'scoring'
-  return (
+  const icon = scoring ? <Spinner /> : recording ? <StopIcon /> : <MicIcon />
+  return labeled ? (
+    <button className="action mic" type="button" aria-pressed={recording} aria-busy={scoring} onClick={onClick}>
+      {icon}
+      <span>{t.sayItShort}</span>
+    </button>
+  ) : (
     <button
-      className="row-tool mic"
+      className="icon-button mic"
       type="button"
       aria-label={t.sayIt}
       aria-pressed={recording}
       aria-busy={scoring}
       onClick={onClick}
     >
-      <span className="tool-chip">{scoring ? <Spinner /> : recording ? <StopIcon /> : <MicIcon />}</span>
+      {icon}
     </button>
   )
 }

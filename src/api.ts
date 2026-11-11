@@ -4,6 +4,8 @@ export interface Phrase {
   id: number
   text: string
   createdAt: string
+  /** The Spanish, once someone asked for it; missing from a backend from before it was sent. */
+  translation?: string | null
   /** The score, from 1 to 10, of the last time the user said it aloud, or null if never. */
   lastScore?: number | null
 }
@@ -267,7 +269,14 @@ export const api = {
     request<ReminderSettings>('/api/settings', { method: 'PATCH', body: changes }),
   /** Admins only. The code is shown once: the backend keeps only its hash. */
   createInvite: () => request<{ code: string; expiresAt: string }>('/api/invites', { method: 'POST' }),
-  recent: () => request<Phrase[]>('/api/phrases'),
+  /** The newest 50, those after the phrase `before`, or those whose text or Spanish has `search`. */
+  recent: ({ search, before }: { search?: string; before?: number } = {}) => {
+    const query = new URLSearchParams()
+    if (search) query.set('q', search)
+    if (before !== undefined) query.set('before', String(before))
+    const suffix = query.size > 0 ? `?${query}` : ''
+    return request<Phrase[]>(`/api/phrases${suffix}`)
+  },
   today: () => request<Phrase[]>('/api/today'),
   /** A translation, if one is already known, is saved with the phrase. */
   add: (text: string, translation?: string) =>

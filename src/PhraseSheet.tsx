@@ -2,26 +2,28 @@ import { useEffect, useRef, useState, type FormEvent, type MouseEvent } from 're
 import { api, NotFoundError, UnauthorizedError, type Phrase } from './api.ts'
 import { savedLabel } from './format.ts'
 import { useLanguage, useT } from './i18n.ts'
-import { PenIcon, TranslateIcon, TrashIcon } from './icons.tsx'
-import type { Speaking, Translation } from './PhraseRow.tsx'
+import { CloseIcon, PenIcon, PlayIcon, StopIcon, TranslateIcon, TrashIcon } from './icons.tsx'
+import type { Speaking } from './PhraseCard.tsx'
 import { MicButton, ScoreBadge, ScoreBubble, type Attempt } from './Score.tsx'
 import { Spinner } from './Spinner.tsx'
 
 const MAX_PHRASE_LENGTH = 500 // Matches the backend.
 
-export interface EditorProps {
+export interface PhraseSheetProps {
   phrase: Phrase
+  /** The phrase in Spanish, once known. */
+  spanish?: string | null
+  /** Asks the backend for the Spanish, the first time. */
+  onTranslate: (phrase: Phrase) => void
+  translating: boolean
   onClose: () => void
   onSaved: (phrase: Phrase) => void
   /** The phrase was deleted here, or had already been deleted elsewhere. */
   onDeleted: (id: number, alreadyGone: boolean) => void
   onUnauthorized: () => void
-  /** Reads the phrase aloud, slowly or not, or stops it. Without it, there are no speed buttons. */
+  /** Reads the phrase aloud, slowly or not, or stops it. Without it, there are no listen buttons. */
   onSpeak?: (phrase: Phrase, slow: boolean) => void
   speaking?: Speaking
-  /** Shows or hides the Spanish translation, fetching it the first time. */
-  onTranslate: (phrase: Phrase) => void
-  translation?: Translation
   /** Starts recording the user saying the phrase, or stops it to get the score. Without it, there's no microphone. */
   onPronounce?: (phrase: Phrase) => void
   /** Closes the score's bubble. */
@@ -30,23 +32,25 @@ export interface EditorProps {
 }
 
 /**
- * A modal sheet that shows a phrase to read and hear. The pencil turns it into
- * a form to fix or delete the phrase. Mounted only while it's open.
+ * A modal sheet with everything for one phrase: to read it larger, hear it, say it
+ * aloud for a score, and see its Spanish. The pencil turns it into a form to fix or
+ * delete the phrase. Mounted only while it's open.
  */
-export function Editor({
+export function PhraseSheet({
   phrase,
+  spanish,
+  onTranslate,
+  translating,
   onClose,
   onSaved,
   onDeleted,
   onUnauthorized,
   onSpeak,
   speaking = null,
-  onTranslate,
-  translation,
   onPronounce,
   onCloseScore,
   attempt,
-}: EditorProps) {
+}: PhraseSheetProps) {
   const t = useT()
   const language = useLanguage()
   const dialog = useRef<HTMLDialogElement>(null)
@@ -58,7 +62,7 @@ export function Editor({
   const busy = action !== null
   const [error, setError] = useState('')
   const [deleteArmed, setDeleteArmed] = useState(false)
-  const spanishShown = Boolean(translation?.open && translation.text)
+  const score = phrase.lastScore ?? null
 
   useEffect(() => {
     // React's StrictMode runs effects twice in development; showModal throws on an open dialog.
@@ -134,9 +138,9 @@ export function Editor({
   return (
     <dialog
       ref={dialog}
-      id="editor"
+      id="phrase-sheet"
       className="sheet"
-      aria-labelledby="editor-title"
+      aria-labelledby="phrase-sheet-title"
       onClose={onClose}
       onClick={closeOnBackdrop}
     >
@@ -146,7 +150,7 @@ export function Editor({
             <button className="text-button" type="button" onClick={stopEditing}>
               {t.cancel}
             </button>
-            <h2 id="editor-title">{t.editPhrase}</h2>
+            <h2 id="phrase-sheet-title">{t.editPhrase}</h2>
             <button
               className="text-button strong"
               type="submit"
@@ -157,93 +161,78 @@ export function Editor({
               {action === 'save' ? <Spinner /> : t.save}
             </button>
           </header>
-          <textarea
-            ref={textarea}
-            className="sheet-text"
-            lang="en"
-            maxLength={MAX_PHRASE_LENGTH}
-            aria-labelledby="editor-title"
-            value={text}
-            onChange={(event) => setText(event.target.value)}
-          />
-          {error && (
-            <p className="form-error" role="alert">
-              {error}
-            </p>
-          )}
-          <button
-            className={`delete-button${deleteArmed ? ' confirming' : ''}`}
-            type="button"
-            disabled={busy}
-            aria-busy={action === 'delete'}
-            onClick={remove}
-          >
-            {action === 'delete' ? <Spinner /> : <TrashIcon />}
-            <span>{action === 'delete' ? t.deleting : deleteArmed ? t.tapAgainToDelete : t.deletePhrase}</span>
-          </button>
+          <div className="sheet-body">
+            <textarea
+              ref={textarea}
+              className="sheet-text"
+              lang="en"
+              maxLength={MAX_PHRASE_LENGTH}
+              aria-labelledby="phrase-sheet-title"
+              value={text}
+              onChange={(event) => setText(event.target.value)}
+            />
+            {error && (
+              <p className="form-error" role="alert">
+                {error}
+              </p>
+            )}
+            <button
+              className={`delete-button${deleteArmed ? ' confirming' : ''}`}
+              type="button"
+              disabled={busy}
+              aria-busy={action === 'delete'}
+              onClick={remove}
+            >
+              {action === 'delete' ? <Spinner /> : <TrashIcon />}
+              <span>{action === 'delete' ? t.deleting : deleteArmed ? t.tapAgainToDelete : t.deletePhrase}</span>
+            </button>
+          </div>
         </form>
       ) : (
         <div className="sheet-form">
           <header className="sheet-bar">
-            <button className="text-button" type="button" onClick={onClose}>
-              {t.close}
+            <button className="icon-button plain" type="button" aria-label={t.close} onClick={onClose}>
+              <CloseIcon />
             </button>
-            <h2 id="editor-title">{t.phrase}</h2>
-            <button className="sheet-icon-button" type="button" aria-label={t.editPhrase} onClick={() => setEditing(true)}>
+            <h2 id="phrase-sheet-title">{t.phrase}</h2>
+            <button className="icon-button plain" type="button" aria-label={t.editPhrase} onClick={() => setEditing(true)}>
               <PenIcon />
             </button>
           </header>
-          <div className="reader">
+          <div className="sheet-body reader">
             <p className="reader-text" lang="en">
               {phrase.text}
             </p>
-            {spanishShown && (
+            {spanish ? (
               <p className="reader-spanish" lang="es">
-                {translation?.text}
+                {spanish}
               </p>
+            ) : (
+              <button className="link-button" type="button" aria-busy={translating} onClick={() => onTranslate(phrase)}>
+                {translating ? <Spinner /> : <TranslateIcon />}
+                <span>{t.showSpanish}</span>
+              </button>
             )}
-            <div className="reader-meta">
-              <span className="row-info">
-                <time className="when" dateTime={phrase.createdAt}>
-                  {savedLabel(phrase.createdAt, language)}
-                </time>
-                {phrase.lastScore != null && <ScoreBadge score={phrase.lastScore} />}
-              </span>
-              <div className="reader-tools">
-                {onSpeak && (
-                  <>
-                    <button
-                      className="row-tool"
-                      type="button"
-                      aria-label={t.listen}
-                      aria-pressed={speaking === 'normal'}
-                      onClick={() => onSpeak(phrase, false)}
-                    >
-                      <span className="tool-chip">1x</span>
-                    </button>
-                    <button
-                      className="row-tool slow"
-                      type="button"
-                      aria-label={t.listenSlowly}
-                      aria-pressed={speaking === 'slow'}
-                      onClick={() => onSpeak(phrase, true)}
-                    >
-                      <span className="tool-chip">0.5x</span>
-                    </button>
-                  </>
-                )}
-                <button
-                  className="row-tool translate"
-                  type="button"
-                  aria-label={t.translateToSpanish}
-                  aria-pressed={spanishShown}
-                  aria-busy={translation?.loading ?? false}
-                  onClick={() => onTranslate(phrase)}
-                >
-                  <span className="tool-chip">{translation?.loading ? <Spinner /> : <TranslateIcon />}</span>
-                </button>
-                {onPronounce && <MicButton attempt={attempt} onClick={() => onPronounce(phrase)} />}
-              </div>
+            <p className="reader-meta">
+              <time className="when" dateTime={phrase.createdAt}>
+                {savedLabel(phrase.createdAt, language)}
+              </time>
+              {score !== null && <ScoreBadge score={score} />}
+            </p>
+            <div className="actions">
+              {onSpeak && (
+                <>
+                  <button className="action" type="button" aria-pressed={speaking === 'normal'} onClick={() => onSpeak(phrase, false)}>
+                    {speaking === 'normal' ? <StopIcon /> : <PlayIcon />}
+                    <span>{t.listenAction}</span>
+                  </button>
+                  <button className="action" type="button" aria-pressed={speaking === 'slow'} onClick={() => onSpeak(phrase, true)}>
+                    {speaking === 'slow' ? <StopIcon /> : <PlayIcon />}
+                    <span>{t.slowerAction}</span>
+                  </button>
+                </>
+              )}
+              {onPronounce && <MicButton labeled attempt={attempt} onClick={() => onPronounce(phrase)} />}
             </div>
             {attempt?.state === 'scored' && (
               <ScoreBubble

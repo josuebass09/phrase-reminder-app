@@ -1,7 +1,7 @@
 import type { PhraseOption } from './api.ts'
 import { useT, type Messages } from './i18n.ts'
 import { CheckIcon, SaveIcon } from './icons.tsx'
-import type { Speaking } from './PhraseRow.tsx'
+import type { Speaking } from './PhraseCard.tsx'
 import { Spinner } from './Spinner.tsx'
 
 export type OptionStyle = 'formal' | 'informal'

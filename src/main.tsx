@@ -1,15 +1,13 @@
 import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
 import App from './App.tsx'
-import { platformOf } from './format.ts'
 import { takeReminderOpenFromUrl } from './activity.ts'
 import { takeInviteFromUrl } from './invite.ts'
 import { startLanguage } from './language.ts'
 import { startTheme } from './theme.ts'
 import './styles.css'
 
-// Set before the first render so the right platform style and colors apply from the start.
-document.documentElement.dataset.platform = platformOf(navigator.userAgent)
+// Set before the first render so the right colors and words apply from the start.
 startTheme()
 startLanguage()
 

@@ -1,68 +1,72 @@
 # Phrase Reminder App
 
-The app for [phrase-reminder](https://github.com/josuebass09/phrase-reminder): translate and save English phrases from your phone or computer, see today's reminder, read, fix or delete phrases, and turn on the daily push notification. It installs on iPhone and Android from the browser and looks native on each.
+The app for [phrase-reminder](https://github.com/josuebass09/phrase-reminder): save English phrases from your phone or computer, practice the ones the daily reminder brings back, and hear, translate, say aloud, fix or delete any of them. It installs on iPhone and Android from the browser.
 
 It's a React app built with Vite. It talks to the backend's API with a bearer token, because the two live on different Railway domains and browsers don't share cookies between them.
+
+## How it's laid out
+
+Three tabs at the bottom:
+
+- **Today:** the latest reminder's phrases, to hear and say aloud. With none yet, it says when the next one comes, or how to turn reminders on, and offers to add a phrase. The bell at the top shows the reminder's time, or **Paused**; it opens Settings, or turns reminders on for a device that doesn't have them.
+- **Phrases:** every phrase, newest first, 50 at a time with **Load more**, and a search over their English and Spanish.
+- **Settings:** the daily reminder, today's usage, the theme and the language, and the account.
+
+The **+** button on Today and Phrases adds a phrase. Each phrase shows on a card: the English, its Spanish once known, a play button, its last score and when it was saved. Today's cards also have the microphone. A tap anywhere else on a card opens the phrase's sheet, with everything for it. Each tab keeps its place when you switch, and tapping the tab you're on scrolls it back to the top.
+
+Tapping the daily notification opens the app on Today. If the app was already open, it switches to Today and loads the phrases just sent. A sheet that's open stays, in case it holds something unsaved.
 
 ## Accounts
 
 Each person logs in with an email and password and sees only their own phrases.
 
-New people join with an invite link from the admin, who is the first user. In Settings (the person icon), the admin taps **Invite someone**, then **Share** or **Copy**. Each link creates one account and expires after 7 days. Opening it shows the sign-up form with the code filled in; the person picks an email and a password of at least 12 characters. The code also works typed or pasted after tapping **I have an invite** on the login screen. The app removes the code from the address as soon as it opens, so it doesn't stay in the browser history or become the installed app's start page.
+New people join with an invite link from the admin, who is the first user. In Settings, the admin taps **Invite someone**, then **Share** or **Copy**. Each link creates one account and expires after 7 days. Opening it shows the sign-up form with the code filled in; the person picks an email and a password of at least 12 characters. The code also works typed or pasted after tapping **I have an invite** on the login screen. The app removes the code from the address as soon as it opens, so it doesn't stay in the browser history or become the installed app's start page.
 
 A login stays open while the app is used: the app renews its tokens on its own, and only 60 days without opening it, or logging out, show the login screen again, with the last email already filled in. Renewing needs a connection, so being offline never logs anyone out. Settings shows who is logged in, and has **Log out** for this device and **Log out of all devices**, such as for a lost phone. A login from before long sessions still ends after its 12 hours.
 
-## Settings
+## The daily reminder
 
-The person icon at the top opens Settings. Under **Daily reminder**, each person turns their reminder on or off, picks its time with the phone's own time picker, and chooses 1 to 5 phrases. Changes save right away, and the backend sends the reminder within 15 minutes of that time, in the time zone of the person's phone. The same sheet shows whether this device gets reminders, with **Turn on** if not, and holds the account: email, invites for the admin, and **Log out**.
+Under **Daily reminder** in Settings, each person turns their reminder on or off, picks its time with the phone's own time picker, and chooses 1 to 5 phrases. Changes save right away, and the backend sends the reminder within 15 minutes of that time, in the time zone of the person's phone. The same section shows whether this device gets reminders, with **Turn on** if not.
 
-The bell button at the top shows the reminder's time, or **Paused**, once the device has reminders on; tapping it opens Settings.
+## Add a phrase
 
-Tapping the daily notification opens the app on Today. If the app was already open, it closes Settings, loads the phrases just sent, and scrolls up to Today. A phrase open to read or edit stays open, in case it holds an unsaved fix.
+The **+** button opens a sheet. Type what you want to say, in Spanish or English, and optionally a **Context**, such as "Slack message to my manager about a late deploy". **Translate** shows a formal way to say it in English (for work) and an informal one (for friends), each with 1x and 0.5x buttons to hear it. Save the one you like, and the app shows it first in Phrases.
+
+**Save it as I wrote it** saves the text as typed, before or instead of asking the AI, such as for a phrase already in English, when the AI is down, or when today's suggestions are used up. Each user may get 20 suggestions a day (the admin has no limit), and Settings shows how many they've used. The backend asks a free AI on Groq; see the backend's README.
+
+## A phrase's sheet
+
+Tapping a phrase opens it larger in a sheet, with when it was saved and its last score, and three buttons: **Listen**, **Slower** at half speed to hear each sound, and **Say it** for a score. The pencil at the top right turns the sheet into the editor, to fix or delete the phrase; Cancel goes back to reading.
+
+**Show in Spanish** asks the backend for the phrase's Spanish the first time. The backend translates each phrase once and keeps it, so after that it shows on the phrase's card and sheet without asking; editing the phrase drops it, and the new text is translated the next time. Each user may ask for 30 new translations a day (the admin has no limit). Past the limit, the app says so and the count starts over at the user's midnight.
 
 ## Listen to a phrase
 
-Under each phrase, two buttons read it aloud in English, labeled with their speed like a video player's: **1x** at normal speed and **0.5x** at half speed, to hear each sound. The one playing fills in; tap it again to stop, or tap the other to switch speeds. Only one phrase plays at a time.
+The play button on a card, and Listen and Slower in its sheet, read the phrase aloud in English. The one playing fills in; tap it again to stop, or tap another to switch. Only one phrase plays at a time.
 
 It uses the device's own voices through the browser's Web Speech API, so it costs nothing, needs no server, and works offline. The app picks the best English voice it finds, preferring American English and "Enhanced" or "Premium" voices, and skips Apple's novelty voices. To get a better voice, download one in the phone's settings:
 
 - **iPhone:** Settings → Accessibility → Spoken Content → Voices → English, then download an Enhanced or Premium voice.
 - **Android:** Settings → Text-to-speech output, with Speech Services by Google, then install the English voice data.
 
-Browsers without speech synthesis show no speed buttons.
-
-## Translate a phrase
-
-The 文A button next to the speed buttons shows the phrase in Spanish, in a speech bubble above the original. Close it with the X in the bubble's top-right corner, or by tapping 文A again. The backend translates each phrase once and keeps it, so reopening it is instant; editing the phrase translates the new text the next time.
-
-Each user may ask for 30 new translations a day (the admin has no limit); reopening a saved one doesn't count. Past the limit, the app says so and the count starts over at the user's midnight. Settings shows how many they've used today.
+Browsers without speech synthesis show no play buttons.
 
 ## Say a phrase and get a score
 
-The microphone button, after 文A in the list and in the phrase's sheet, records you saying the phrase: tap it, say the phrase, and tap it again. It also stops on its own after 10 seconds. While it records it turns red, and nothing is read aloud, so the microphone only hears you. The backend scores it from 1 to 10, and the result shows under the phrase:
+The microphone on Today's cards, and **Say it** in a phrase's sheet, record you saying the phrase: tap it, say the phrase, and tap it again. It also stops on its own after 10 seconds. While it records it turns red, and nothing is read aloud, so the microphone only hears you. The backend scores it from 1 to 10, and the result shows under the phrase:
 
 - **1 to 6**, red, with a shake: poor pronunciation
 - **7**, amber, with a nudge: almost there
 - **8 or 9**, green, with a pop: good pronunciation
 - **10**, purple, with a pop and a glow: perfect pronunciation
 
-The words it didn't hear are underlined, with a tip on the sounds to fix and **Hear it at 0.5x**. The X closes it. The last score stays next to the phrase's date, and editing the phrase drops it. The number always shows with its color, and with reduced motion on, nothing moves.
+The words it didn't hear are underlined, with a tip on the sounds to fix and **Hear it at 0.5x**. The X closes it. The last score stays on the phrase's card and sheet, and editing the phrase drops it. The number always shows with its color, and with reduced motion on, nothing moves.
 
 The first time, the phone asks to use the microphone. The recording goes to the backend and on to Groq to be heard, and isn't kept. Each user may get 20 scores a day (the admin has no limit), and Settings shows how many they've used. Browsers that can't record show no microphone. The backend's README explains the score: it says how clearly the phrase came through more than how native it sounded.
 
-## Translate a new phrase
-
-Type it under **Translate phrase**, in Spanish or English, and optionally a **Context** underneath, such as "Slack message to my manager about a late deploy". **Translate** shows a formal way to say it in English (for work) and an informal one (for friends), above Today and Recent, in English only, each with the 1x and 0.5x buttons. Save the one you like and it goes to the top of Recent, where 文A translates it like any other phrase; both boxes then clear for the next phrase.
-
-"Save it as I wrote it" saves the text as typed, such as when the AI is down or today's suggestions are used up. Each user may get 20 a day (the admin has no limit), and Settings shows how many they've used. The backend asks a free AI on Groq; see the backend's README.
-
-## Read a phrase
-
-Tapping a phrase opens it in a sheet to read: larger, with when it was saved and its last score, the 1x and 0.5x buttons, 文A for its Spanish, and the microphone. The pencil at the top right turns the sheet into the editor, to fix or delete the phrase; Cancel goes back to reading.
-
 ## Language
 
-The app speaks English or Spanish. It starts in the device's language, and **Language** under Account in Settings switches it. The choice is saved on the device, so the login screen uses it too, and in the account, so every device and the daily reminder's notification follow it. The backend's messages, such as today's limit, come in the same language.
+The app speaks English or Spanish. It starts in the device's language, and **Language** under Appearance in Settings switches it. The choice is saved on the device, so the login screen uses it too, and in the account, so every device and the daily reminder's notification follow it. The backend's messages, such as today's limit, come in the same language.
 
 ## Activity
 
@@ -72,13 +76,11 @@ The service worker opens the app at `/?from=reminder` when the notification is t
 
 ## Design
 
-The app follows the platform it runs on, set from the browser's user agent before the first render: iOS conventions on iPhone and iPad (large title, grouped lists, sheets, buttons that dim when pressed, the spoked activity indicator), and Material 3 on Android (top app bar, outlined fields and chips, a floating Save button, snackbars, pressed-state layers, the circular progress indicator). Every wait shows a spinner in that platform's style: logging in, the first load, saving, editing and deleting, translating, getting options, turning on reminders, and creating an invite.
+One design for iPhone, Android and computers: large page titles, cards for phrases, sheets that rise from the bottom on a phone and sit centered on a wider screen, a tab bar, and a + button above it. Touch targets are at least 38 pixels, and every wait shows the same turning ring: logging in, the first load, saving, editing and deleting, translating, getting options, scoring, turning on reminders, and creating an invite.
 
-The colors are "Salvia y papel": muted sage on warm paper, with a matching dark mode, chosen to be easy on the eyes while keeping text readable (WCAG AA contrast). They're the variables at the top of `src/styles.css`.
+The colors are "Azul noche": cobalt on blue-tinted greys, with a matching dark mode, keeping text readable (WCAG AA contrast). They're the variables at the top of `src/styles.css`. **Theme** under Appearance in Settings picks Auto, which follows the device, Light, or Dark; the choice is kept on that device. `src/theme.ts` applies it and colors the phone's status bar to match. The app icon, `public/icon.svg` and its PNGs, uses the same cobalt.
 
-The moon (or sun) button at the top switches between light and dark, on the login screen too. Until it's used, the app follows the device's setting; after that, the choice is kept on that device. `src/theme.ts` applies it and colors the phone's status bar to match.
-
-The icons come from [Lucide](https://lucide.dev) (ISC; some started in Feather, MIT), which allow free use as long as the notice is kept. The notice is in `THIRD_PARTY_NOTICES.md` and in `src/icons.tsx`, and `vite.config.ts` keeps it in the built files. The spinners are drawn in this app's own CSS.
+The icons come from [Lucide](https://lucide.dev) (ISC; some started in Feather, MIT), which allow free use as long as the notice is kept. The notice is in `THIRD_PARTY_NOTICES.md` and in `src/icons.tsx`, and `vite.config.ts` keeps it in the built files. The spinner is drawn in this app's own CSS.
 
 ## Run the tests
 

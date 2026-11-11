@@ -48,21 +48,6 @@ export const PenIcon = () => (
   </Icon>
 )
 
-export const ClockIcon = () => (
-  <Icon>
-    <circle cx="12" cy="12" r="10" />
-    <path d="M12 6v6l4 2" />
-  </Icon>
-)
-
-export const HistoryIcon = () => (
-  <Icon>
-    <path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8" />
-    <path d="M3 3v5h5" />
-    <path d="M12 7v5l4 2" />
-  </Icon>
-)
-
 export const SunIcon = () => (
   <Icon>
     <circle cx="12" cy="12" r="4" />
@@ -74,12 +59,6 @@ export const SunIcon = () => (
     <path d="M20 12h2" />
     <path d="m6.34 17.66-1.41 1.41" />
     <path d="m19.07 4.93-1.41 1.41" />
-  </Icon>
-)
-
-export const MessageIcon = () => (
-  <Icon>
-    <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
   </Icon>
 )
 
@@ -98,26 +77,11 @@ export const CheckIcon = () => (
   </Icon>
 )
 
-export const MoreIcon = () => (
-  <Icon>
-    <circle cx="12" cy="12" r="1" />
-    <circle cx="19" cy="12" r="1" />
-    <circle cx="5" cy="12" r="1" />
-  </Icon>
-)
-
 export const TrashIcon = () => (
   <Icon>
     <path d="M3 6h18" />
     <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6" />
     <path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
-  </Icon>
-)
-
-export const UserIcon = () => (
-  <Icon>
-    <path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2" />
-    <circle cx="12" cy="7" r="4" />
   </Icon>
 )
 
@@ -153,7 +117,6 @@ export const CopyIcon = () => (
   </Icon>
 )
 
-
 export const TranslateIcon = () => (
   <Icon>
     <path d="m5 8 6 6" />
@@ -162,6 +125,44 @@ export const TranslateIcon = () => (
     <path d="M7 2h1" />
     <path d="m22 22-5-10-5 10" />
     <path d="M14 18h6" />
+  </Icon>
+)
+
+export const PlayIcon = () => (
+  <Icon>
+    <polygon points="6 3 20 12 6 21 6 3" />
+  </Icon>
+)
+
+export const PlusIcon = () => (
+  <Icon>
+    <path d="M5 12h14" />
+    <path d="M12 5v14" />
+  </Icon>
+)
+
+export const SearchIcon = () => (
+  <Icon>
+    <circle cx="11" cy="11" r="8" />
+    <path d="m21 21-4.3-4.3" />
+  </Icon>
+)
+
+export const ListIcon = () => (
+  <Icon>
+    <path d="M3 6h.01" />
+    <path d="M3 12h.01" />
+    <path d="M3 18h.01" />
+    <path d="M8 6h13" />
+    <path d="M8 12h13" />
+    <path d="M8 18h13" />
+  </Icon>
+)
+
+export const SettingsIcon = () => (
+  <Icon>
+    <path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z" />
+    <circle cx="12" cy="12" r="3" />
   </Icon>
 )
 
@@ -186,26 +187,6 @@ export const CloseIcon = () => (
   </Icon>
 )
 
-export const MoonIcon = () => (
-  <Icon>
-    <path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z" />
-  </Icon>
-)
-
-export const MessagesIcon = () => (
-  <Icon>
-    <path d="M14 9a2 2 0 0 1-2 2H6l-4 4V4a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2z" />
-    <path d="M18 9h2a2 2 0 0 1 2 2v11l-4-4h-6a2 2 0 0 1-2-2v-1" />
-  </Icon>
-)
-
-export const ArrowUpIcon = () => (
-  <Icon>
-    <path d="m5 12 7-7 7 7" />
-    <path d="M12 19V5" />
-  </Icon>
-)
-
 export const SparklesIcon = () => (
   <Icon>
     <path d="M9.937 15.5A2 2 0 0 0 8.5 14.063l-6.135-1.582a.5.5 0 0 1 0-.962L8.5 9.936A2 2 0 0 0 9.937 8.5l1.582-6.135a.5.5 0 0 1 .963 0L14.063 8.5A2 2 0 0 0 15.5 9.937l6.135 1.581a.5.5 0 0 1 0 .964L15.5 14.063a2 2 0 0 0-1.437 1.437l-1.582 6.135a.5.5 0 0 1-.963 0z" />
@@ -223,13 +204,3 @@ export const RetryIcon = () => (
   </Icon>
 )
 
-export const ContextIcon = () => (
-  <Icon>
-    <path d="M13.4 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-7.4" />
-    <path d="M2 6h4" />
-    <path d="M2 10h4" />
-    <path d="M2 14h4" />
-    <path d="M2 18h4" />
-    <path d="M21.378 5.626a1 1 0 1 0-3.004-3.004l-5.01 5.012a2 2 0 0 0-.506.854l-.837 2.87a.5.5 0 0 0 .62.62l2.87-.837a2 2 0 0 0 .854-.506z" />
-  </Icon>
-)

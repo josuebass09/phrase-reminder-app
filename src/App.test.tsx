@@ -82,7 +82,8 @@ function fakeBackend(
     'fetch',
     vi.fn(async (input: string, init: RequestInit = {}) => {
       const method = init.method ?? 'GET'
-      const path = new URL(input, 'http://app.test').pathname
+      const url = new URL(input, 'http://app.test')
+      const path = url.pathname
       const headers = (init.headers ?? {}) as Record<string, string>
       // A recording is sent as it is; everything else is JSON.
       const body = typeof init.body === 'string' ? JSON.parse(init.body) : undefined
@@ -148,7 +149,16 @@ function fakeBackend(
       if (path === '/api/invites') {
         return admin ? json(201, { code: 'new-invite-code', expiresAt: '2026-11-17T12:00:00.000Z' }) : json(403, {})
       }
-      if (path === '/api/phrases' && method === 'GET') return json(200, phrases)
+      if (path === '/api/phrases' && method === 'GET') {
+        // Like the backend: those that match q, after the phrase before, 50 at a time.
+        const search = url.searchParams.get('q')?.toLowerCase()
+        const before = Number(url.searchParams.get('before'))
+        let listed = phrases.filter(
+          (phrase) => !search || `${phrase.text} ${phrase.translation ?? ''}`.toLowerCase().includes(search),
+        )
+        if (before) listed = listed.slice(listed.findIndex((phrase) => phrase.id === before) + 1)
+        return json(200, listed.slice(0, 50))
+      }
       if (path === '/api/today') return json(200, phrases.filter((phrase) => todayIds.includes(phrase.id)))
       if (path === '/api/phrases' && method === 'POST') {
         const phrase = { id: nextId++, text: body.text, createdAt: new Date().toISOString() }
@@ -164,7 +174,9 @@ function fakeBackend(
         if (translationFails) return json(502, { error: "Couldn't translate right now" })
         if (translationLimitReached) return json(429, { error: "You've used today's 30 translations. More tomorrow." })
         translationsUsed += 1
-        return json(200, { translation: SPANISH[phrase.text] ?? `(es) ${phrase.text}` })
+        const translation = SPANISH[phrase.text] ?? `(es) ${phrase.text}`
+        phrases[phrases.indexOf(phrase)] = { ...phrase, translation }
+        return json(200, { translation })
       }
       const pronouncedId = Number(path.match(/^\/api\/phrases\/(\d+)\/pronunciation$/)?.[1])
       if (pronouncedId) {
@@ -186,7 +198,8 @@ function fakeBackend(
       const index = phrases.findIndex((phrase) => phrase.id === id)
       if (index < 0) return json(404, { error: 'Phrase not found' })
       if (method === 'PATCH') {
-        phrases[index] = { ...phrases[index], text: body.text }
+        const changed = body.text !== phrases[index].text
+        phrases[index] = changed ? { ...phrases[index], text: body.text, translation: null, lastScore: null } : phrases[index]
         return json(200, phrases[index])
       }
       if (method === 'DELETE') {
@@ -214,6 +227,23 @@ const calledPaths = () => vi.mocked(fetch).mock.calls.map(([url]) => new URL(Str
 function startLoggedIn() {
   saveSession(TOKEN)
   render(<App />)
+}
+
+type User = ReturnType<typeof userEvent.setup>
+
+/** Shows a tab from the tab bar, and returns its page. */
+async function showTab(user: User, name: string) {
+  await user.click(within(screen.getByRole('navigation')).getByRole('button', { name }))
+  return screen.getByRole('region', { name })
+}
+
+/** The Phrases tab's first card, the newest phrase. */
+const firstCard = () => document.querySelector<HTMLElement>('#phrases .card')!
+
+/** Opens the sheet to add a phrase, from the + button. */
+async function openNewPhrase(user: User) {
+  await user.click(screen.getByRole('button', { name: 'New phrase' }))
+  return screen.getByRole('dialog', { name: 'New phrase' })
 }
 
 /** A microphone and MediaRecorder for jsdom, which has neither. Each recording is "fake audio". */
@@ -271,18 +301,17 @@ describe('the app', () => {
     expect(readSession()?.token).toBe(TOKEN)
   })
 
-  it('logs out from the settings sheet and fills in the email next time', async () => {
+  it('logs out from Settings and fills in the email next time', async () => {
     fakeBackend([typo])
     const user = userEvent.setup()
     startLoggedIn()
     await screen.findByText('It slipt my mind.')
     localStorage.setItem('phrase-reminder-email', EMAIL)
 
-    await user.click(screen.getByRole('button', { name: 'Settings' }))
-    const sheet = screen.getByRole('dialog')
-    expect(within(sheet).getByText(EMAIL)).toBeTruthy()
-    expect(within(sheet).getByText(/^Logged in until /)).toBeTruthy()
-    await user.click(within(sheet).getByRole('button', { name: 'Log out' }))
+    const settings = await showTab(user, 'Settings')
+    expect(within(settings).getByText(EMAIL)).toBeTruthy()
+    expect(within(settings).getByText(/^Logged in until /)).toBeTruthy()
+    await user.click(within(settings).getByRole('button', { name: 'Log out' }))
 
     expect(await screen.findByLabelText('Password')).toBeTruthy()
     expect(screen.getByLabelText('Email')).toHaveProperty('value', EMAIL)
@@ -290,16 +319,24 @@ describe('the app', () => {
     expect(readSession()).toBeNull()
   })
 
-  it('closes the settings sheet without logging out', async () => {
+  it('opens on Today, shows each tab from the tab bar, and offers + where phrases are', async () => {
     fakeBackend([typo])
     const user = userEvent.setup()
     startLoggedIn()
     await screen.findByText('It slipt my mind.')
+    const tabs = within(screen.getByRole('navigation'))
 
-    await user.click(screen.getByRole('button', { name: 'Settings' }))
-    await user.click(within(screen.getByRole('dialog')).getByRole('button', { name: 'Done' }))
+    expect(screen.getByRole('region', { name: 'Today' })).toBeTruthy()
+    expect(tabs.getByRole('button', { name: 'Today' }).getAttribute('aria-current')).toBe('page')
 
-    expect(screen.queryByRole('dialog')).toBeNull()
+    const phrases = await showTab(user, 'Phrases')
+    expect(within(phrases).getByText('It slipt my mind.')).toBeTruthy()
+    expect(screen.queryByRole('region', { name: 'Today' })).toBeNull()
+    expect(screen.getByRole('button', { name: 'New phrase' })).toBeTruthy()
+
+    await showTab(user, 'Settings')
+    expect(tabs.getByRole('button', { name: 'Settings' }).getAttribute('aria-current')).toBe('page')
+    expect(screen.queryByRole('button', { name: 'New phrase' })).toBeNull()
     expect(readSession()?.token).toBe(TOKEN)
   })
 
@@ -334,65 +371,74 @@ describe('the app', () => {
       const user = userEvent.setup()
       startLoggedIn()
       await screen.findByText('It slipt my mind.')
-      const todaySection = document.getElementById('today')!
-      expect(todaySection.hidden).toBe(true)
-      let scrolledToToday = false
-      todaySection.scrollIntoView = () => {
-        scrolledToToday = true
-      }
-      await user.click(screen.getByRole('button', { name: 'Settings' }))
-      expect(screen.getByRole('dialog')).toBeTruthy()
+      const todayList = document.getElementById('today')!
+      expect(todayList.hidden).toBe(true)
+      await showTab(user, 'Settings')
 
       todayIds.push(typo.id) // The reminder just went out with this phrase.
       act(() => {
         worker.dispatchEvent(new MessageEvent('message', { data: { type: 'show-today' } }))
       })
 
-      await waitFor(() => expect(scrolledToToday).toBe(true))
-      expect(screen.queryByRole('dialog')).toBeNull()
-      expect(todaySection.hidden).toBe(false)
-      expect(within(todaySection).getByText('It slipt my mind.')).toBeTruthy()
+      await waitFor(() => expect(todayList.hidden).toBe(false))
+      expect(screen.getByRole('region', { name: 'Today' })).toBeTruthy()
+      expect(within(todayList).getByText('It slipt my mind.')).toBeTruthy()
     } finally {
       Reflect.deleteProperty(navigator, 'serviceWorker')
     }
   })
 
-  it('saves the picked option at the top of Recent, and clears the new phrase', async () => {
+  it('adds a phrase from +: saves the picked option, closes the sheet, and shows the phrase first in Phrases', async () => {
     const phrases = fakeBackend([typo])
     const user = userEvent.setup()
     startLoggedIn()
     await screen.findByText('It slipt my mind.')
 
-    await user.type(screen.getByLabelText('Translate phrase'), '¿Puedes revisarlo?')
-    await user.click(screen.getByRole('button', { name: 'Translate' }))
-    const formal = await screen.findByRole('article', { name: 'Formal' })
+    const sheet = await openNewPhrase(user)
+    await user.type(within(sheet).getByLabelText('What do you want to say?'), '¿Puedes revisarlo?')
+    await user.click(within(sheet).getByRole('button', { name: 'Translate' }))
+    const formal = await within(sheet).findByRole('article', { name: 'Formal' })
     expect(within(formal).getByText('Could you please take a look at it?')).toBeTruthy()
     await user.click(within(formal).getByRole('button', { name: 'Save formal' }))
 
-    const recent = document.getElementById('phrases')!
-    await waitFor(() => expect(recent.querySelector('.row-text')?.textContent).toBe('Could you please take a look at it?'))
-    expect(screen.getByLabelText('Translate phrase')).toHaveProperty('value', '')
-    expect(screen.queryByRole('article')).toBeNull()
+    await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull())
+    expect(screen.getByRole('region', { name: 'Phrases' })).toBeTruthy()
+    expect(firstCard().querySelector('.card-text')?.textContent).toBe('Could you please take a look at it?')
     expect(screen.getByText('Phrase saved')).toBeTruthy()
     expect(phrases.map((phrase) => phrase.text)).toEqual(['Could you please take a look at it?', 'It slipt my mind.'])
   })
 
-  it('saves the new phrase as written, without the AI', async () => {
+  it('saves the new phrase as written, without the AI, also when its suggestions are used up', async () => {
     const phrases = fakeBackend([typo], [], { suggestionLimitReached: true })
     const user = userEvent.setup()
     startLoggedIn()
     await screen.findByText('It slipt my mind.')
 
-    await user.type(screen.getByLabelText('Translate phrase'), "I'll keep you posted.")
-    await user.click(screen.getByRole('button', { name: 'Translate' }))
-    expect(await screen.findByText("You've used today's 20 suggestions. More tomorrow.")).toBeTruthy()
-    expect(screen.queryByRole('button', { name: 'Try again' })).toBeNull()
-    await user.click(screen.getByRole('button', { name: 'Save it as I wrote it' }))
+    const sheet = await openNewPhrase(user)
+    await user.type(within(sheet).getByLabelText('What do you want to say?'), "I'll keep you posted.")
+    await user.click(within(sheet).getByRole('button', { name: 'Translate' }))
+    expect(await within(sheet).findByText("You've used today's 20 suggestions. More tomorrow.")).toBeTruthy()
+    expect(within(sheet).queryByRole('button', { name: 'Try again' })).toBeNull()
+    await user.click(within(sheet).getByRole('button', { name: 'Save it as I wrote it' }))
 
-    const recent = document.getElementById('phrases')!
-    await waitFor(() => expect(recent.querySelector('.row-text')?.textContent).toBe("I'll keep you posted."))
+    await waitFor(() => expect(firstCard().querySelector('.card-text')?.textContent).toBe("I'll keep you posted."))
     expect(screen.queryByRole('alert')).toBeNull()
     expect(phrases.map((phrase) => phrase.text)).toEqual(["I'll keep you posted.", 'It slipt my mind.'])
+  })
+
+  it('saves the new phrase as written before asking the AI', async () => {
+    const phrases = fakeBackend([typo])
+    const user = userEvent.setup()
+    startLoggedIn()
+    await screen.findByText('It slipt my mind.')
+
+    const sheet = await openNewPhrase(user)
+    expect(within(sheet).getByRole('button', { name: 'Save it as I wrote it' })).toHaveProperty('disabled', true)
+    await user.type(within(sheet).getByLabelText('What do you want to say?'), 'No worries.')
+    await user.click(within(sheet).getByRole('button', { name: 'Save it as I wrote it' }))
+
+    await waitFor(() => expect(phrases.map((phrase) => phrase.text)).toEqual(['No worries.', 'It slipt my mind.']))
+    expect(calledPaths()).not.toContain('/api/suggestions')
   })
 
   it('scores the phrase said aloud, shows how it went, and keeps the score on the phrase', async () => {
@@ -407,12 +453,12 @@ describe('the app', () => {
       heard: 'It slept my mind.',
       tip: 'Say "slipt" with a short "i", as in "sit".',
     }
-    fakeBackend([typo], [], { pronunciation: result })
+    fakeBackend([typo], [typo.id], { pronunciation: result })
     const microphone = fakeMicrophone()
     const user = userEvent.setup()
     startLoggedIn()
-    await screen.findByText('It slipt my mind.')
-    const row = document.querySelector<HTMLElement>('#phrases .row')!
+    await screen.findAllByText('It slipt my mind.')
+    const row = document.querySelector<HTMLElement>('#today .card')!
     const mic = within(row).getByRole('button', { name: 'Say it and get a score' })
 
     await user.click(mic)
@@ -442,9 +488,11 @@ describe('the app', () => {
     const user = userEvent.setup()
     startLoggedIn()
     await screen.findByText('It slipt my mind.')
-    await user.click(screen.getByRole('button', { name: 'Open phrase' }))
+    await showTab(user, 'Phrases')
+    expect(within(firstCard()).queryByRole('button', { name: 'Say it and get a score' })).toBeNull() // Only Today's cards have it.
+    await user.click(within(firstCard()).getByRole('button', { name: 'Open phrase' }))
     const sheet = screen.getByRole('dialog')
-    const mic = within(sheet).getByRole('button', { name: 'Say it and get a score' })
+    const mic = within(sheet).getByRole('button', { name: 'Say it' })
 
     await user.click(mic)
     await waitFor(() => expect(mic.getAttribute('aria-pressed')).toBe('true'))
@@ -453,8 +501,7 @@ describe('the app', () => {
     const bubble = await within(sheet).findByRole('status')
     expect(within(bubble).getByText('Good pronunciation')).toBeTruthy()
     expect(within(sheet).getByText('Last score: 9 of 10, good pronunciation')).toBeTruthy()
-    const row = document.querySelector<HTMLElement>('#phrases .row')!
-    expect(within(row).getByText('Last score: 9 of 10, good pronunciation')).toBeTruthy()
+    expect(within(firstCard()).getByText('Last score: 9 of 10, good pronunciation')).toBeTruthy()
   })
 
   it("shows a phrase's last score, with no microphone where the browser can't record", async () => {
@@ -469,11 +516,11 @@ describe('the app', () => {
   })
 
   it('says when the microphone is blocked', async () => {
-    fakeBackend([typo])
+    fakeBackend([typo], [typo.id])
     fakeMicrophone({ blocked: true })
     const user = userEvent.setup()
     startLoggedIn()
-    await screen.findByText('It slipt my mind.')
+    await screen.findAllByText('It slipt my mind.')
     const mic = screen.getByRole('button', { name: 'Say it and get a score' })
 
     await user.click(mic)
@@ -484,11 +531,11 @@ describe('the app', () => {
 
   it("shows the backend's reason when it can't score, and keeps no score", async () => {
     const reason = "Couldn't hear you. Get closer to the microphone and try again."
-    fakeBackend([typo], [], { pronunciationError: { status: 422, error: reason } })
+    fakeBackend([typo], [typo.id], { pronunciationError: { status: 422, error: reason } })
     fakeMicrophone()
     const user = userEvent.setup()
     startLoggedIn()
-    await screen.findByText('It slipt my mind.')
+    await screen.findAllByText('It slipt my mind.')
     const mic = screen.getByRole('button', { name: 'Say it and get a score' })
 
     await user.click(mic)
@@ -561,7 +608,7 @@ describe('the app', () => {
     await user.type(screen.getByLabelText('Password'), PASSWORD)
     await user.click(screen.getByRole('button', { name: 'Create account' }))
 
-    expect(await screen.findByText('Your saved phrases will appear here.')).toBeTruthy()
+    expect(await screen.findByText('No phrases yet. Tap + to add your first one.')).toBeTruthy()
     expect(readSession()?.email).toBe('friend@example.com')
   })
 
@@ -581,7 +628,7 @@ describe('the app', () => {
     await user.type(screen.getByLabelText('Invite code'), `https://app.example/?invite=${INVITE_CODE}`)
     await user.click(screen.getByRole('button', { name: 'Create account' }))
 
-    expect(await screen.findByText('Your saved phrases will appear here.')).toBeTruthy()
+    expect(await screen.findByText('No phrases yet. Tap + to add your first one.')).toBeTruthy()
   })
 
   it('goes back to logging in from the sign-up form', async () => {
@@ -619,18 +666,19 @@ describe('the app', () => {
     startLoggedIn()
     await screen.findByText('It slipt my mind.')
 
-    await user.click(screen.getByRole('button', { name: 'Settings' }))
+    const settings = await showTab(user, 'Settings')
 
-    expect(within(screen.getByRole('dialog')).getByRole('button', { name: 'Log out' })).toBeTruthy()
+    expect(within(settings).getByRole('button', { name: 'Log out' })).toBeTruthy()
     expect(screen.queryByRole('button', { name: 'Invite someone' })).toBeNull()
   })
 
-  it('reads a phrase aloud from 1x without opening the editor', async () => {
+  it('reads a phrase aloud from its play button without opening it', async () => {
     fakeBackend([typo])
     const { spoken } = fakeSpeech()
     const user = userEvent.setup()
     startLoggedIn()
     await screen.findByText('It slipt my mind.')
+    await showTab(user, 'Phrases')
 
     const speaker = screen.getByRole('button', { name: 'Listen at 1x' })
     await user.click(speaker)
@@ -643,13 +691,14 @@ describe('the app', () => {
     expect(speaker.getAttribute('aria-pressed')).toBe('false')
   })
 
-  it('stops the phrase when its speed is tapped again, and plays one phrase at a time', async () => {
+  it('stops the phrase when its play button is tapped again, and plays one phrase at a time', async () => {
     const second: Phrase = { id: 2, text: "I'll keep you posted.", createdAt: '2026-11-02T12:00:00.000Z' }
     fakeBackend([second, typo])
     const { synth, spoken } = fakeSpeech()
     const user = userEvent.setup()
     startLoggedIn()
     await screen.findByText('It slipt my mind.')
+    await showTab(user, 'Phrases')
     const [first, other] = screen.getAllByRole('button', { name: 'Listen at 1x' })
 
     await user.click(first)
@@ -671,19 +720,21 @@ describe('the app', () => {
     expect(screen.queryByRole('button', { name: 'Listen at 1x' })).toBeNull()
   })
 
-  it('reads a phrase at half speed from 0.5x, and switches speeds in place', async () => {
+  it('reads a phrase at half speed from its sheet, and switches speeds in place', async () => {
     fakeBackend([typo])
     const { synth, spoken } = fakeSpeech()
     const user = userEvent.setup()
     startLoggedIn()
     await screen.findByText('It slipt my mind.')
-    const normal = screen.getByRole('button', { name: 'Listen at 1x' })
-    const slow = screen.getByRole('button', { name: 'Listen at 0.5x' })
+    await showTab(user, 'Phrases')
+    await user.click(within(firstCard()).getByRole('button', { name: 'Open phrase' }))
+    const sheet = screen.getByRole('dialog')
+    const normal = within(sheet).getByRole('button', { name: 'Listen' })
+    const slow = within(sheet).getByRole('button', { name: 'Slower' })
 
     await user.click(slow)
     expect(spoken.map((utterance) => [utterance.text, utterance.rate])).toEqual([['It slipt my mind.', 0.5]])
     expect([normal, slow].map((button) => button.getAttribute('aria-pressed'))).toEqual(['false', 'true'])
-    expect(screen.queryByRole('dialog')).toBeNull()
 
     await user.click(normal)
     expect(spoken.at(-1)?.rate).toBe(1)
@@ -696,55 +747,51 @@ describe('the app', () => {
     expect(slow.getAttribute('aria-pressed')).toBe('false')
   })
 
-  it('shows the Spanish translation in a bubble above the phrase, and hides it on a second tap', async () => {
+  it("shows a phrase's Spanish from its sheet, and then on its card, asking the backend once", async () => {
     fakeBackend([typo])
     const user = userEvent.setup()
     startLoggedIn()
     await screen.findByText('It slipt my mind.')
-    const translate = screen.getByRole('button', { name: 'Translate to Spanish' })
+    await showTab(user, 'Phrases')
+    const translationRequests = () => calledPaths().filter((path) => path.endsWith('/translation')).length
+    await user.click(within(firstCard()).getByRole('button', { name: 'Open phrase' }))
+    const sheet = screen.getByRole('dialog')
 
-    await user.click(translate)
+    await user.click(within(sheet).getByRole('button', { name: 'Show in Spanish' }))
 
-    const bubble = await screen.findByText('Se me olvidó.')
-    expect(bubble.getAttribute('lang')).toBe('es')
-    const row = bubble.closest('.row')!
-    expect(row.querySelector('.row-body')?.firstElementChild).toBe(bubble.closest('.translation-bubble')) // Above the original.
-    expect(within(row as HTMLElement).getByText('It slipt my mind.')).toBeTruthy()
-    expect(translate.getAttribute('aria-pressed')).toBe('true')
-    expect(screen.queryByRole('dialog')).toBeNull()
+    const spanish = await within(sheet).findByText('Se me olvidó.')
+    expect(spanish.getAttribute('lang')).toBe('es')
+    expect(within(sheet).queryByRole('button', { name: 'Show in Spanish' })).toBeNull()
+    expect(within(firstCard()).getByText('Se me olvidó.')).toBeTruthy()
 
-    await user.click(translate)
-    expect(screen.queryByText('Se me olvidó.')).toBeNull()
-    expect(translate.getAttribute('aria-pressed')).toBe('false')
-  })
-
-  it('reopens a translation without asking the backend again', async () => {
-    fakeBackend([typo])
-    const user = userEvent.setup()
-    startLoggedIn()
-    await screen.findByText('It slipt my mind.')
-    const translate = screen.getByRole('button', { name: 'Translate to Spanish' })
-    const translationRequests = () =>
-      vi.mocked(fetch).mock.calls.filter(([url]) => String(url).endsWith('/translation')).length
-
-    await user.click(translate)
-    await screen.findByText('Se me olvidó.')
-    await user.click(translate)
-    await user.click(translate)
-
-    expect(screen.getByText('Se me olvidó.')).toBeTruthy()
+    await user.click(within(sheet).getByRole('button', { name: 'Close' }))
+    await user.click(within(firstCard()).getByRole('button', { name: 'Open phrase' }))
+    expect(within(screen.getByRole('dialog')).getByText('Se me olvidó.')).toBeTruthy()
     expect(translationRequests()).toBe(1)
   })
 
-  it('forgets the translation when the phrase is edited', async () => {
-    fakeBackend([typo])
+  it('shows the Spanish the backend already has, without asking for it', async () => {
+    fakeBackend([{ ...typo, translation: 'Se me olvidó.' }])
     const user = userEvent.setup()
     startLoggedIn()
     await screen.findByText('It slipt my mind.')
-    await user.click(screen.getByRole('button', { name: 'Translate to Spanish' }))
-    await screen.findByText('Se me olvidó.')
+    await showTab(user, 'Phrases')
 
-    await user.click(screen.getByRole('button', { name: 'Open phrase' }))
+    expect(within(firstCard()).getByText('Se me olvidó.')).toBeTruthy()
+    await user.click(within(firstCard()).getByRole('button', { name: 'Open phrase' }))
+    expect(within(screen.getByRole('dialog')).getByText('Se me olvidó.')).toBeTruthy()
+    expect(screen.queryByRole('button', { name: 'Show in Spanish' })).toBeNull()
+    expect(calledPaths().filter((path) => path.endsWith('/translation'))).toEqual([])
+  })
+
+  it('forgets the Spanish when the phrase is edited', async () => {
+    fakeBackend([{ ...typo, translation: 'Se me olvidó.' }])
+    const user = userEvent.setup()
+    startLoggedIn()
+    await screen.findByText('It slipt my mind.')
+    await showTab(user, 'Phrases')
+
+    await user.click(within(firstCard()).getByRole('button', { name: 'Open phrase' }))
     await user.click(within(screen.getByRole('dialog')).getByRole('button', { name: 'Edit phrase' }))
     const editor = screen.getByRole('dialog')
     await user.clear(within(editor).getByRole('textbox'))
@@ -753,39 +800,23 @@ describe('the app', () => {
 
     await screen.findByText('It slipped my mind.')
     expect(screen.queryByText('Se me olvidó.')).toBeNull()
-    await user.click(screen.getByRole('button', { name: 'Translate to Spanish' }))
-    expect(await screen.findByText('(es) It slipped my mind.')).toBeTruthy()
+    await user.click(within(firstCard()).getByRole('button', { name: 'Open phrase' }))
+    await user.click(within(screen.getByRole('dialog')).getByRole('button', { name: 'Show in Spanish' }))
+    expect(await screen.findAllByText('(es) It slipped my mind.')).toHaveLength(2) // In the sheet and on the card.
   })
 
-  it('says so when the translation fails', async () => {
+  it('says so when the Spanish fails', async () => {
     fakeBackend([typo], [], { translationFails: true })
     const user = userEvent.setup()
     startLoggedIn()
     await screen.findByText('It slipt my mind.')
+    await showTab(user, 'Phrases')
+    await user.click(within(firstCard()).getByRole('button', { name: 'Open phrase' }))
 
-    await user.click(screen.getByRole('button', { name: 'Translate to Spanish' }))
+    await user.click(within(screen.getByRole('dialog')).getByRole('button', { name: 'Show in Spanish' }))
 
     expect(await screen.findByText("Couldn't translate. Try again.")).toBeTruthy()
-    expect(screen.getByRole('button', { name: 'Translate to Spanish' }).getAttribute('aria-pressed')).toBe('false')
-  })
-
-  it('closes the bubble with the X in its corner, and a tap on its text opens nothing', async () => {
-    fakeBackend([typo])
-    const user = userEvent.setup()
-    startLoggedIn()
-    await screen.findByText('It slipt my mind.')
-    const translate = screen.getByRole('button', { name: 'Translate to Spanish' })
-
-    await user.click(translate)
-    await user.click(await screen.findByText('Se me olvidó.'))
-    expect(screen.getByText('Se me olvidó.')).toBeTruthy()
-    expect(screen.queryByRole('dialog')).toBeNull()
-
-    await user.click(screen.getByRole('button', { name: 'Close translation' }))
-
-    expect(screen.queryByText('Se me olvidó.')).toBeNull()
-    expect(translate.getAttribute('aria-pressed')).toBe('false')
-    expect(screen.queryByRole('dialog')).toBeNull()
+    expect(within(screen.getByRole('dialog')).getByRole('button', { name: 'Show in Spanish' })).toBeTruthy()
   })
 
   it('shows a spinner while the phrases first load', async () => {
@@ -793,7 +824,7 @@ describe('the app', () => {
     fakeBackend([typo], [], { hold })
     startLoggedIn()
 
-    expect(screen.getByText('Loading your phrases…')).toBeTruthy()
+    expect(within(screen.getByRole('region', { name: 'Today' })).getByText('Loading your phrases…')).toBeTruthy()
     expect(document.querySelector('.loading .spinner')).toBeTruthy()
 
     hold.release()
@@ -825,12 +856,13 @@ describe('the app', () => {
     startLoggedIn()
     await screen.findByText('It slipt my mind.')
 
-    await user.type(screen.getByLabelText('Translate phrase'), 'Hola')
-    await user.click(screen.getByRole('button', { name: 'Translate' }))
-    expect(screen.getByRole('button', { name: 'Translating…' }).querySelector('.spinner')).toBeTruthy()
+    const sheet = await openNewPhrase(user)
+    await user.type(within(sheet).getByLabelText('What do you want to say?'), 'Hola')
+    await user.click(within(sheet).getByRole('button', { name: 'Translate' }))
+    expect(within(sheet).getByRole('button', { name: 'Translating…' }).querySelector('.spinner')).toBeTruthy()
     expect(within(document.getElementById('options')!).getByRole('status').textContent).toContain('Finding the best ways')
     thinking.release()
-    const informal = await screen.findByRole('article', { name: 'Informal' })
+    const informal = await within(sheet).findByRole('article', { name: 'Informal' })
 
     // Only the save is held back now.
     const saving = holdBack('/api/phrases')
@@ -844,25 +876,26 @@ describe('the app', () => {
     expect(within(informal).getByRole('button', { name: 'Save informal' }).querySelector('.spinner')).toBeTruthy()
     expect(within(informal).getByText('Saving…')).toBeTruthy()
     saving.release()
-    await waitFor(() => expect(screen.queryByRole('article')).toBeNull())
-    expect(screen.getByRole('button', { name: 'Translate' })).toBeTruthy()
+    await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull())
+    expect(firstCard().querySelector('.card-text')?.textContent).toBe('Informal Hola')
   })
 
-  it('shows a spinner in the translate button while the translation loads', async () => {
+  it('shows a spinner on Show in Spanish while the Spanish loads', async () => {
     const hold = holdBack(`/api/phrases/${typo.id}/translation`)
     fakeBackend([typo], [], { hold })
     const user = userEvent.setup()
     startLoggedIn()
     await screen.findByText('It slipt my mind.')
-    const translate = screen.getByRole('button', { name: 'Translate to Spanish' })
+    await showTab(user, 'Phrases')
+    await user.click(within(firstCard()).getByRole('button', { name: 'Open phrase' }))
+    const translate = within(screen.getByRole('dialog')).getByRole('button', { name: 'Show in Spanish' })
 
     await user.click(translate)
 
     expect(translate.getAttribute('aria-busy')).toBe('true')
     expect(translate.querySelector('.spinner')).toBeTruthy()
     hold.release()
-    await screen.findByText('Se me olvidó.')
-    expect(translate.querySelector('.spinner')).toBeNull()
+    expect(await within(screen.getByRole('dialog')).findByText('Se me olvidó.')).toBeTruthy()
   })
 
   it('shows a spinner on Delete while the phrase is deleted', async () => {
@@ -871,6 +904,7 @@ describe('the app', () => {
     const user = userEvent.setup()
     startLoggedIn()
     await screen.findByText('It slipt my mind.')
+    await showTab(user, 'Phrases')
 
     await user.click(screen.getByRole('button', { name: 'Open phrase' }))
     await user.click(within(screen.getByRole('dialog')).getByRole('button', { name: 'Edit phrase' }))
@@ -882,39 +916,24 @@ describe('the app', () => {
     await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull())
   })
 
-  it('draws the spinner in each platform\'s own style', async () => {
-    const hold = holdBack('/api/phrases')
-    fakeBackend([typo], [], { hold })
-    document.documentElement.dataset.platform = 'android'
-    startLoggedIn()
-
-    expect(document.querySelector('.loading .spinner-android svg circle')).toBeTruthy()
-    expect(document.querySelector('.spinner-ios')).toBeNull()
-    delete document.documentElement.dataset.platform
-    hold.release()
-    await screen.findByText('It slipt my mind.')
-  })
-
-  it('switches between light and dark from the header, on the login screen and in the app', async () => {
+  it("switches between light, dark and the device's theme from Settings", async () => {
     fakeBackend([typo])
     const user = userEvent.setup()
-    render(<App />)
-
-    const onLogin = screen.getByRole('button', { name: 'Dark mode' })
-    const before = document.documentElement.dataset.theme
-    await user.click(onLogin)
-    expect(document.documentElement.dataset.theme).not.toBe(before)
-    expect(onLogin.getAttribute('aria-pressed')).toBe(String(document.documentElement.dataset.theme === 'dark'))
-
-    await user.type(screen.getByLabelText('Email'), EMAIL)
-    await user.type(screen.getByLabelText('Password'), PASSWORD)
-    await user.click(screen.getByRole('button', { name: 'Log in' }))
+    startLoggedIn()
     await screen.findByText('It slipt my mind.')
-    const inApp = screen.getByRole('button', { name: 'Dark mode' })
-    const pressed = inApp.getAttribute('aria-pressed')
-    await user.click(inApp)
+    const settings = await showTab(user, 'Settings')
+    const choice = (name: string) => within(settings).getByRole('button', { name })
 
-    expect(inApp.getAttribute('aria-pressed')).toBe(pressed === 'true' ? 'false' : 'true')
+    await user.click(choice('Dark'))
+    expect(document.documentElement.dataset.theme).toBe('dark')
+    expect(choice('Dark').getAttribute('aria-pressed')).toBe('true')
+
+    await user.click(choice('Light'))
+    expect(document.documentElement.dataset.theme).toBe('light')
+
+    await user.click(choice('Auto'))
+    expect(choice('Auto').getAttribute('aria-pressed')).toBe('true')
+    expect(localStorage.getItem('phrase-reminder-theme')).toBeNull()
   })
 
   it('shows the reminder settings and saves each change right away', async () => {
@@ -923,8 +942,7 @@ describe('the app', () => {
     startLoggedIn()
     await screen.findByText('It slipt my mind.')
 
-    await user.click(screen.getByRole('button', { name: 'Settings' }))
-    const sheet = screen.getByRole('dialog')
+    const sheet = await showTab(user, 'Settings')
     const enabled = await within(sheet).findByRole('switch', { name: 'Send me phrases' })
     expect(enabled).toHaveProperty('checked', true)
     expect(within(sheet).getByLabelText('Time')).toHaveProperty('value', '12:00')
@@ -945,8 +963,7 @@ describe('the app', () => {
     const user = userEvent.setup()
     startLoggedIn()
     await screen.findByText('It slipt my mind.')
-    await user.click(screen.getByRole('button', { name: 'Settings' }))
-    const time = await within(screen.getByRole('dialog')).findByLabelText('Time')
+    const time = await within(await showTab(user, 'Settings')).findByLabelText('Time')
 
     fireEvent.change(time, { target: { value: '08:15' } })
     fireEvent.change(time, { target: { value: '08:30' } })
@@ -962,8 +979,7 @@ describe('the app', () => {
     const user = userEvent.setup()
     startLoggedIn()
     await screen.findByText('It slipt my mind.')
-    await user.click(screen.getByRole('button', { name: 'Settings' }))
-    const sheet = screen.getByRole('dialog')
+    const sheet = await showTab(user, 'Settings')
 
     await user.selectOptions(await within(sheet).findByLabelText('Phrases each time'), '1')
 
@@ -985,8 +1001,10 @@ describe('the app', () => {
     const user = userEvent.setup()
     startLoggedIn()
     await screen.findByText('It slipt my mind.')
+    await showTab(user, 'Phrases')
+    await user.click(within(firstCard()).getByRole('button', { name: 'Open phrase' }))
 
-    await user.click(screen.getByRole('button', { name: 'Translate to Spanish' }))
+    await user.click(within(screen.getByRole('dialog')).getByRole('button', { name: 'Show in Spanish' }))
 
     expect(await screen.findByText("You've used today's 30 translations. More tomorrow.")).toBeTruthy()
   })
@@ -996,12 +1014,13 @@ describe('the app', () => {
     const user = userEvent.setup()
     startLoggedIn()
     await screen.findByText('It slipt my mind.')
-    await user.click(screen.getByRole('button', { name: 'Translate to Spanish' }))
-    await screen.findByText('Se me olvidó.')
+    await showTab(user, 'Phrases')
+    await user.click(within(firstCard()).getByRole('button', { name: 'Open phrase' }))
+    await user.click(within(screen.getByRole('dialog')).getByRole('button', { name: 'Show in Spanish' }))
+    await screen.findAllByText('Se me olvidó.')
+    await user.click(within(screen.getByRole('dialog')).getByRole('button', { name: 'Close' }))
 
-    await user.click(screen.getByRole('button', { name: 'Settings' }))
-
-    const sheet = screen.getByRole('dialog')
+    const sheet = await showTab(user, 'Settings')
     expect(await within(sheet).findByText('1 of 30')).toBeTruthy()
     expect(within(sheet).getAllByText('0 of 20')).toHaveLength(2) // Suggestions and pronunciation scores.
   })
@@ -1012,22 +1031,23 @@ describe('the app', () => {
     startLoggedIn()
     await screen.findByText('It slipt my mind.')
 
-    await user.click(screen.getByRole('button', { name: 'Settings' }))
+    const settings = await showTab(user, 'Settings')
 
-    expect(await within(screen.getByRole('dialog')).findAllByText('0 · no limit')).toHaveLength(3)
+    expect(await within(settings).findAllByText('0 · no limit')).toHaveLength(3)
   })
 })
 
 describe('suggestions', () => {
-  const phraseBox = () => screen.getByLabelText('Translate phrase')
-
+  /** Logs in and opens the sheet to add a phrase. */
   async function start(options: Parameters<typeof fakeBackend>[2] = {}) {
     const phrases = fakeBackend([typo], [], options)
     const user = userEvent.setup()
     startLoggedIn()
     await screen.findByText('It slipt my mind.')
-    return { user, phrases }
+    return { user, phrases, sheet: await openNewPhrase(user) }
   }
+
+  const phraseBox = (sheet: HTMLElement) => within(sheet).getByLabelText('What do you want to say?')
 
   const sentBodies = () =>
     vi
@@ -1035,80 +1055,80 @@ describe('suggestions', () => {
       .mock.calls.filter(([url]) => String(url).endsWith('/api/suggestions'))
       .map(([, init]) => JSON.parse(String(init?.body)))
 
-  it('sends the context with the phrase, and clears both after saving', async () => {
-    const { user } = await start()
+  it('sends the context with the phrase, and starts the next phrase empty', async () => {
+    const { user, sheet } = await start()
 
-    await user.type(screen.getByLabelText('Context'), 'Slack message to my manager')
-    await user.type(phraseBox(), 'Voy tarde')
-    await user.click(screen.getByRole('button', { name: 'Translate' }))
-    await user.click(within(await screen.findByRole('article', { name: 'Informal' })).getByRole('button', { name: 'Save informal' }))
+    expect(document.activeElement).toBe(phraseBox(sheet)) // Ready to type.
+    await user.type(within(sheet).getByLabelText('Context'), 'Slack message to my manager')
+    await user.type(phraseBox(sheet), 'Voy tarde')
+    await user.click(within(sheet).getByRole('button', { name: 'Translate' }))
+    await user.click(within(await within(sheet).findByRole('article', { name: 'Informal' })).getByRole('button', { name: 'Save informal' }))
     await screen.findByText('Phrase saved')
 
-    expect(phraseBox()).toHaveProperty('value', '')
-    expect(screen.getByLabelText('Context')).toHaveProperty('value', '')
-    await user.type(phraseBox(), 'Ya casi')
-    await user.click(screen.getByRole('button', { name: 'Translate' }))
-    await screen.findByText('Formal Ya casi')
+    const next = await openNewPhrase(user)
+    expect(phraseBox(next)).toHaveProperty('value', '')
+    expect(within(next).getByLabelText('Context')).toHaveProperty('value', '')
+    await user.type(phraseBox(next), 'Ya casi')
+    await user.click(within(next).getByRole('button', { name: 'Translate' }))
+    await within(next).findByText('Formal Ya casi')
     expect(sentBodies()).toEqual([{ text: 'Voy tarde', context: 'Slack message to my manager' }, { text: 'Ya casi' }])
   })
 
   it('asks for options from Enter in the context box', async () => {
-    const { user } = await start()
+    const { user, sheet } = await start()
 
-    await user.type(phraseBox(), 'Hola')
-    await user.type(screen.getByLabelText('Context'), 'Email to a client{Enter}')
+    await user.type(phraseBox(sheet), 'Hola')
+    await user.type(within(sheet).getByLabelText('Context'), 'Email to a client{Enter}')
 
-    expect(await screen.findByText('Formal Hola')).toBeTruthy()
+    expect(await within(sheet).findByText('Formal Hola')).toBeTruthy()
     expect(sentBodies()).toEqual([{ text: 'Hola', context: 'Email to a client' }])
   })
 
-  it('saves the picked option without a translation, so 文A translates it like any other', async () => {
-    const { user } = await start()
-    await user.type(phraseBox(), '¿Puedes revisarlo?')
-    await user.click(screen.getByRole('button', { name: 'Translate' }))
-    await user.click(within(await screen.findByRole('article', { name: 'Informal' })).getByRole('button', { name: 'Save informal' }))
-    const row = (await within(document.getElementById('phrases')!).findByText('Can you take a look?')).closest('li')!
+  it('saves the picked option without a translation, so its sheet translates it like any other', async () => {
+    const { user, sheet } = await start()
+    await user.type(phraseBox(sheet), '¿Puedes revisarlo?')
+    await user.click(within(sheet).getByRole('button', { name: 'Translate' }))
+    await user.click(within(await within(sheet).findByRole('article', { name: 'Informal' })).getByRole('button', { name: 'Save informal' }))
+    await waitFor(() => expect(firstCard().querySelector('.card-text')?.textContent).toBe('Can you take a look?'))
 
     const saved = vi.mocked(fetch).mock.calls.find(([url, init]) => String(url).endsWith('/api/phrases') && init?.method === 'POST')
     expect(JSON.parse(String(saved?.[1]?.body))).toEqual({ text: 'Can you take a look?' })
-    await user.click(within(row).getByRole('button', { name: 'Translate to Spanish' }))
-    expect(await within(row).findByText('(es) Can you take a look?')).toBeTruthy()
+    await user.click(within(firstCard()).getByRole('button', { name: 'Open phrase' }))
+    await user.click(within(screen.getByRole('dialog')).getByRole('button', { name: 'Show in Spanish' }))
+    expect(await within(screen.getByRole('dialog')).findByText('(es) Can you take a look?')).toBeTruthy()
   })
 
   it('offers to try again when the options fail', async () => {
-    const { user } = await start({ suggestionsFail: 1 })
+    const { user, sheet } = await start({ suggestionsFail: 1 })
 
-    await user.type(phraseBox(), 'Hola')
-    await user.click(screen.getByRole('button', { name: 'Translate' }))
-    expect(await screen.findByText("Couldn't get an answer right now. Try again.")).toBeTruthy()
-    await user.click(screen.getByRole('button', { name: 'Try again' }))
+    await user.type(phraseBox(sheet), 'Hola')
+    await user.click(within(sheet).getByRole('button', { name: 'Translate' }))
+    expect(await within(sheet).findByText("Couldn't get an answer right now. Try again.")).toBeTruthy()
+    await user.click(within(sheet).getByRole('button', { name: 'Try again' }))
 
-    expect(await screen.findByText('Formal Hola')).toBeTruthy()
+    expect(await within(sheet).findByText('Formal Hola')).toBeTruthy()
     expect(screen.queryByRole('alert')).toBeNull()
   })
 
   it('closes the options without saving, and keeps the new phrase', async () => {
-    const { user, phrases } = await start()
+    const { user, phrases, sheet } = await start()
 
-    await user.type(phraseBox(), 'Hola')
-    await user.click(screen.getByRole('button', { name: 'Translate' }))
-    await screen.findByText('Formal Hola')
-    await user.click(screen.getByRole('button', { name: 'Close options' }))
+    await user.type(phraseBox(sheet), 'Hola')
+    await user.click(within(sheet).getByRole('button', { name: 'Translate' }))
+    await within(sheet).findByText('Formal Hola')
+    await user.click(within(sheet).getByRole('button', { name: 'Close options' }))
 
-    expect(screen.queryByRole('article')).toBeNull()
-    expect(phraseBox()).toHaveProperty('value', 'Hola')
+    expect(within(sheet).queryByRole('article')).toBeNull()
+    expect(phraseBox(sheet)).toHaveProperty('value', 'Hola')
     expect(phrases).toHaveLength(1)
   })
 
   it('reads an option aloud, and stops when the options close', async () => {
-    fakeBackend([typo])
     const { synth, spoken } = fakeSpeech()
-    const user = userEvent.setup()
-    startLoggedIn()
-    await screen.findByText('It slipt my mind.')
-    await user.type(phraseBox(), '¿Puedes revisarlo?')
-    await user.click(screen.getByRole('button', { name: 'Translate' }))
-    const formal = await screen.findByRole('article', { name: 'Formal' })
+    const { user, sheet } = await start()
+    await user.type(phraseBox(sheet), '¿Puedes revisarlo?')
+    await user.click(within(sheet).getByRole('button', { name: 'Translate' }))
+    const formal = await within(sheet).findByRole('article', { name: 'Formal' })
     const slow = within(formal).getByRole('button', { name: 'Listen at 0.5x' })
 
     await user.click(slow)
@@ -1116,7 +1136,7 @@ describe('suggestions', () => {
     expect(spoken.map((utterance) => [utterance.text, utterance.rate])).toEqual([['Could you please take a look at it?', 0.5]])
     expect(slow.getAttribute('aria-pressed')).toBe('true')
     synth.cancel.mockClear()
-    await user.click(screen.getByRole('button', { name: 'Close options' }))
+    await user.click(within(sheet).getByRole('button', { name: 'Close options' }))
     expect(synth.cancel).toHaveBeenCalled()
   })
 })
@@ -1128,17 +1148,18 @@ describe('reading a phrase', () => {
     const user = userEvent.setup()
     startLoggedIn()
     await screen.findByText('It slipt my mind.')
+    await showTab(user, 'Phrases')
 
-    await user.click(screen.getByRole('button', { name: 'Open phrase' }))
+    await user.click(within(firstCard()).getByRole('button', { name: 'Open phrase' }))
     const sheet = screen.getByRole('dialog')
     expect(within(sheet).getByRole('heading', { name: 'Phrase' })).toBeTruthy()
     expect(within(sheet).getByText('It slipt my mind.')).toBeTruthy()
     expect(within(sheet).queryByRole('textbox')).toBeNull()
     expect(within(sheet).queryByRole('button', { name: 'Delete phrase' })).toBeNull()
 
-    await user.click(within(sheet).getByRole('button', { name: 'Listen at 0.5x' }))
+    await user.click(within(sheet).getByRole('button', { name: 'Slower' }))
     expect(spoken.map((utterance) => [utterance.text, utterance.rate])).toEqual([['It slipt my mind.', 0.5]])
-    await user.click(within(sheet).getByRole('button', { name: 'Translate to Spanish' }))
+    await user.click(within(sheet).getByRole('button', { name: 'Show in Spanish' }))
     expect(await within(sheet).findByText('Se me olvidó.')).toBeTruthy()
 
     await user.click(within(sheet).getByRole('button', { name: 'Edit phrase' }))
@@ -1167,23 +1188,24 @@ describe('language', () => {
     startLoggedIn()
     await screen.findByText('It slipt my mind.')
 
-    await user.click(screen.getByRole('button', { name: 'Settings' }))
-    const english = screen.getByRole('button', { name: 'English' })
+    const settings = await showTab(user, 'Settings')
+    const english = within(settings).getByRole('button', { name: 'English' })
     expect(english.getAttribute('aria-pressed')).toBe('true')
-    await user.click(screen.getByRole('button', { name: 'Español' }))
+    await user.click(within(settings).getByRole('button', { name: 'Español' }))
 
     expect(await screen.findByRole('heading', { name: 'Ajustes' })).toBeTruthy()
     expect(screen.getByRole('button', { name: 'Español' }).getAttribute('aria-pressed')).toBe('true')
     expect(document.documentElement.lang).toBe('es')
     await waitFor(() => expect(phrases.settings.language).toBe('es'))
-    await user.click(screen.getByRole('button', { name: 'Listo' }))
-    expect(screen.getByLabelText('Traducir frase')).toBeTruthy()
-    expect(screen.getByLabelText('Contexto')).toBeTruthy()
-    expect(screen.getByText('Recientes')).toBeTruthy()
+    const phrasesPage = await showTab(user, 'Frases')
+    expect(within(phrasesPage).getByLabelText('Buscar frases')).toBeTruthy()
 
-    await user.type(screen.getByLabelText('Traducir frase'), 'Hola')
-    await user.click(screen.getByRole('button', { name: 'Traducir' }))
-    await screen.findByText('Formal Hola')
+    await user.click(screen.getByRole('button', { name: 'Nueva frase' }))
+    const sheet = screen.getByRole('dialog', { name: 'Nueva frase' })
+    expect(within(sheet).getByLabelText('Contexto')).toBeTruthy()
+    await user.type(within(sheet).getByLabelText('¿Qué quieres decir?'), 'Hola')
+    await user.click(within(sheet).getByRole('button', { name: 'Traducir' }))
+    await within(sheet).findByText('Formal Hola')
     expect(requests('/api/suggestions')[0].headers['Accept-Language']).toBe('es')
   })
 
@@ -1191,8 +1213,8 @@ describe('language', () => {
     fakeBackend([typo], [], { language: 'es' })
     startLoggedIn()
 
-    expect(await screen.findByLabelText('Traducir frase')).toBeTruthy()
-    expect(screen.getByRole('button', { name: 'Traducir' })).toBeTruthy()
+    expect(await screen.findByRole('heading', { name: 'Hoy' })).toBeTruthy()
+    expect(within(screen.getByRole('navigation')).getByRole('button', { name: 'Frases' })).toBeTruthy()
   })
 
   it("gives an account without a language this device's", async () => {
@@ -1253,10 +1275,10 @@ describe('long sessions', () => {
     await user.click(screen.getByRole('button', { name: 'Log in' }))
     await screen.findByText('It slipt my mind.')
 
-    await user.click(screen.getByRole('button', { name: 'Settings' }))
+    const settings = await showTab(user, 'Settings')
 
     expect(readSession()?.refreshToken).toBe('refresh-1')
-    expect(within(screen.getByRole('dialog')).getByText('You stay logged in on this device until you log out.')).toBeTruthy()
+    expect(within(settings).getByText('You stay logged in on this device until you log out.')).toBeTruthy()
   })
 
   it('end on the backend too when logging out', async () => {
@@ -1266,8 +1288,7 @@ describe('long sessions', () => {
     render(<App />)
     await screen.findByText('It slipt my mind.')
 
-    await user.click(screen.getByRole('button', { name: 'Settings' }))
-    await user.click(within(screen.getByRole('dialog')).getByRole('button', { name: 'Log out' }))
+    await user.click(within(await showTab(user, 'Settings')).getByRole('button', { name: 'Log out' }))
 
     expect(await screen.findByLabelText('Password')).toBeTruthy()
     expect(readSession()).toBeNull()
@@ -1283,8 +1304,7 @@ describe('long sessions', () => {
     render(<App />)
     await screen.findByText('It slipt my mind.')
 
-    await user.click(screen.getByRole('button', { name: 'Settings' }))
-    await user.click(within(screen.getByRole('dialog')).getByRole('button', { name: 'Log out of all devices' }))
+    await user.click(within(await showTab(user, 'Settings')).getByRole('button', { name: 'Log out of all devices' }))
 
     expect(await screen.findByLabelText('Password')).toBeTruthy()
     expect(readSession()).toBeNull()
@@ -1303,13 +1323,15 @@ describe('activity', () => {
       const user = userEvent.setup()
       startLoggedIn()
       await screen.findAllByText('It slipt my mind.')
-      const row = document.querySelector<HTMLElement>('#phrases .row')!
+      const card = document.querySelector<HTMLElement>('#today .card')!
 
-      await user.click(within(row).getByRole('button', { name: 'Listen at 1x' }))
-      await user.click(within(row).getByRole('button', { name: 'Listen at 1x' })) // Stops it.
-      await user.click(within(row).getByRole('button', { name: 'Listen at 0.5x' }))
-      await user.click(within(row).getByRole('button', { name: 'Translate to Spanish' }))
-      await within(row).findByText('Se me olvidó.')
+      await user.click(within(card).getByRole('button', { name: 'Listen at 1x' }))
+      await user.click(within(card).getByRole('button', { name: 'Listen at 1x' })) // Stops it.
+      await user.click(within(card).getByRole('button', { name: 'Open phrase' }))
+      const sheet = screen.getByRole('dialog')
+      await user.click(within(sheet).getByRole('button', { name: 'Slower' }))
+      await user.click(within(sheet).getByRole('button', { name: 'Show in Spanish' }))
+      await within(sheet).findByText('Se me olvidó.')
       act(() => {
         worker.dispatchEvent(new MessageEvent('message', { data: { type: 'show-today' } }))
       })
@@ -1333,5 +1355,74 @@ describe('activity', () => {
     render(<App fromReminder />)
 
     await waitFor(() => expect(backend.activity).toEqual([{ kind: 'reminder_opened' }]))
+  })
+})
+
+describe('the Phrases tab', () => {
+  const many = (count: number): Phrase[] =>
+    Array.from({ length: count }, (_, i) => ({ id: count - i, text: `Phrase number ${count - i}`, createdAt: '2026-11-01T12:00:00.000Z' }))
+
+  it('searches the phrases in English or Spanish, and shows them all again when the search is cleared', async () => {
+    const posted: Phrase = { id: 2, text: "I'll keep you posted.", createdAt: '2026-11-02T12:00:00.000Z', translation: 'Te mantendré al tanto.' }
+    fakeBackend([posted, typo])
+    const user = userEvent.setup()
+    startLoggedIn()
+    await screen.findByText('It slipt my mind.')
+    const page = await showTab(user, 'Phrases')
+    const search = within(page).getByLabelText('Search phrases')
+    const shown = () => [...page.querySelectorAll('.card-text')].map((text) => text.textContent)
+
+    await user.type(search, 'mantendré')
+    await waitFor(() => expect(shown()).toEqual(["I'll keep you posted."]))
+
+    await user.clear(search)
+    await user.type(search, 'nothing like it')
+    expect(await within(page).findByText('No phrase has “nothing like it”.')).toBeTruthy()
+
+    await user.clear(search)
+    await waitFor(() => expect(shown()).toEqual(["I'll keep you posted.", 'It slipt my mind.']))
+    expect(calledPaths().filter((path) => path === '/api/phrases').length).toBeGreaterThan(1)
+  })
+
+  it('loads more after the first 50', async () => {
+    fakeBackend(many(53))
+    const user = userEvent.setup()
+    startLoggedIn()
+    await screen.findByText('Phrase number 53')
+    const page = await showTab(user, 'Phrases')
+    expect(page.querySelectorAll('.card')).toHaveLength(50)
+
+    await user.click(within(page).getByRole('button', { name: 'Load more' }))
+
+    await waitFor(() => expect(page.querySelectorAll('.card')).toHaveLength(53))
+    expect(within(page).getByText('Phrase number 1')).toBeTruthy()
+    expect(within(page).queryByRole('button', { name: 'Load more' })).toBeNull()
+  })
+})
+
+describe('the Today tab', () => {
+  it('says how reminders reach this device while there are none today, and offers to add a phrase', async () => {
+    fakeBackend([typo])
+    const user = userEvent.setup()
+    startLoggedIn()
+    const today = screen.getByRole('region', { name: 'Today' })
+
+    expect(await within(today).findByRole('heading', { name: 'Turn on reminders to get phrases here each day' })).toBeTruthy()
+    expect(within(today).getByText('Add this app to your Home Screen to turn on reminders.')).toBeTruthy()
+    await user.click(within(today).getByRole('button', { name: 'Add a phrase' }))
+
+    expect(screen.getByRole('dialog', { name: 'New phrase' })).toBeTruthy()
+  })
+
+  it("shows the reminder's phrases with their Spanish and last score", async () => {
+    fakeBackend([{ ...typo, translation: 'Se me olvidó.', lastScore: 7 }], [typo.id])
+    startLoggedIn()
+    const today = screen.getByRole('region', { name: 'Today' })
+
+    expect(await within(today).findByRole('heading', { name: 'Your reminder · 1 phrase' })).toBeTruthy()
+    const card = within(today).getByRole('listitem')
+    expect(within(card).getByText('It slipt my mind.')).toBeTruthy()
+    expect(within(card).getByText('Se me olvidó.')).toBeTruthy()
+    expect(within(card).getByText('Last score: 7 of 10, almost there')).toBeTruthy()
   })
 })

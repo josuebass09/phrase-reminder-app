@@ -1,28 +1,28 @@
-import { useCallback, useEffect, useRef, useState, type FormEvent } from 'react'
-import { api, ApiError, NotFoundError, UnauthorizedError, type Phrase, type ReminderSettings, type Session } from './api.ts'
-import { Brand } from './Brand.tsx'
-import { Editor } from './Editor.tsx'
-import { deviceTimeZone, timeLabel } from './format.ts'
-import { messagesFor, useT } from './i18n.ts'
+import { useCallback, useEffect, useRef, useState, type ComponentType } from 'react'
 import { track } from './activity.ts'
-import { BellIcon, CheckIcon, ContextIcon, HistoryIcon, PenIcon, SparklesIcon, SunIcon, UserIcon } from './icons.tsx'
+import { api, ApiError, NotFoundError, UnauthorizedError, type Phrase, type ReminderSettings, type Session } from './api.ts'
+import { deviceTimeZone } from './format.ts'
+import { messagesFor, useT } from './i18n.ts'
+import { CheckIcon, ListIcon, PlusIcon, SettingsIcon, SunIcon } from './icons.tsx'
 import { getLanguage, isLanguage, setLanguage, type Language } from './language.ts'
+import { NewPhraseSheet } from './NewPhraseSheet.tsx'
 import type { OptionStyle } from './OptionCard.tsx'
-import { PhraseRow, type Speaking, type Translation } from './PhraseRow.tsx'
+import type { PhraseCardProps, Speaking } from './PhraseCard.tsx'
+import { PhraseSheet } from './PhraseSheet.tsx'
+import { PhrasesView } from './PhrasesView.tsx'
+import { currentSubscription, pushSupported, subscribe } from './push.ts'
 import { recordingSupported, startRecording, type Recorder } from './recorder.ts'
 import type { Attempt } from './Score.tsx'
-import { Settings } from './Settings.tsx'
-import { Spinner } from './Spinner.tsx'
-import { SuggestionPanel, type Suggestion } from './SuggestionPanel.tsx'
-import { ThemeToggle } from './ThemeToggle.tsx'
-import { currentSubscription, pushSupported, subscribe } from './push.ts'
+import { SettingsView } from './SettingsView.tsx'
 import { NORMAL_RATE, SLOW_RATE, speak, speechSupported, stopSpeaking } from './speech.ts'
+import { TodayView } from './TodayView.tsx'
 
-const MAX_PHRASE_LENGTH = 500 // Matches the backend.
-const MAX_CONTEXT_LENGTH = 300 // Matches the backend.
 /** What public/sw.js sends when the daily notification is tapped while the app is open. */
 const SHOW_TODAY = 'show-today'
+/** The backend sends phrases 50 at a time; a full page may have more after it. */
+const PAGE_SIZE = 50
 
+type Tab = 'today' | 'phrases' | 'settings'
 type Reminders = 'checking' | 'off' | 'enabling' | 'on'
 
 interface Toast {
@@ -40,30 +40,36 @@ export interface PhraseAppProps {
   onExpired: () => void
 }
 
+/**
+ * The app once logged in: the Today, Phrases and Settings tabs, the + button that adds
+ * a phrase, and each phrase's sheet. It holds what the tabs share, so a change made in
+ * one place, such as a new score or a fixed typo, shows everywhere.
+ */
 export function PhraseApp({ session, fromReminder = false, onLogOut, onExpired }: PhraseAppProps) {
   const t = useT()
   const appRef = useRef<HTMLDivElement>(null)
-  const recentRef = useRef<HTMLUListElement>(null)
-  const todayRef = useRef<HTMLElement>(null)
-  const [recent, setRecent] = useState<Phrase[]>([])
+  // Each tab scrolls on its own, so switching tabs keeps each one's place.
+  const panels = useRef<Record<Tab, HTMLElement | null>>({ today: null, phrases: null, settings: null })
+  const [tab, setTab] = useState<Tab>('today')
+  const [settingsVisits, setSettingsVisits] = useState(0)
+  const [phrases, setPhrases] = useState<Phrase[]>([])
+  const [hasMore, setHasMore] = useState(false)
+  const [loadingMore, setLoadingMore] = useState(false)
+  // The Phrases tab's search, also in a ref so a load started earlier can tell it changed.
+  const [search, setSearch] = useState('')
+  const searchRef = useRef('')
   const [today, setToday] = useState<Phrase[]>([])
   const [loaded, setLoaded] = useState(false)
-  const [loadFailed, setLoadFailed] = useState(false)
-  const [text, setText] = useState('')
-  // Who the phrase is for, where, or what it's about. It stays for the next phrase.
-  const [context, setContext] = useState('')
-  const [suggestion, setSuggestion] = useState<Suggestion | null>(null)
-  const [savingAs, setSavingAs] = useState<OptionStyle | 'typed' | null>(null)
   const [toast, setToast] = useState<Toast | null>(null)
-  const [editing, setEditing] = useState<Phrase | null>(null)
-  const [settingsOpen, setSettingsOpen] = useState(false)
+  // The phrase whose sheet is open.
+  const [open, setOpen] = useState<Phrase | null>(null)
+  const [adding, setAdding] = useState(false)
   const [settings, setSettings] = useState<ReminderSettings | null>(null)
   const [isAdmin, setIsAdmin] = useState(false)
   const [canSpeak] = useState(speechSupported)
-  // What is being read aloud: a phrase, or one of the options, by key (see phraseKey and optionKey).
+  // What is being read aloud: a phrase, or one of the new phrase's options, by key (see phraseKey and optionKey).
   const [playing, setPlaying] = useState<{ key: string; slow: boolean } | null>(null)
-  // By phrase id. A translation stays here after its bubble closes, so reopening it needs no request.
-  const [translations, setTranslations] = useState<Record<number, Translation>>({})
+  const [translating, setTranslating] = useState<number | null>(null)
   const [canRecord] = useState(recordingSupported)
   // By phrase id: saying it aloud, from the recording to the last score's bubble.
   const [attempts, setAttempts] = useState<Record<number, Attempt>>({})
@@ -100,9 +106,13 @@ export function PhraseApp({ session, fromReminder = false, onLogOut, onExpired }
     /** Returns whether the phrases loaded. */
     async function load(quiet: boolean): Promise<boolean> {
       try {
-        const [recentPhrases, todayPhrases] = await Promise.all([api.recent(), api.today()])
+        const [listed, todayPhrases] = await Promise.all([
+          api.recent({ search: searchRef.current || undefined }),
+          api.today(),
+        ])
         if (!active) return false
-        setRecent(recentPhrases)
+        setPhrases(listed)
+        setHasMore(listed.length === PAGE_SIZE)
         setToday(todayPhrases)
         setLoaded(true)
         if (todayPhrases.length > 0 && document.visibilityState === 'visible') track('today_viewed')
@@ -110,10 +120,7 @@ export function PhraseApp({ session, fromReminder = false, onLogOut, onExpired }
       } catch (err) {
         if (!active) return false
         if (err instanceof UnauthorizedError) onExpired()
-        else if (!quiet) {
-          setLoadFailed(true)
-          showToast(messagesFor(getLanguage()).couldntLoad, true)
-        }
+        else if (!quiet) showToast(messagesFor(getLanguage()).couldntLoad, true)
         return false
       }
     }
@@ -122,15 +129,14 @@ export function PhraseApp({ session, fromReminder = false, onLogOut, onExpired }
       if (document.visibilityState === 'visible') load(true)
     }
     // Tapping the daily notification while the app is open brings it back as it was,
-    // perhaps scrolled down to Recent or with Settings open, so the service worker asks
-    // for Today. Settings saves its changes right away, so closing it loses nothing.
-    // A phrase open to read or edit stays open, since it may hold an unsaved fix.
+    // perhaps on another tab, so the service worker asks for Today with the phrases just
+    // sent. A sheet that's open stays, since it may hold something unsaved.
     const onMessage = (event: MessageEvent) => {
       if (event.data?.type !== SHOW_TODAY) return
       track('reminder_opened')
-      setSettingsOpen(false)
+      setTab('today')
       load(true).then((done) => {
-        if (done) requestAnimationFrame(() => todayRef.current?.scrollIntoView?.({ block: 'start' }))
+        if (done) panels.current.today?.scrollTo?.({ top: 0 })
       })
     }
     const worker = 'serviceWorker' in navigator ? navigator.serviceWorker : null
@@ -142,6 +148,10 @@ export function PhraseApp({ session, fromReminder = false, onLogOut, onExpired }
       worker?.removeEventListener('message', onMessage)
     }
   }, [onExpired, showToast])
+
+  useEffect(() => {
+    if (fromReminder) track('reminder_opened')
+  }, [fromReminder])
 
   useEffect(() => {
     let active = true
@@ -185,10 +195,6 @@ export function PhraseApp({ session, fromReminder = false, onLogOut, onExpired }
     }
   }, [])
 
-  useEffect(() => {
-    if (fromReminder) track('reminder_opened')
-  }, [fromReminder])
-
   // Leaving the app, or logging out, stops a phrase being read, and drops a recording
   // in progress. A suspended app may never report the end, which would leave its
   // button showing Stop, or keep the microphone on.
@@ -207,8 +213,8 @@ export function PhraseApp({ session, fromReminder = false, onLogOut, onExpired }
     }
   }, [])
 
-  // Keep the Save button above the on-screen keyboard. iOS Safari doesn't resize
-  // the layout when the keyboard opens, so follow the visual viewport instead.
+  // Keep the tab bar above the on-screen keyboard. iOS Safari doesn't resize the
+  // layout when the keyboard opens, so follow the visual viewport instead.
   useEffect(() => {
     const viewport = window.visualViewport
     const app = appRef.current
@@ -223,57 +229,43 @@ export function PhraseApp({ session, fromReminder = false, onLogOut, onExpired }
     return () => viewport.removeEventListener('resize', fit)
   }, [])
 
-  const asking = suggestion?.state === 'waiting'
+  /** Shows a tab. Tapping the one already showing scrolls it back to the top. */
+  function goTo(next: Tab) {
+    if (next === tab) panels.current[next]?.scrollTo?.({ top: 0, behavior: 'smooth' })
+    if (next === 'settings' && tab !== 'settings') setSettingsVisits((visits) => visits + 1)
+    setTab(next)
+  }
 
-  /** Asks the AI for a formal and an informal way to say the new phrase, fitted to the context. */
-  async function getOptions(event?: FormEvent) {
-    event?.preventDefault()
-    const trimmed = text.trim()
-    if (!trimmed || asking || savingAs) return
-    stopOptionSpeech()
-    setSuggestion({ state: 'waiting' })
-    // The options show above the lists, which may be scrolled down.
-    requestAnimationFrame(() => document.getElementById('options')?.scrollIntoView?.({ block: 'nearest' }))
+  /** Shows the phrases that match a search, or all of them for ''. */
+  async function searchFor(next: string) {
+    if (next === searchRef.current) return
+    searchRef.current = next
+    setSearch(next)
     try {
-      setSuggestion({ state: 'answered', options: await api.suggest(trimmed, context.trim() || undefined) })
+      const listed = await api.recent({ search: next || undefined })
+      if (searchRef.current !== next) return // A newer search took over.
+      setPhrases(listed)
+      setHasMore(listed.length === PAGE_SIZE)
     } catch (err) {
-      if (err instanceof UnauthorizedError) {
-        onExpired()
-        return
-      }
-      setSuggestion({
-        state: 'failed',
-        error: err instanceof ApiError ? err.message : t.couldntGetOptions,
-        canRetry: !(err instanceof ApiError && err.status === 429), // Not after today's limit.
-      })
+      fail(err, t.couldntLoad)
     }
   }
 
-  /** Saves the picked option, or the text as typed, at the top of Recent. */
-  async function savePhrase(as: OptionStyle | 'typed') {
-    const option = as !== 'typed' && suggestion?.state === 'answered' ? suggestion.options[as] : null
-    const phraseText = option ? option.text : text.trim()
-    if (!phraseText || savingAs) return
-    setSavingAs(as)
+  async function loadMore() {
+    const last = phrases.at(-1)
+    if (!last || loadingMore) return
+    const forSearch = searchRef.current
+    setLoadingMore(true)
     try {
-      const phrase = await api.add(phraseText)
-      setRecent((list) => [phrase, ...list])
-      stopOptionSpeech()
-      setSuggestion(null)
-      setText('')
-      setContext('')
-      showToast(t.phraseSaved)
-      requestAnimationFrame(() => recentRef.current?.firstElementChild?.scrollIntoView?.({ block: 'nearest' }))
+      const more = await api.recent({ search: forSearch || undefined, before: last.id })
+      if (searchRef.current !== forSearch) return
+      setPhrases((list) => [...list, ...more.filter((phrase) => !list.some((shown) => shown.id === phrase.id))])
+      setHasMore(more.length === PAGE_SIZE)
     } catch (err) {
-      fail(err, t.couldntSave)
+      fail(err, t.couldntLoad)
     } finally {
-      setSavingAs(null)
+      setLoadingMore(false)
     }
-  }
-
-  function dismissOptions() {
-    stopOptionSpeech()
-    setSuggestion(null)
   }
 
   /** Turns reminders on for this device: the permission prompt, then saving its subscription. */
@@ -325,40 +317,21 @@ export function PhraseApp({ session, fromReminder = false, onLogOut, onExpired }
   const speakingOf = (key: string): Speaking => (playing?.key === key ? (playing.slow ? 'slow' : 'normal') : null)
   const phraseKey = (phrase: Phrase) => `phrase-${phrase.id}`
   const optionKey = (style: OptionStyle) => `option-${style}`
+  const speakPhrase = (phrase: Phrase, slow: boolean) => toggleSpeech(phraseKey(phrase), phrase.text, slow)
 
-  /** The options are about to change or go away, so one being read aloud stops. */
+  /** The new phrase's options are about to change or go away, so one being read aloud stops. */
   function stopOptionSpeech() {
     if (!playing?.key.startsWith('option-')) return
     stopSpeaking()
     setPlaying(null)
   }
 
-  const setTranslation = (id: number, next: Translation | null) =>
-    setTranslations((all) => {
-      const { [id]: _dropped, ...rest } = all
-      return next ? { ...rest, [id]: next } : rest
-    })
-
-  /** Shows the Spanish translation above a phrase, fetching it the first time, or hides it. */
-  async function toggleTranslation(phrase: Phrase) {
-    const current = translations[phrase.id]
-    if (current?.loading) return
-    if (current?.text) {
-      if (!current.open) track('phrase_translated', phrase.id)
-      setTranslation(phrase.id, { ...current, open: !current.open })
-      return
-    }
-    setTranslation(phrase.id, { loading: true, open: false })
-    try {
-      const { translation } = await api.translate(phrase.id)
-      setTranslation(phrase.id, { text: translation, loading: false, open: true })
-      track('phrase_translated', phrase.id)
-    } catch (err) {
-      setTranslation(phrase.id, null)
-      if (err instanceof NotFoundError) dropPhrase(phrase.id, true)
-      else if (err instanceof ApiError && err.status === 429) showToast(err.message, true) // Today's limit.
-      else fail(err, t.couldntTranslate)
-    }
+  /** Changes a phrase wherever it shows: in both tabs, and in its sheet. */
+  function updatePhrase(id: number, changes: Partial<Phrase>) {
+    const change = (list: Phrase[]) => list.map((phrase) => (phrase.id === id ? { ...phrase, ...changes } : phrase))
+    setPhrases(change)
+    setToday(change)
+    setOpen((shown) => (shown?.id === id ? { ...shown, ...changes } : shown))
   }
 
   const setAttempt = (id: number, next: Attempt | null) =>
@@ -406,10 +379,7 @@ export function PhraseApp({ session, fromReminder = false, onLogOut, onExpired }
       const result = await api.pronounce(phrase.id, recording)
       tries.current += 1
       setAttempt(phrase.id, { state: 'scored', result, id: tries.current })
-      const scored = (list: Phrase[]) => list.map((item) => (item.id === phrase.id ? { ...item, lastScore: result.score } : item))
-      setRecent(scored)
-      setToday(scored)
-      setEditing((open) => (open?.id === phrase.id ? { ...open, lastScore: result.score } : open))
+      updatePhrase(phrase.id, { lastScore: result.score })
     } catch (err) {
       setAttempt(phrase.id, null)
       if (err instanceof NotFoundError) dropPhrase(phrase.id, true)
@@ -418,59 +388,52 @@ export function PhraseApp({ session, fromReminder = false, onLogOut, onExpired }
     }
   }
 
-  const rowProps = (phrase: Phrase) => ({
-    ...(canSpeak
-      ? { onSpeak: (spoken: Phrase, slow: boolean) => toggleSpeech(phraseKey(spoken), spoken.text, slow), speaking: speakingOf(phraseKey(phrase)) }
-      : {}),
-    onTranslate: toggleTranslation,
-    translation: translations[phrase.id],
-    ...(canRecord
-      ? { onPronounce: togglePronounce, onCloseScore: (closed: Phrase) => setAttempt(closed.id, null), attempt: attempts[phrase.id] }
-      : {}),
-  })
+  const closeScore = (phrase: Phrase) => setAttempt(phrase.id, null)
 
-  // A phrase can be in both Today and Recent, so changes apply to both lists.
+  /** Gets the phrase's Spanish from the backend, which translates it once and keeps it. */
+  async function translate(phrase: Phrase) {
+    if (phrase.translation || translating !== null) return
+    setTranslating(phrase.id)
+    try {
+      const { translation } = await api.translate(phrase.id)
+      updatePhrase(phrase.id, { translation })
+      track('phrase_translated', phrase.id)
+    } catch (err) {
+      if (err instanceof NotFoundError) dropPhrase(phrase.id, true)
+      else if (err instanceof ApiError && err.status === 429) showToast(err.message, true) // Today's limit.
+      else fail(err, t.couldntTranslate)
+    } finally {
+      setTranslating(null)
+    }
+  }
+
+  /** A fixed phrase, from its sheet. The backend dropped its Spanish and score if the text changed. */
   function replacePhrase(updated: Phrase) {
     const swap = (list: Phrase[]) => list.map((phrase) => (phrase.id === updated.id ? updated : phrase))
-    setRecent(swap)
+    setPhrases(swap)
     setToday(swap)
-    setTranslation(updated.id, null) // The text may have changed, so the old translation may be wrong.
-    setAttempt(updated.id, null) // And the score was for the old text; the backend drops it too.
-    setEditing(null)
+    setAttempt(updated.id, null)
+    setOpen(null)
     showToast(t.phraseUpdated)
   }
 
   function dropPhrase(id: number, alreadyGone: boolean) {
     const without = (list: Phrase[]) => list.filter((phrase) => phrase.id !== id)
-    setRecent(without)
+    setPhrases(without)
     setToday(without)
-    setTranslation(id, null)
     if (recorderRef.current?.id === id) recorderRef.current.recorder.cancel()
     setAttempt(id, null)
-    setEditing(null)
+    setOpen(null)
     showToast(alreadyGone ? t.alreadyDeleted : t.phraseDeleted, alreadyGone)
   }
 
-  const remindersOn = reminders === 'on'
-  const enabling = reminders === 'enabling'
-  const paused = remindersOn && settings?.remindersOn === false
-  const pillLabel = !remindersOn ? t.turnOn : !settings ? '…' : paused ? t.paused : timeLabel(settings.reminderTime)
-  const pillAria = !remindersOn
-    ? enabling
-      ? t.turningOnReminder
-      : t.turnOnReminder
-    : paused
-      ? t.reminderPaused
-      : t.reminderAt(pillLabel)
-
-  /** Ends every session of the account, then shows the login screen like logging out does. */
-  async function logOutEverywhere() {
-    try {
-      await api.logOutEverywhere()
-      onLogOut()
-    } catch (err) {
-      fail(err, t.couldntLogOutEverywhere)
-    }
+  /** A new phrase goes to the top of the Phrases tab, which shows it. */
+  function phraseAdded(phrase: Phrase) {
+    setAdding(false)
+    setPhrases((list) => [phrase, ...list])
+    setTab('phrases')
+    requestAnimationFrame(() => panels.current.phrases?.scrollTo?.({ top: 0 }))
+    showToast(t.phraseSaved)
   }
 
   /** Switches the app's language, and saves it to the account so reminders use it too. */
@@ -482,123 +445,97 @@ export function PhraseApp({ session, fromReminder = false, onLogOut, onExpired }
       .catch((err) => err instanceof UnauthorizedError && onExpired())
   }
 
+  /** Ends every session of the account, then shows the login screen like logging out does. */
+  async function logOutEverywhere() {
+    try {
+      await api.logOutEverywhere()
+      onLogOut()
+    } catch (err) {
+      fail(err, t.couldntLogOutEverywhere)
+    }
+  }
+
+  /** What a card needs besides its phrase. Today's cards also have the microphone and the score's bubble. */
+  const cardProps =
+    (practice: boolean) =>
+    (phrase: Phrase): Omit<PhraseCardProps, 'phrase'> => ({
+      spanish: phrase.translation,
+      onOpen: setOpen,
+      ...(canSpeak ? { onSpeak: speakPhrase, speaking: speakingOf(phraseKey(phrase)) } : {}),
+      ...(practice && canRecord ? { onPronounce: togglePronounce, onCloseScore: closeScore, attempt: attempts[phrase.id] } : {}),
+    })
+
+  const device = pushSupported ? reminders : 'unsupported'
+  const TABS: [Tab, ComponentType, string][] = [
+    ['today', SunIcon, t.today],
+    ['phrases', ListIcon, t.phrases],
+    ['settings', SettingsIcon, t.settings],
+  ]
+  const panel = (id: Tab) => ({
+    ref: (element: HTMLElement | null) => {
+      panels.current[id] = element
+    },
+    className: 'panel',
+    hidden: tab !== id,
+  })
+
   return (
     <div className="app" ref={appRef}>
-      <div className="top">
-        <header className="bar">
-          <Brand />
-          <div className="bar-actions">
-            <button
-              id="reminders"
-              className={`pill${remindersOn ? '' : ' pill-off'}`}
-              type="button"
-              hidden={reminders === 'checking'}
-              aria-label={pillAria}
-              aria-busy={enabling}
-              onClick={() => (remindersOn ? setSettingsOpen(true) : turnOnDevice())}
-            >
-              {enabling ? <Spinner /> : <BellIcon />}
-              <span>{pillLabel}</span>
-            </button>
-            <ThemeToggle />
-            <button className="bar-button account-button" type="button" aria-label={t.settings} onClick={() => setSettingsOpen(true)}>
-              <UserIcon />
-            </button>
-          </div>
-        </header>
-        <form id="phrase-form" className="composer" onSubmit={getOptions}>
-          <div className="field">
-            <label htmlFor="phrase">
-              <PenIcon />
-              <span>{t.translatePhrase}</span>
-            </label>
-            <textarea
-              id="phrase"
-              maxLength={MAX_PHRASE_LENGTH}
-              placeholder={t.phrasePlaceholder}
-              value={text}
-              onChange={(event) => setText(event.target.value)}
-            />
-          </div>
-          <div className="field context-field">
-            <label htmlFor="context">
-              <ContextIcon />
-              <span>{t.context}</span>
-            </label>
-            <input
-              id="context"
-              type="text"
-              maxLength={MAX_CONTEXT_LENGTH}
-              autoComplete="off"
-              enterKeyHint="go"
-              placeholder={t.contextPlaceholder}
-              value={context}
-              onChange={(event) => setContext(event.target.value)}
-            />
-          </div>
-        </form>
-      </div>
-      <main className="content">
-        {suggestion && (
-          <SuggestionPanel
-            suggestion={suggestion}
-            savingAs={savingAs}
-            canSaveTyped={text.trim() !== ''}
-            onSave={savePhrase}
-            onSaveTyped={() => savePhrase('typed')}
-            onRetry={() => getOptions()}
-            onDismiss={dismissOptions}
-            onSpeak={
-              canSpeak && suggestion.state === 'answered'
-                ? (style, slow) => toggleSpeech(optionKey(style), suggestion.options[style].text, slow)
-                : undefined
-            }
-            speakingOf={(style) => speakingOf(optionKey(style))}
+      <main className="panels">
+        <section {...panel('today')} aria-labelledby="today-title">
+          <TodayView
+            today={today}
+            loaded={loaded}
+            settings={settings}
+            device={device}
+            onTurnOnDevice={turnOnDevice}
+            onOpenSettings={() => goTo('settings')}
+            onAdd={() => setAdding(true)}
+            cardProps={cardProps(true)}
           />
-        )}
-        <section id="today" className="group" hidden={today.length === 0} ref={todayRef}>
-          <h2>
-            <SunIcon />
-            <span>{t.today}</span>
-          </h2>
-          <ul className="phrases">
-            {today.map((phrase) => (
-              <PhraseRow key={phrase.id} phrase={phrase} onEdit={setEditing} {...rowProps(phrase)} />
-            ))}
-          </ul>
         </section>
-        <section className="group">
-          <h2>
-            <HistoryIcon />
-            <span>{t.recent}</span>
-          </h2>
-          <ul id="phrases" className="phrases" ref={recentRef}>
-            {recent.map((phrase) => (
-              <PhraseRow key={phrase.id} phrase={phrase} onEdit={setEditing} {...rowProps(phrase)} />
-            ))}
-          </ul>
-          {!loaded && !loadFailed && (
-            <p className="loading" role="status">
-              <Spinner />
-              <span>{t.loadingPhrases}</span>
-            </p>
-          )}
-          {loaded && <p className="empty">{t.noPhrases}</p>}
+        <section {...panel('phrases')} aria-labelledby="phrases-title">
+          <PhrasesView
+            phrases={phrases}
+            loaded={loaded}
+            search={search}
+            onSearch={searchFor}
+            hasMore={hasMore}
+            loadingMore={loadingMore}
+            onLoadMore={loadMore}
+            cardProps={cardProps(false)}
+          />
+        </section>
+        <section {...panel('settings')} aria-labelledby="settings-title">
+          <SettingsView
+            visits={settingsVisits}
+            email={session.email}
+            expiresAt={session.refreshToken ? null : session.expiresAt}
+            isAdmin={isAdmin}
+            settings={settings}
+            onSettingsChange={setSettings}
+            device={device}
+            onTurnOnDevice={turnOnDevice}
+            onLogOut={onLogOut}
+            onLogOutEverywhere={logOutEverywhere}
+            onUnauthorized={onExpired}
+            onLanguageChange={changeLanguage}
+          />
         </section>
       </main>
-      <div className="actions">
-        <button
-          id="translate"
-          className="primary"
-          type="submit"
-          form="phrase-form"
-          disabled={asking || savingAs !== null || !text.trim()}
-          aria-busy={asking}
-        >
-          {asking ? <Spinner /> : <SparklesIcon />}
-          <span>{asking ? t.translating : t.translate}</span>
+      {tab !== 'settings' && (
+        <button className="fab" type="button" aria-label={t.newPhrase} onClick={() => setAdding(true)}>
+          <PlusIcon />
         </button>
-      </div>
+      )}
+      <nav className="tabbar" aria-label={t.sections}>
+        {TABS.map(([id, Icon, label]) => (
+          <button key={id} className="tab" type="button" aria-current={tab === id ? 'page' : undefined} onClick={() => goTo(id)}>
+            <Icon />
+            <span>{label}</span>
+          </button>
+        ))}
+      </nav>
       <div className="toast-region" role="status" aria-live="polite">
         {toast && (
           <div key={toast.id} className={`toast${toast.isError ? ' toast-error' : ''}`}>
@@ -607,30 +544,31 @@ export function PhraseApp({ session, fromReminder = false, onLogOut, onExpired }
           </div>
         )}
       </div>
-      {editing && (
-        <Editor
-          phrase={editing}
-          onClose={() => setEditing(null)}
+      {open && (
+        <PhraseSheet
+          phrase={open}
+          spanish={open.translation}
+          onTranslate={translate}
+          translating={translating === open.id}
+          onClose={() => setOpen(null)}
           onSaved={replacePhrase}
           onDeleted={dropPhrase}
           onUnauthorized={onExpired}
-          {...rowProps(editing)}
+          {...(canSpeak ? { onSpeak: speakPhrase, speaking: speakingOf(phraseKey(open)) } : {})}
+          {...(canRecord ? { onPronounce: togglePronounce, onCloseScore: closeScore, attempt: attempts[open.id] } : {})}
         />
       )}
-      {settingsOpen && (
-        <Settings
-          email={session.email}
-          expiresAt={session.refreshToken ? null : session.expiresAt}
-          isAdmin={isAdmin}
-          settings={settings}
-          onSettingsChange={setSettings}
-          device={pushSupported ? reminders : 'unsupported'}
-          onTurnOnDevice={turnOnDevice}
-          onClose={() => setSettingsOpen(false)}
-          onLogOut={onLogOut}
-          onLogOutEverywhere={logOutEverywhere}
+      {adding && (
+        <NewPhraseSheet
+          onClose={() => {
+            stopOptionSpeech()
+            setAdding(false)
+          }}
+          onSaved={phraseAdded}
           onUnauthorized={onExpired}
-          onLanguageChange={changeLanguage}
+          onSpeak={canSpeak ? (style, text, slow) => toggleSpeech(optionKey(style), text, slow) : undefined}
+          speakingOf={(style) => speakingOf(optionKey(style))}
+          onOptionsGone={stopOptionSpeech}
         />
       )}
     </div>
