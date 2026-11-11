@@ -135,7 +135,7 @@ describe('api', () => {
   })
 
   it('asks for options with the text', async () => {
-    const options = { formal: { text: 'Hello.', es: 'Hola.' }, informal: { text: 'Hi!', es: '¡Hola!' } }
+    const options = { formal: { text: 'Hello.' }, informal: { text: 'Hi!' } }
     const fetchMock = respond(200, options)
 
     expect(await api.suggest('Hola')).toEqual(options)
@@ -145,7 +145,7 @@ describe('api', () => {
   })
 
   it('sends the context with the text when there is one', async () => {
-    const fetchMock = respond(200, { formal: { text: 'a', es: 'a' }, informal: { text: 'b', es: 'b' } })
+    const fetchMock = respond(200, { formal: { text: 'a' }, informal: { text: 'b' } })
 
     await api.suggest('Hola', 'Email to a client')
 

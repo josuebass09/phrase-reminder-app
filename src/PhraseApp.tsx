@@ -208,17 +208,15 @@ export function PhraseApp({ session, onLogOut, onExpired }: PhraseAppProps) {
     }
   }
 
-  /** Saves the picked option, with its Spanish, or the text as typed, at the top of Recent. */
+  /** Saves the picked option, or the text as typed, at the top of Recent. */
   async function savePhrase(as: OptionStyle | 'typed') {
     const option = as !== 'typed' && suggestion?.state === 'answered' ? suggestion.options[as] : null
     const phraseText = option ? option.text : text.trim()
     if (!phraseText || savingAs) return
     setSavingAs(as)
     try {
-      const phrase = await api.add(phraseText, option?.es)
+      const phrase = await api.add(phraseText)
       setRecent((list) => [phrase, ...list])
-      // Its Spanish came with it, so translating it needs no request.
-      if (option) setTranslation(phrase.id, { text: option.es, loading: false, open: false })
       stopOptionSpeech()
       setSuggestion(null)
       setText('')

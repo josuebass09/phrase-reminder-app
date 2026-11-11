@@ -12,10 +12,10 @@ const TOKEN = 'token-1'
 const TWELVE_HOURS = 12 * 60 * 60 * 1000
 const INVITE_CODE = 'invite-code-for-friends'
 const SPANISH: Record<string, string> = { 'It slipt my mind.': 'Se me olvidó.' }
-const OPTIONS: Record<string, { formal: { text: string; es: string }; informal: { text: string; es: string } }> = {
+const OPTIONS: Record<string, { formal: { text: string }; informal: { text: string } }> = {
   '¿Puedes revisarlo?': {
-    formal: { text: 'Could you please take a look at it?', es: '¿Podría revisarlo, por favor?' },
-    informal: { text: 'Can you take a look?', es: '¿Le echas un ojo?' },
+    formal: { text: 'Could you please take a look at it?' },
+    informal: { text: 'Can you take a look?' },
   },
 }
 
@@ -98,7 +98,7 @@ function fakeBackend(
           return json(502, { error: "Couldn't get an answer right now. Try again." })
         }
         suggestionsUsed += 1
-        return json(200, OPTIONS[body.text] ?? { formal: { text: `Formal ${body.text}`, es: 'f' }, informal: { text: `Informal ${body.text}`, es: 'i' } })
+        return json(200, OPTIONS[body.text] ?? { formal: { text: `Formal ${body.text}` }, informal: { text: `Informal ${body.text}` } })
       }
       if (path === '/api/settings') {
         if (method === 'PATCH') {
@@ -243,7 +243,6 @@ describe('the app', () => {
     await user.click(screen.getByRole('button', { name: 'Translate' }))
     const formal = await screen.findByRole('article', { name: 'Formal' })
     expect(within(formal).getByText('Could you please take a look at it?')).toBeTruthy()
-    expect(within(formal).getByText('¿Podría revisarlo, por favor?')).toBeTruthy()
     await user.click(within(formal).getByRole('button', { name: 'Save formal' }))
 
     const recent = document.getElementById('phrases')!
@@ -834,19 +833,17 @@ describe('suggestions', () => {
     expect(sentBodies()).toEqual([{ text: 'Hola', context: 'Email to a client' }])
   })
 
-  it('opens the Spanish of a saved option without asking for a translation', async () => {
+  it('saves the picked option without a translation, so 文A translates it like any other', async () => {
     const { user } = await start()
     await user.type(phraseBox(), '¿Puedes revisarlo?')
     await user.click(screen.getByRole('button', { name: 'Translate' }))
     await user.click(within(await screen.findByRole('article', { name: 'Informal' })).getByRole('button', { name: 'Save informal' }))
     const row = (await within(document.getElementById('phrases')!).findByText('Can you take a look?')).closest('li')!
-    vi.mocked(fetch).mockClear()
 
+    const saved = vi.mocked(fetch).mock.calls.find(([url, init]) => String(url).endsWith('/api/phrases') && init?.method === 'POST')
+    expect(JSON.parse(String(saved?.[1]?.body))).toEqual({ text: 'Can you take a look?' })
     await user.click(within(row).getByRole('button', { name: 'Translate to Spanish' }))
-
-    expect(within(row).getByText('¿Le echas un ojo?')).toBeTruthy()
-    const paths = vi.mocked(fetch).mock.calls.map(([url]) => new URL(String(url), 'http://app.test').pathname)
-    expect(paths.filter((path) => path.endsWith('/translation'))).toEqual([])
+    expect(await within(row).findByText('(es) Can you take a look?')).toBeTruthy()
   })
 
   it('offers to try again when the options fail', async () => {

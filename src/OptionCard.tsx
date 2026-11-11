@@ -23,7 +23,7 @@ export interface OptionCardProps {
   speaking?: Speaking
 }
 
-/** One way to say the new phrase: the English, its Spanish, and buttons to hear and save it. */
+/** One way to say the new phrase: the English, and buttons to hear and save it. */
 export function OptionCard({ style, option, saved, onSave, onSpeak, speaking = null }: OptionCardProps) {
   const t = useT()
   const { title, hint } = labels(t)[style]
@@ -36,9 +36,6 @@ export function OptionCard({ style, option, saved, onSave, onSpeak, speaking = n
       </header>
       <p className="option-text" lang="en">
         {option.text}
-      </p>
-      <p className="option-es" lang="es">
-        {option.es}
       </p>
       <div className="option-actions">
         {onSpeak && (

@@ -37,7 +37,7 @@ Each user may ask for 30 new translations a day (the admin has no limit); reopen
 
 ## Translate a new phrase
 
-Type it under **Translate phrase**, in Spanish or English, and optionally a **Context** underneath, such as "Slack message to my manager about a late deploy". **Translate** shows a formal way to say it in English (for work) and an informal one (for friends), above Today and Recent, each with its Spanish and the 1x and 0.5x buttons. Save the one you like and it goes to the top of Recent, with that Spanish as its translation, so 文A opens it without using a translation; both boxes then clear for the next phrase.
+Type it under **Translate phrase**, in Spanish or English, and optionally a **Context** underneath, such as "Slack message to my manager about a late deploy". **Translate** shows a formal way to say it in English (for work) and an informal one (for friends), above Today and Recent, in English only, each with the 1x and 0.5x buttons. Save the one you like and it goes to the top of Recent, where 文A translates it like any other phrase; both boxes then clear for the next phrase.
 
 "Save it as I wrote it" saves the text as typed, such as when the AI is down or today's suggestions are used up. Each user may get 20 a day (the admin has no limit), and Settings shows how many they've used. The backend asks a free AI on Groq; see the backend's README.
 

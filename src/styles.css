@@ -1763,14 +1763,6 @@ body {
   overflow-wrap: anywhere;
 }
 
-.option-es {
-  margin: 0;
-  color: var(--secondary);
-  font-size: 15px;
-  line-height: 20px;
-  overflow-wrap: anywhere;
-}
-
 .option-actions {
   display: flex;
   align-items: center;
@@ -1875,7 +1867,6 @@ body {
   line-height: 24px;
 }
 
-[data-platform="android"] .option-es { font-size: 14px; }
 
 [data-platform="android"] .option-save {
   min-height: 40px;

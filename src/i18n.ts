@@ -115,7 +115,7 @@ const en = {
   usedOf: (used: number, limit: number) => `${used} of ${limit}`,
   usedNoLimit: (used: number) => `${used} · no limit`,
   usageNote:
-    "Both start over at midnight. Phrases you've already seen in Spanish, and options you saved, show their Spanish for free.",
+    "Both start over at midnight. Phrases you've already seen in Spanish show it again for free.",
 
   // Invites
   inviteSomeone: 'Invite someone',
@@ -239,7 +239,7 @@ const es: Messages = {
   usedOf: (used, limit) => `${used} de ${limit}`,
   usedNoLimit: (used) => `${used} · sin límite`,
   usageNote:
-    'Ambos se reinician a medianoche. Las frases que ya viste en español, y las opciones que guardaste, muestran su español gratis.',
+    'Ambos se reinician a medianoche. Las frases que ya viste en español lo vuelven a mostrar gratis.',
 
   inviteSomeone: 'Invitar a alguien',
   creatingLink: 'Creando enlace…',
