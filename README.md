@@ -36,6 +36,8 @@ Under **Daily reminder** in Settings, each person turns their reminder on or off
 
 The **+** button opens a sheet. Type what you want to say, in Spanish or English, and optionally a **Context**, such as "Slack message to my manager about a late deploy". **Translate** shows a formal way to say it in English (for work) and an informal one (for friends), each with 1x and 0.5x buttons to hear it. Save the one you like, and the app shows it first in Phrases.
 
+**Understand a word** switches the sheet to an English word or phrase you heard and didn't understand, such as "nitpick", with an optional context of where you'd like to see it, such as "code review at work". **Explain** shows what it means in Spanish and two sentences that use it there, each with its Spanish and 1x and 0.5x buttons. Saving a sentence keeps its Spanish, so it needs no translation later. Each explanation counts as one of the day's suggestions.
+
 **Save it as I wrote it** saves the text as typed, before or instead of asking the AI, such as for a phrase already in English, when the AI is down, or when today's suggestions are used up. Each user may get 20 suggestions a day (the admin has no limit), and Settings shows how many they've used. The backend asks a free AI on Groq; see the backend's README.
 
 ## A phrase's sheet

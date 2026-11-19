@@ -1,11 +1,16 @@
 import type { Suggestions } from './api.ts'
-import { useT } from './i18n.ts'
+import { useT, type Messages } from './i18n.ts'
 import { CloseIcon, RetryIcon, SparklesIcon } from './icons.tsx'
-import { OptionCard, type OptionStyle } from './OptionCard.tsx'
+import { OptionCard, type OptionKey, type OptionStyle } from './OptionCard.tsx'
 import type { Speaking } from './PhraseCard.tsx'
 import { Spinner } from './Spinner.tsx'
 
 const STYLES: OptionStyle[] = ['formal', 'informal']
+
+const cards = (t: Messages): Record<OptionStyle, { title: string; hint: string }> => ({
+  formal: { title: t.formal, hint: t.formalHint },
+  informal: { title: t.informal, hint: t.informalHint },
+})
 
 /** The AI's answer for the new phrase: on its way, the two options, or what went wrong. */
 export type Suggestion =
@@ -16,7 +21,7 @@ export type Suggestion =
 export interface SuggestionPanelProps {
   suggestion: Suggestion
   /** What is being saved, if anything: one of the options, or the text as typed. */
-  savingAs: OptionStyle | 'typed' | null
+  savingAs: OptionKey | 'typed' | null
   /** The new phrase box has text, so it can be saved as typed. */
   canSaveTyped: boolean
   onSave: (style: OptionStyle) => void
@@ -81,8 +86,8 @@ export function SuggestionPanel({
           {STYLES.map((style) => (
             <OptionCard
               key={style}
-              style={style}
-              option={suggestion.options[style]}
+              {...cards(t)[style]}
+              text={suggestion.options[style].text}
               saved={savingAs === style ? 'saving' : undefined}
               onSave={() => onSave(style)}
               speaking={speakingOf(style)}

@@ -153,6 +153,27 @@ describe('api', () => {
     expect(init.body).toBe(JSON.stringify({ text: 'Hola', context: 'Email to a client' }))
   })
 
+  it('asks for an explanation with the term, and the context when there is one', async () => {
+    const explanation = {
+      meaning: 'Criticar detalles.',
+      examples: [
+        { text: 'He nitpicks.', translation: 'Critica detalles.' },
+        { text: 'Stop nitpicking!', translation: '¡Deja de criticar detalles!' },
+      ],
+    }
+    const fetchMock = respond(200, explanation)
+
+    expect(await api.explain('nitpick')).toEqual(explanation)
+    await api.explain('nitpick', 'code review at work')
+
+    const calls = fetchMock.mock.calls as unknown as [string, RequestInit][]
+    expect(calls[0][0]).toMatch(/\/api\/explanations$/)
+    expect(calls.map(([, init]) => [init.method, init.body])).toEqual([
+      ['POST', JSON.stringify({ text: 'nitpick' })],
+      ['POST', JSON.stringify({ text: 'nitpick', context: 'code review at work' })],
+    ])
+  })
+
   it('sends a translation with a new phrase only when there is one', async () => {
     const fetchMock = respond(201, { id: 1, text: 'Hi!', createdAt: '2026-11-10T12:00:00.000Z' })
 

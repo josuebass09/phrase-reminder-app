@@ -6,7 +6,7 @@ import { messagesFor, useT } from './i18n.ts'
 import { CheckIcon, GaugeIcon, ListIcon, PlusIcon, SettingsIcon, SunIcon } from './icons.tsx'
 import { getLanguage, isLanguage, setLanguage, type Language } from './language.ts'
 import { NewPhraseSheet } from './NewPhraseSheet.tsx'
-import type { OptionStyle } from './OptionCard.tsx'
+import type { OptionKey } from './OptionCard.tsx'
 import type { PhraseCardProps, Review, Speaking } from './PhraseCard.tsx'
 import { PhraseSheet } from './PhraseSheet.tsx'
 import { PhrasesView } from './PhrasesView.tsx'
@@ -327,7 +327,7 @@ export function PhraseApp({ session, fromReminder = false, onLogOut, onExpired }
 
   const speakingOf = (key: string): Speaking => (playing?.key === key ? (playing.slow ? 'slow' : 'normal') : null)
   const phraseKey = (phrase: Phrase) => `phrase-${phrase.id}`
-  const optionKey = (style: OptionStyle) => `option-${style}`
+  const optionKey = (key: OptionKey) => `option-${key}`
   const speakPhrase = (phrase: Phrase, slow: boolean) => toggleSpeech(phraseKey(phrase), phrase.text, slow)
 
   /** The new phrase's options are about to change or go away, so one being read aloud stops. */
@@ -656,8 +656,8 @@ export function PhraseApp({ session, fromReminder = false, onLogOut, onExpired }
           }}
           onSaved={phraseAdded}
           onUnauthorized={onExpired}
-          onSpeak={canSpeak ? (style, text, slow) => toggleSpeech(optionKey(style), text, slow) : undefined}
-          speakingOf={(style) => speakingOf(optionKey(style))}
+          onSpeak={canSpeak ? (key, text, slow) => toggleSpeech(optionKey(key), text, slow) : undefined}
+          speakingOf={(key) => speakingOf(optionKey(key))}
           onOptionsGone={stopOptionSpeech}
         />
       )}

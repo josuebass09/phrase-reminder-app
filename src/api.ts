@@ -35,6 +35,18 @@ export interface Suggestions {
   informal: PhraseOption
 }
 
+/** An English sentence that uses the term, and its Spanish, from the AI. */
+export interface Example {
+  text: string
+  translation: string
+}
+
+/** What an English word or phrase means, in Spanish, and two sentences that use it. */
+export interface Explanation {
+  meaning: string
+  examples: [Example, Example]
+}
+
 /** What the user has used of a daily limit today. The limit is null for the admin. */
 export interface Usage {
   used: number
@@ -370,6 +382,12 @@ export const api = {
   /** A formal and an informal way to say the text in English, fitted to the context if there is one. Nothing is saved. */
   suggest: (text: string, context?: string) =>
     request<Suggestions>('/api/suggestions', { method: 'POST', body: context ? { text, context } : { text } }),
+  /**
+   * What an English word or phrase means, with two examples set in the context if there is one.
+   * Nothing is saved. It counts toward the same daily limit as suggest().
+   */
+  explain: (text: string, context?: string) =>
+    request<Explanation>('/api/explanations', { method: 'POST', body: context ? { text, context } : { text } }),
   /** Scores a recording of the user saying the phrase. The backend saves the score, not the recording. */
   pronounce: (id: number, recording: Blob) =>
     request<Pronunciation>(`/api/phrases/${id}/pronunciation`, { method: 'POST', audio: recording }),

@@ -1,20 +1,21 @@
-import type { PhraseOption } from './api.ts'
-import { useT, type Messages } from './i18n.ts'
+import { useT } from './i18n.ts'
 import { CheckIcon, SaveIcon } from './icons.tsx'
 import type { Speaking } from './PhraseCard.tsx'
 import { Spinner } from './Spinner.tsx'
 
 export type OptionStyle = 'formal' | 'informal'
+/** One of the AI's answers in the new phrase's sheet: a way to say it, or an example sentence. */
+export type OptionKey = OptionStyle | 'example-1' | 'example-2'
 export type SaveState = 'saving' | 'saved'
 
-const labels = (t: Messages): Record<OptionStyle, { title: string; hint: string }> => ({
-  formal: { title: t.formal, hint: t.formalHint },
-  informal: { title: t.informal, hint: t.informalHint },
-})
-
 export interface OptionCardProps {
-  style: OptionStyle
-  option: PhraseOption
+  /** Names the card, such as "Formal", for its label and its save button. */
+  title: string
+  hint?: string
+  /** The English. */
+  text: string
+  /** Its Spanish, when the AI gave one. */
+  translation?: string
   /** Unset until the user saves this option. */
   saved?: SaveState
   onSave: () => void
@@ -23,20 +24,24 @@ export interface OptionCardProps {
   speaking?: Speaking
 }
 
-/** One way to say the new phrase: the English, and buttons to hear and save it. */
-export function OptionCard({ style, option, saved, onSave, onSpeak, speaking = null }: OptionCardProps) {
+/** One of the AI's answers: the English, its Spanish if there is one, and buttons to hear and save it. */
+export function OptionCard({ title, hint, text, translation, saved, onSave, onSpeak, speaking = null }: OptionCardProps) {
   const t = useT()
-  const { title, hint } = labels(t)[style]
 
   return (
-    <article className={`option-card option-${style} ${style === 'formal' ? 'tone-2' : 'tone-0'}`} aria-label={title}>
+    <article className="option-card" aria-label={title}>
       <header className="option-head">
         <span className="option-title">{title}</span>
-        <span className="option-hint">{hint}</span>
+        {hint && <span className="option-hint">{hint}</span>}
       </header>
       <p className="option-text" lang="en">
-        {option.text}
+        {text}
       </p>
+      {translation && (
+        <p className="option-translation" lang="es">
+          {translation}
+        </p>
+      )}
       <div className="option-actions">
         {onSpeak && (
           <div className="option-tools">

@@ -147,6 +147,22 @@ function fakeBackend(
         suggestionsUsed += 1
         return json(200, OPTIONS[body.text] ?? { formal: { text: `Formal ${body.text}` }, informal: { text: `Informal ${body.text}` } })
       }
+      // Like the backend, explanations share the suggestions' daily limit.
+      if (path === '/api/explanations') {
+        if (suggestionLimitReached) return json(429, { error: "You've used today's 20 suggestions. More tomorrow." })
+        if (failuresLeft > 0) {
+          failuresLeft -= 1
+          return json(502, { error: "Couldn't get an answer right now. Try again." })
+        }
+        suggestionsUsed += 1
+        return json(200, {
+          meaning: `Meaning of ${body.text}`,
+          examples: [
+            { text: `First ${body.text}`, translation: `Primera ${body.text}` },
+            { text: `Second ${body.text}`, translation: `Segunda ${body.text}` },
+          ],
+        })
+      }
       if (path === '/api/settings') {
         if (method === 'PATCH') {
           if (settingsFail) return json(500, { error: 'Database down' })
@@ -1294,6 +1310,133 @@ describe('suggestions', () => {
 
     expect(spoken.map((utterance) => [utterance.text, utterance.rate])).toEqual([['Could you please take a look at it?', 0.5]])
     expect(slow.getAttribute('aria-pressed')).toBe('true')
+    synth.cancel.mockClear()
+    await user.click(within(sheet).getByRole('button', { name: 'Close options' }))
+    expect(synth.cancel).toHaveBeenCalled()
+  })
+})
+
+describe('understanding a word', () => {
+  /** Logs in, opens the sheet to add a phrase and switches it to understanding a word. */
+  async function start(options: Parameters<typeof fakeBackend>[2] = {}) {
+    const phrases = fakeBackend([typo], [], options)
+    const user = userEvent.setup()
+    startLoggedIn()
+    await screen.findByText('It slipt my mind.')
+    const sheet = await openNewPhrase(user)
+    await user.click(within(sheet).getByRole('button', { name: 'Understand a word' }))
+    return { user, phrases, sheet }
+  }
+
+  const termBox = (sheet: HTMLElement) => within(sheet).getByLabelText('Word or phrase in English')
+
+  const sentBodies = () =>
+    vi
+      .mocked(fetch)
+      .mock.calls.filter(([url]) => String(url).endsWith('/api/explanations'))
+      .map(([, init]) => JSON.parse(String(init?.body)))
+
+  it('starts in saying it, and keeps the text when switching', async () => {
+    fakeBackend([typo])
+    const user = userEvent.setup()
+    startLoggedIn()
+    await screen.findByText('It slipt my mind.')
+    const sheet = await openNewPhrase(user)
+
+    expect(within(sheet).getByRole('button', { name: 'Say it in English' }).getAttribute('aria-pressed')).toBe('true')
+    await user.type(within(sheet).getByLabelText('What do you want to say?'), 'nitpick')
+    await user.click(within(sheet).getByRole('button', { name: 'Understand a word' }))
+
+    expect(termBox(sheet)).toHaveProperty('value', 'nitpick')
+    expect(within(sheet).getByRole('button', { name: 'Understand a word' }).getAttribute('aria-pressed')).toBe('true')
+    expect(within(sheet).queryByRole('button', { name: 'Translate' })).toBeNull()
+  })
+
+  it('shows the meaning and two examples in the context asked for', async () => {
+    const { user, sheet } = await start()
+
+    await user.type(termBox(sheet), 'nitpick')
+    await user.type(within(sheet).getByLabelText('Context'), 'code review at work')
+    await user.click(within(sheet).getByRole('button', { name: 'Explain' }))
+
+    expect(await within(sheet).findByText('Meaning of nitpick')).toBeTruthy()
+    const first = within(sheet).getByRole('article', { name: 'Sentence 1' })
+    expect(within(first).getByText('First nitpick')).toBeTruthy()
+    expect(within(first).getByText('Primera nitpick')).toBeTruthy()
+    expect(within(within(sheet).getByRole('article', { name: 'Sentence 2' })).getByText('Second nitpick')).toBeTruthy()
+    expect(sentBodies()).toEqual([{ text: 'nitpick', context: 'code review at work' }])
+    expect(vi.mocked(fetch).mock.calls.some(([url]) => String(url).endsWith('/api/suggestions'))).toBe(false)
+  })
+
+  it('saves the picked example with its Spanish, so showing it in Spanish needs no translation', async () => {
+    const { user, sheet } = await start()
+    await user.type(termBox(sheet), 'nitpick')
+    await user.click(within(sheet).getByRole('button', { name: 'Explain' }))
+
+    await user.click(within(await within(sheet).findByRole('article', { name: 'Sentence 2' })).getByRole('button', { name: 'Save sentence 2' }))
+    await screen.findByText('Phrase saved')
+
+    const saved = vi.mocked(fetch).mock.calls.find(([url, init]) => String(url).endsWith('/api/phrases') && init?.method === 'POST')
+    expect(JSON.parse(String(saved?.[1]?.body))).toEqual({ text: 'Second nitpick', translation: 'Segunda nitpick' })
+    await waitFor(() => expect(firstCard().querySelector('.card-text')?.textContent).toBe('Second nitpick'))
+    await user.click(within(firstCard()).getByRole('button', { name: 'Open phrase' }))
+    await user.click(within(screen.getByRole('dialog')).getByRole('button', { name: 'Show in Spanish' }))
+    // The Spanish saved with it, not a new translation, which would be "(es) Second nitpick".
+    expect(await within(screen.getByRole('dialog')).findByText('Segunda nitpick')).toBeTruthy()
+  })
+
+  it('can still save the word as typed', async () => {
+    const { user, sheet } = await start()
+    await user.type(termBox(sheet), 'nitpick')
+
+    await user.click(within(sheet).getByRole('button', { name: 'Save it as I wrote it' }))
+
+    await waitFor(() => expect(firstCard().querySelector('.card-text')?.textContent).toBe('nitpick'))
+  })
+
+  it('offers to try again when the explanation fails', async () => {
+    const { user, sheet } = await start({ suggestionsFail: 1 })
+
+    await user.type(termBox(sheet), 'nitpick')
+    await user.click(within(sheet).getByRole('button', { name: 'Explain' }))
+    expect(await within(sheet).findByText("Couldn't get an answer right now. Try again.")).toBeTruthy()
+    await user.click(within(sheet).getByRole('button', { name: 'Try again' }))
+
+    expect(await within(sheet).findByText('Meaning of nitpick')).toBeTruthy()
+  })
+
+  it("doesn't offer to try again after today's limit", async () => {
+    const { user, sheet } = await start({ suggestionLimitReached: true })
+
+    await user.type(termBox(sheet), 'nitpick')
+    await user.click(within(sheet).getByRole('button', { name: 'Explain' }))
+
+    expect(await within(sheet).findByText("You've used today's 20 suggestions. More tomorrow.")).toBeTruthy()
+    expect(within(sheet).queryByRole('button', { name: 'Try again' })).toBeNull()
+  })
+
+  it('clears the answer when switching back to saying it', async () => {
+    const { user, sheet } = await start()
+    await user.type(termBox(sheet), 'nitpick')
+    await user.click(within(sheet).getByRole('button', { name: 'Explain' }))
+    await within(sheet).findByText('Meaning of nitpick')
+
+    await user.click(within(sheet).getByRole('button', { name: 'Say it in English' }))
+
+    expect(within(sheet).queryByText('Meaning of nitpick')).toBeNull()
+    expect(within(sheet).queryByRole('article')).toBeNull()
+  })
+
+  it('reads an example aloud, and stops when the answer closes', async () => {
+    const { synth, spoken } = fakeSpeech()
+    const { user, sheet } = await start()
+    await user.type(termBox(sheet), 'nitpick')
+    await user.click(within(sheet).getByRole('button', { name: 'Explain' }))
+    const first = await within(sheet).findByRole('article', { name: 'Sentence 1' })
+
+    await user.click(within(first).getByRole('button', { name: 'Listen at 1x' }))
+
+    expect(spoken.map((utterance) => [utterance.text, utterance.rate])).toEqual([['First nitpick', 1]])
     synth.cancel.mockClear()
     await user.click(within(sheet).getByRole('button', { name: 'Close options' }))
     expect(synth.cancel).toHaveBeenCalled()

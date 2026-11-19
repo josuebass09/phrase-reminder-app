@@ -927,6 +927,11 @@ p, h1, h2, h3 { margin: 0; }
 /* The new phrase's sheet */
 .composer .primary { width: 100%; }
 
+/* Saying it in English, or understanding a word: the two halves share the row. */
+.add-mode { display: flex; }
+.add-mode .segment { flex: 1; }
+.add-mode .segment:disabled { opacity: 0.6; }
+
 /* Saving the text as typed, without the AI. */
 .save-typed {
   align-self: center;
@@ -1061,6 +1066,27 @@ p, h1, h2, h3 { margin: 0; }
   font-size: 18px;
   line-height: 1.3;
   font-weight: 620;
+  overflow-wrap: anywhere;
+}
+
+.option-translation {
+  color: var(--muted);
+  font-size: 15px;
+  line-height: 1.35;
+  overflow-wrap: anywhere;
+}
+
+/* What a word the user didn't understand means, above its examples. */
+.explanation-meaning {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 2px 2px 4px;
+}
+
+.explanation-meaning p {
+  font-size: 16px;
+  line-height: 1.4;
   overflow-wrap: anywhere;
 }
 
